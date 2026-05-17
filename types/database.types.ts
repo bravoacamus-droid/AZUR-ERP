@@ -341,6 +341,20 @@ export type Database = {
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "cotizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
         ]
       }
       cuadrilla_componentes: {
@@ -606,10 +620,233 @@ export type Database = {
         }
         Relationships: []
       }
+      proyecto_etapas: {
+        Row: {
+          codigo: string
+          created_at: string
+          fecha_fin_plan: string | null
+          fecha_fin_real: string | null
+          fecha_inicio_plan: string | null
+          fecha_inicio_real: string | null
+          id: string
+          nombre: string
+          orden: number
+          porcentaje_avance: number
+          proyecto_id: string
+        }
+        Insert: {
+          codigo: string
+          created_at?: string
+          fecha_fin_plan?: string | null
+          fecha_fin_real?: string | null
+          fecha_inicio_plan?: string | null
+          fecha_inicio_real?: string | null
+          id?: string
+          nombre: string
+          orden?: number
+          porcentaje_avance?: number
+          proyecto_id: string
+        }
+        Update: {
+          codigo?: string
+          created_at?: string
+          fecha_fin_plan?: string | null
+          fecha_fin_real?: string | null
+          fecha_inicio_plan?: string | null
+          fecha_inicio_real?: string | null
+          id?: string
+          nombre?: string
+          orden?: number
+          porcentaje_avance?: number
+          proyecto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyecto_etapas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_etapas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proyecto_hitos: {
+        Row: {
+          created_at: string
+          estado: string
+          fecha_plan: string
+          fecha_real: string | null
+          id: string
+          nombre: string
+          notas: string | null
+          orden: number
+          proyecto_id: string
+        }
+        Insert: {
+          created_at?: string
+          estado?: string
+          fecha_plan: string
+          fecha_real?: string | null
+          id?: string
+          nombre: string
+          notas?: string | null
+          orden?: number
+          proyecto_id: string
+        }
+        Update: {
+          created_at?: string
+          estado?: string
+          fecha_plan?: string
+          fecha_real?: string | null
+          id?: string
+          nombre?: string
+          notas?: string | null
+          orden?: number
+          proyecto_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyecto_hitos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_hitos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      proyecto_partidas: {
+        Row: {
+          codigo: string
+          cotizacion_partida_id: string | null
+          created_at: string
+          descripcion: string
+          etapa_id: string | null
+          id: string
+          metrado_contractual: number
+          metrado_ejecutado: number
+          monto_contractual_costo: number | null
+          monto_contractual_venta: number | null
+          monto_ejecutado_costo: number | null
+          monto_ejecutado_venta: number | null
+          orden: number
+          parent_id: string | null
+          porcentaje_avance: number | null
+          precio_unitario_costo: number
+          precio_unitario_venta: number
+          proyecto_id: string
+          unidad: string
+          updated_at: string
+        }
+        Insert: {
+          codigo: string
+          cotizacion_partida_id?: string | null
+          created_at?: string
+          descripcion: string
+          etapa_id?: string | null
+          id?: string
+          metrado_contractual?: number
+          metrado_ejecutado?: number
+          monto_contractual_costo?: number | null
+          monto_contractual_venta?: number | null
+          monto_ejecutado_costo?: number | null
+          monto_ejecutado_venta?: number | null
+          orden?: number
+          parent_id?: string | null
+          porcentaje_avance?: number | null
+          precio_unitario_costo?: number
+          precio_unitario_venta?: number
+          proyecto_id: string
+          unidad: string
+          updated_at?: string
+        }
+        Update: {
+          codigo?: string
+          cotizacion_partida_id?: string | null
+          created_at?: string
+          descripcion?: string
+          etapa_id?: string | null
+          id?: string
+          metrado_contractual?: number
+          metrado_ejecutado?: number
+          monto_contractual_costo?: number | null
+          monto_contractual_venta?: number | null
+          monto_ejecutado_costo?: number | null
+          monto_ejecutado_venta?: number | null
+          orden?: number
+          parent_id?: string | null
+          porcentaje_avance?: number | null
+          precio_unitario_costo?: number
+          precio_unitario_venta?: number
+          proyecto_id?: string
+          unidad?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proyecto_partidas_cotizacion_partida_id_fkey"
+            columns: ["cotizacion_partida_id"]
+            isOneToOne: false
+            referencedRelation: "cotizacion_partidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_partidas_etapa_id_fkey"
+            columns: ["etapa_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto_etapas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_partidas_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto_partidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_partidas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_partidas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_partidas_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidades_medida"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
       proyectos: {
         Row: {
+          adelanto_amortizado: number | null
+          adelanto_porcentaje: number | null
           cliente: string | null
           codigo: string
+          cotizacion_id: string | null
           created_at: string
           created_by: string | null
           descripcion: string | null
@@ -621,16 +858,22 @@ export type Database = {
           jefe_proyecto_id: string | null
           latitud: number | null
           longitud: number | null
+          margen_porcentaje: number | null
           moneda: string
           monto_contrato: number | null
           nombre: string
+          presupuesto_costo: number | null
+          presupuesto_venta: number | null
           radio_geofence_m: number | null
           ubicacion: string | null
           updated_at: string
         }
         Insert: {
+          adelanto_amortizado?: number | null
+          adelanto_porcentaje?: number | null
           cliente?: string | null
           codigo: string
+          cotizacion_id?: string | null
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
@@ -642,16 +885,22 @@ export type Database = {
           jefe_proyecto_id?: string | null
           latitud?: number | null
           longitud?: number | null
+          margen_porcentaje?: number | null
           moneda?: string
           monto_contrato?: number | null
           nombre: string
+          presupuesto_costo?: number | null
+          presupuesto_venta?: number | null
           radio_geofence_m?: number | null
           ubicacion?: string | null
           updated_at?: string
         }
         Update: {
+          adelanto_amortizado?: number | null
+          adelanto_porcentaje?: number | null
           cliente?: string | null
           codigo?: string
+          cotizacion_id?: string | null
           created_at?: string
           created_by?: string | null
           descripcion?: string | null
@@ -663,14 +912,32 @@ export type Database = {
           jefe_proyecto_id?: string | null
           latitud?: number | null
           longitud?: number | null
+          margen_porcentaje?: number | null
           moneda?: string
           monto_contrato?: number | null
           nombre?: string
+          presupuesto_costo?: number | null
+          presupuesto_venta?: number | null
           radio_geofence_m?: number | null
           ubicacion?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "proyectos_cotizacion_id_fkey"
+            columns: ["cotizacion_id"]
+            isOneToOne: false
+            referencedRelation: "cotizaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyectos_cotizacion_id_fkey"
+            columns: ["cotizacion_id"]
+            isOneToOne: false
+            referencedRelation: "v_cotizacion_totales"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       roles: {
         Row: {
@@ -759,6 +1026,13 @@ export type Database = {
             referencedRelation: "proyectos"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "usuario_proyectos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
@@ -782,6 +1056,25 @@ export type Database = {
         }
         Relationships: []
       }
+      v_proyectos_resumen: {
+        Row: {
+          codigo: string | null
+          ejecutado_venta: number | null
+          estado: string | null
+          fecha_fin_plan: string | null
+          fecha_inicio: string | null
+          id: string | null
+          moneda: string | null
+          nombre: string | null
+          partidas_count: number | null
+          porcentaje_avance: number | null
+          presupuesto_costo: number | null
+          presupuesto_venta: number | null
+          total_partidas_venta: number | null
+          ubicacion: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       current_user_rol: {
@@ -792,6 +1085,10 @@ export type Database = {
       es_rol_in: {
         Args: { roles: Database["public"]["Enums"]["rol_sistema"][] }
         Returns: boolean
+      }
+      fn_crear_proyecto_desde_cotizacion: {
+        Args: { p_cotizacion_id: string }
+        Returns: string
       }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
