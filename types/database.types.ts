@@ -77,6 +77,490 @@ export type Database = {
         }
         Relationships: []
       }
+      clientes: {
+        Row: {
+          activo: boolean
+          contacto: string | null
+          created_at: string
+          direccion: string | null
+          email: string | null
+          id: string
+          nombre_comercial: string | null
+          notas: string | null
+          razon_social: string
+          ruc: string | null
+          telefono: string | null
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          contacto?: string | null
+          created_at?: string
+          direccion?: string | null
+          email?: string | null
+          id?: string
+          nombre_comercial?: string | null
+          notas?: string | null
+          razon_social: string
+          ruc?: string | null
+          telefono?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          contacto?: string | null
+          created_at?: string
+          direccion?: string | null
+          email?: string | null
+          id?: string
+          nombre_comercial?: string | null
+          notas?: string | null
+          razon_social?: string
+          ruc?: string | null
+          telefono?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      cotizacion_apu: {
+        Row: {
+          cantidad: number
+          categoria: Database["public"]["Enums"]["insumo_categoria"]
+          cotizacion_partida_id: string
+          created_at: string
+          descripcion: string
+          id: string
+          insumo_id: string | null
+          orden: number
+          parcial: number | null
+          precio_unit: number
+          unidad: string
+        }
+        Insert: {
+          cantidad: number
+          categoria: Database["public"]["Enums"]["insumo_categoria"]
+          cotizacion_partida_id: string
+          created_at?: string
+          descripcion: string
+          id?: string
+          insumo_id?: string | null
+          orden?: number
+          parcial?: number | null
+          precio_unit: number
+          unidad: string
+        }
+        Update: {
+          cantidad?: number
+          categoria?: Database["public"]["Enums"]["insumo_categoria"]
+          cotizacion_partida_id?: string
+          created_at?: string
+          descripcion?: string
+          id?: string
+          insumo_id?: string | null
+          orden?: number
+          parcial?: number | null
+          precio_unit?: number
+          unidad?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotizacion_apu_cotizacion_partida_id_fkey"
+            columns: ["cotizacion_partida_id"]
+            isOneToOne: false
+            referencedRelation: "cotizacion_partidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotizacion_apu_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos_maestros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotizacion_apu_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidades_medida"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      cotizacion_partidas: {
+        Row: {
+          cantidad: number
+          codigo: string
+          cotizacion_id: string
+          created_at: string
+          descripcion: string
+          id: string
+          notas: string | null
+          orden: number
+          parcial: number | null
+          partida_maestra_id: string | null
+          precio_unitario: number
+          unidad: string
+        }
+        Insert: {
+          cantidad: number
+          codigo: string
+          cotizacion_id: string
+          created_at?: string
+          descripcion: string
+          id?: string
+          notas?: string | null
+          orden?: number
+          parcial?: number | null
+          partida_maestra_id?: string | null
+          precio_unitario?: number
+          unidad: string
+        }
+        Update: {
+          cantidad?: number
+          codigo?: string
+          cotizacion_id?: string
+          created_at?: string
+          descripcion?: string
+          id?: string
+          notas?: string | null
+          orden?: number
+          parcial?: number | null
+          partida_maestra_id?: string | null
+          precio_unitario?: number
+          unidad?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotizacion_partidas_cotizacion_id_fkey"
+            columns: ["cotizacion_id"]
+            isOneToOne: false
+            referencedRelation: "cotizaciones"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotizacion_partidas_cotizacion_id_fkey"
+            columns: ["cotizacion_id"]
+            isOneToOne: false
+            referencedRelation: "v_cotizacion_totales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotizacion_partidas_partida_maestra_id_fkey"
+            columns: ["partida_maestra_id"]
+            isOneToOne: false
+            referencedRelation: "partidas_maestras"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotizacion_partidas_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidades_medida"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      cotizaciones: {
+        Row: {
+          aprobado_at: string | null
+          cliente_id: string | null
+          codigo: string | null
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          enviado_at: string | null
+          estado: Database["public"]["Enums"]["cotizacion_estado"]
+          fecha_emision: string
+          gastos_generales_porcentaje: number
+          id: string
+          igv_porcentaje: number
+          margen_porcentaje: number
+          moneda: string
+          notas: string | null
+          proyecto_id: string | null
+          rechazado_at: string | null
+          terminos: string | null
+          titulo: string
+          ubicacion: string | null
+          updated_at: string
+          validez_dias: number
+        }
+        Insert: {
+          aprobado_at?: string | null
+          cliente_id?: string | null
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          enviado_at?: string | null
+          estado?: Database["public"]["Enums"]["cotizacion_estado"]
+          fecha_emision?: string
+          gastos_generales_porcentaje?: number
+          id?: string
+          igv_porcentaje?: number
+          margen_porcentaje?: number
+          moneda?: string
+          notas?: string | null
+          proyecto_id?: string | null
+          rechazado_at?: string | null
+          terminos?: string | null
+          titulo: string
+          ubicacion?: string | null
+          updated_at?: string
+          validez_dias?: number
+        }
+        Update: {
+          aprobado_at?: string | null
+          cliente_id?: string | null
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          enviado_at?: string | null
+          estado?: Database["public"]["Enums"]["cotizacion_estado"]
+          fecha_emision?: string
+          gastos_generales_porcentaje?: number
+          id?: string
+          igv_porcentaje?: number
+          margen_porcentaje?: number
+          moneda?: string
+          notas?: string | null
+          proyecto_id?: string | null
+          rechazado_at?: string | null
+          terminos?: string | null
+          titulo?: string
+          ubicacion?: string | null
+          updated_at?: string
+          validez_dias?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cotizaciones_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuadrilla_componentes: {
+        Row: {
+          cantidad: number
+          cuadrilla_id: string
+          insumo_id: string
+        }
+        Insert: {
+          cantidad?: number
+          cuadrilla_id: string
+          insumo_id: string
+        }
+        Update: {
+          cantidad?: number
+          cuadrilla_id?: string
+          insumo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuadrilla_componentes_cuadrilla_id_fkey"
+            columns: ["cuadrilla_id"]
+            isOneToOne: false
+            referencedRelation: "cuadrillas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuadrilla_componentes_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos_maestros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cuadrillas: {
+        Row: {
+          activo: boolean
+          codigo: string
+          created_at: string
+          descripcion: string | null
+          id: string
+          nombre: string
+        }
+        Insert: {
+          activo?: boolean
+          codigo: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre: string
+        }
+        Update: {
+          activo?: boolean
+          codigo?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          nombre?: string
+        }
+        Relationships: []
+      }
+      insumos_maestros: {
+        Row: {
+          activo: boolean
+          categoria: Database["public"]["Enums"]["insumo_categoria"]
+          codigo: string
+          created_at: string
+          created_by: string | null
+          descripcion: string
+          id: string
+          moneda: string
+          notas: string | null
+          precio_unit: number
+          unidad: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          categoria: Database["public"]["Enums"]["insumo_categoria"]
+          codigo: string
+          created_at?: string
+          created_by?: string | null
+          descripcion: string
+          id?: string
+          moneda?: string
+          notas?: string | null
+          precio_unit?: number
+          unidad: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          categoria?: Database["public"]["Enums"]["insumo_categoria"]
+          codigo?: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string
+          id?: string
+          moneda?: string
+          notas?: string | null
+          precio_unit?: number
+          unidad?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insumos_maestros_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidades_medida"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
+      partida_apu_componentes: {
+        Row: {
+          cantidad: number
+          created_at: string
+          id: string
+          insumo_id: string
+          orden: number
+          parcial: number | null
+          partida_id: string
+          precio_unit: number
+        }
+        Insert: {
+          cantidad: number
+          created_at?: string
+          id?: string
+          insumo_id: string
+          orden?: number
+          parcial?: number | null
+          partida_id: string
+          precio_unit: number
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          id?: string
+          insumo_id?: string
+          orden?: number
+          parcial?: number | null
+          partida_id?: string
+          precio_unit?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partida_apu_componentes_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos_maestros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partida_apu_componentes_partida_id_fkey"
+            columns: ["partida_id"]
+            isOneToOne: false
+            referencedRelation: "partidas_maestras"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      partidas_maestras: {
+        Row: {
+          activo: boolean
+          codigo: string
+          created_at: string
+          created_by: string | null
+          cuadrilla_id: string | null
+          descripcion: string
+          id: string
+          notas: string | null
+          rendimiento: number | null
+          unidad: string
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          codigo: string
+          created_at?: string
+          created_by?: string | null
+          cuadrilla_id?: string | null
+          descripcion: string
+          id?: string
+          notas?: string | null
+          rendimiento?: number | null
+          unidad: string
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          codigo?: string
+          created_at?: string
+          created_by?: string | null
+          cuadrilla_id?: string | null
+          descripcion?: string
+          id?: string
+          notas?: string | null
+          rendimiento?: number | null
+          unidad?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "partidas_maestras_cuadrilla_id_fkey"
+            columns: ["cuadrilla_id"]
+            isOneToOne: false
+            referencedRelation: "cuadrillas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partidas_maestras_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidades_medida"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           activo: boolean
@@ -221,6 +705,24 @@ export type Database = {
         }
         Relationships: []
       }
+      unidades_medida: {
+        Row: {
+          codigo: string
+          nombre: string
+          tipo: string
+        }
+        Insert: {
+          codigo: string
+          nombre: string
+          tipo: string
+        }
+        Update: {
+          codigo?: string
+          nombre?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
       usuario_proyectos: {
         Row: {
           activo: boolean
@@ -261,7 +763,25 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      v_cotizacion_totales: {
+        Row: {
+          codigo: string | null
+          costo_directo: number | null
+          estado: Database["public"]["Enums"]["cotizacion_estado"] | null
+          gastos_generales: number | null
+          gastos_generales_porcentaje: number | null
+          id: string | null
+          igv: number | null
+          igv_porcentaje: number | null
+          margen_porcentaje: number | null
+          moneda: string | null
+          subtotal: number | null
+          titulo: string | null
+          total: number | null
+          utilidad: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       current_user_rol: {
@@ -278,6 +798,19 @@ export type Database = {
       tiene_proyecto: { Args: { p_proyecto_id: string }; Returns: boolean }
     }
     Enums: {
+      cotizacion_estado:
+        | "borrador"
+        | "enviada"
+        | "en_negociacion"
+        | "aprobada"
+        | "rechazada"
+      insumo_categoria:
+        | "mano_obra"
+        | "material"
+        | "equipo"
+        | "subcontrato"
+        | "transporte"
+        | "gasto_general"
       rol_sistema:
         | "gerencia_general"
         | "jefe_proyectos"
@@ -412,6 +945,21 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      cotizacion_estado: [
+        "borrador",
+        "enviada",
+        "en_negociacion",
+        "aprobada",
+        "rechazada",
+      ],
+      insumo_categoria: [
+        "mano_obra",
+        "material",
+        "equipo",
+        "subcontrato",
+        "transporte",
+        "gasto_general",
+      ],
       rol_sistema: [
         "gerencia_general",
         "jefe_proyectos",
