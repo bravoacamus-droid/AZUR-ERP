@@ -82,6 +82,25 @@ const nextConfig = {
     ],
   },
   async headers() {
+    const supabaseHost = 'https://zguodhyafasjgigzbcpi.supabase.co';
+    const isDev = process.env.NODE_ENV === 'development';
+    const csp = [
+      "default-src 'self'",
+      `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com data:",
+      `img-src 'self' data: blob: ${supabaseHost}`,
+      `connect-src 'self' ${supabaseHost} wss://zguodhyafasjgigzbcpi.supabase.co`,
+      `frame-src 'self' ${supabaseHost}`,
+      "worker-src 'self' blob:",
+      "manifest-src 'self'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+      "frame-ancestors 'self'",
+      'upgrade-insecure-requests',
+    ].join('; ');
+
     return [
       {
         source: '/(.*)',
@@ -90,6 +109,11 @@ const nextConfig = {
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'Permissions-Policy', value: 'camera=(self), geolocation=(self), microphone=()' },
+          {
+            key: 'Strict-Transport-Security',
+            value: 'max-age=63072000; includeSubDomains; preload',
+          },
+          { key: 'Content-Security-Policy', value: csp },
         ],
       },
     ];

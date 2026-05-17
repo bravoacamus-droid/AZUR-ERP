@@ -90,6 +90,87 @@ export type Database = {
           },
         ]
       }
+      almacen_movimientos: {
+        Row: {
+          cantidad: number
+          created_at: string
+          descripcion: string
+          fecha: string
+          id: string
+          insumo_id: string | null
+          notas: string | null
+          proyecto_id: string
+          registrado_por: string | null
+          responsable: string | null
+          tipo: string
+          unidad: string
+        }
+        Insert: {
+          cantidad: number
+          created_at?: string
+          descripcion: string
+          fecha?: string
+          id?: string
+          insumo_id?: string | null
+          notas?: string | null
+          proyecto_id: string
+          registrado_por?: string | null
+          responsable?: string | null
+          tipo: string
+          unidad: string
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          descripcion?: string
+          fecha?: string
+          id?: string
+          insumo_id?: string | null
+          notas?: string | null
+          proyecto_id?: string
+          registrado_por?: string | null
+          responsable?: string | null
+          tipo?: string
+          unidad?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "almacen_movimientos_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos_maestros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidades_medida"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
       asistencias_gps: {
         Row: {
           created_at: string
@@ -682,6 +763,67 @@ export type Database = {
           nombre?: string
         }
         Relationships: []
+      }
+      documentos_proyecto: {
+        Row: {
+          carpeta: string
+          created_at: string
+          descripcion: string | null
+          id: string
+          proyecto_id: string
+          storage_path: string
+          subido_por: string | null
+          tamano_bytes: number | null
+          tipo_mime: string | null
+          titulo: string
+        }
+        Insert: {
+          carpeta?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          proyecto_id: string
+          storage_path: string
+          subido_por?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
+          titulo: string
+        }
+        Update: {
+          carpeta?: string
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          proyecto_id?: string
+          storage_path?: string
+          subido_por?: string | null
+          tamano_bytes?: number | null
+          tipo_mime?: string | null
+          titulo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_proyecto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_proyecto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_proyecto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       evidencias: {
         Row: {
@@ -1757,6 +1899,183 @@ export type Database = {
           },
         ]
       }
+      sst_charlas: {
+        Row: {
+          asistencia: number
+          created_at: string
+          fecha: string
+          id: string
+          notas: string | null
+          proyecto_id: string
+          reportada_por: string | null
+          tema: string
+        }
+        Insert: {
+          asistencia?: number
+          created_at?: string
+          fecha?: string
+          id?: string
+          notas?: string | null
+          proyecto_id: string
+          reportada_por?: string | null
+          tema: string
+        }
+        Update: {
+          asistencia?: number
+          created_at?: string
+          fecha?: string
+          id?: string
+          notas?: string | null
+          proyecto_id?: string
+          reportada_por?: string | null
+          tema?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sst_charlas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sst_charlas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sst_charlas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sst_incidentes: {
+        Row: {
+          acciones: string | null
+          created_at: string
+          descripcion: string
+          evidencia_path: string | null
+          fecha: string
+          hora: string
+          id: string
+          involucrados: string | null
+          proyecto_id: string
+          reportado_por: string | null
+          severidad: Database["public"]["Enums"]["sst_inc_severidad"]
+        }
+        Insert: {
+          acciones?: string | null
+          created_at?: string
+          descripcion: string
+          evidencia_path?: string | null
+          fecha?: string
+          hora?: string
+          id?: string
+          involucrados?: string | null
+          proyecto_id: string
+          reportado_por?: string | null
+          severidad: Database["public"]["Enums"]["sst_inc_severidad"]
+        }
+        Update: {
+          acciones?: string | null
+          created_at?: string
+          descripcion?: string
+          evidencia_path?: string | null
+          fecha?: string
+          hora?: string
+          id?: string
+          involucrados?: string | null
+          proyecto_id?: string
+          reportado_por?: string | null
+          severidad?: Database["public"]["Enums"]["sst_inc_severidad"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sst_incidentes_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sst_incidentes_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sst_incidentes_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sst_observaciones: {
+        Row: {
+          accion_correctiva: string | null
+          created_at: string
+          descripcion: string
+          fecha: string
+          id: string
+          proyecto_id: string
+          reportada_por: string | null
+          resuelta: boolean
+          tipo: Database["public"]["Enums"]["sst_obs_tipo"]
+        }
+        Insert: {
+          accion_correctiva?: string | null
+          created_at?: string
+          descripcion: string
+          fecha?: string
+          id?: string
+          proyecto_id: string
+          reportada_por?: string | null
+          resuelta?: boolean
+          tipo: Database["public"]["Enums"]["sst_obs_tipo"]
+        }
+        Update: {
+          accion_correctiva?: string | null
+          created_at?: string
+          descripcion?: string
+          fecha?: string
+          id?: string
+          proyecto_id?: string
+          reportada_por?: string | null
+          resuelta?: boolean
+          tipo?: Database["public"]["Enums"]["sst_obs_tipo"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sst_observaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sst_observaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sst_observaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unidades_medida: {
         Row: {
           codigo: string
@@ -2246,6 +2565,8 @@ export type Database = {
         | "programada"
         | "pagada"
         | "cancelada"
+      sst_inc_severidad: "leve" | "moderado" | "grave" | "critico"
+      sst_obs_tipo: "acto_inseguro" | "condicion_insegura" | "sugerencia"
       valorizacion_estado:
         | "borrador"
         | "enviada"
@@ -2422,6 +2743,8 @@ export const Constants = {
         "pagada",
         "cancelada",
       ],
+      sst_inc_severidad: ["leve", "moderado", "grave", "critico"],
+      sst_obs_tipo: ["acto_inseguro", "condicion_insegura", "sugerencia"],
       valorizacion_estado: [
         "borrador",
         "enviada",
