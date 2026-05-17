@@ -92,11 +92,17 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
         ]}
         actions={
           <>
+            <Link href={`/proyectos/${params.id}/valorizaciones`}>
+              <Button variant="secondary">Valorizaciones</Button>
+            </Link>
+            <Link href={`/proyectos/${params.id}/adicionales`}>
+              <Button variant="secondary">Adicionales</Button>
+            </Link>
             {proyecto.cotizacion_id && (
               <Link href={`/comercial/cotizaciones/${proyecto.cotizacion_id}`}>
-                <Button variant="secondary">
+                <Button variant="ghost">
                   <ClipboardCheck className="h-4 w-4" />
-                  Ver cotización
+                  Cotización
                 </Button>
               </Link>
             )}

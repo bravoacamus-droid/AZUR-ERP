@@ -17,6 +17,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      adicionales_deductivos: {
+        Row: {
+          aprobado: boolean
+          aprobado_at: string | null
+          aprobado_por: string | null
+          codigo: string | null
+          created_at: string
+          created_by: string | null
+          descripcion: string
+          fecha: string
+          id: string
+          monto: number
+          numero: number
+          proyecto_id: string
+          sustento: string | null
+          tipo: Database["public"]["Enums"]["addtype"]
+        }
+        Insert: {
+          aprobado?: boolean
+          aprobado_at?: string | null
+          aprobado_por?: string | null
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion: string
+          fecha?: string
+          id?: string
+          monto: number
+          numero: number
+          proyecto_id: string
+          sustento?: string | null
+          tipo: Database["public"]["Enums"]["addtype"]
+        }
+        Update: {
+          aprobado?: boolean
+          aprobado_at?: string | null
+          aprobado_por?: string | null
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string
+          fecha?: string
+          id?: string
+          monto?: number
+          numero?: number
+          proyecto_id?: string
+          sustento?: string | null
+          tipo?: Database["public"]["Enums"]["addtype"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adicionales_deductivos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adicionales_deductivos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asistencias_gps: {
         Row: {
           created_at: string
@@ -1684,6 +1750,154 @@ export type Database = {
           },
         ]
       }
+      valorizacion_partidas: {
+        Row: {
+          created_at: string
+          id: string
+          metrado_acumulado: number | null
+          metrado_anterior: number
+          metrado_contractual: number
+          metrado_periodo: number
+          monto_acumulado: number | null
+          monto_periodo: number | null
+          orden: number
+          partida_id: string
+          porcentaje_acumulado: number | null
+          porcentaje_periodo: number | null
+          precio_unitario: number
+          valorizacion_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metrado_acumulado?: number | null
+          metrado_anterior?: number
+          metrado_contractual: number
+          metrado_periodo?: number
+          monto_acumulado?: number | null
+          monto_periodo?: number | null
+          orden?: number
+          partida_id: string
+          porcentaje_acumulado?: number | null
+          porcentaje_periodo?: number | null
+          precio_unitario: number
+          valorizacion_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metrado_acumulado?: number | null
+          metrado_anterior?: number
+          metrado_contractual?: number
+          metrado_periodo?: number
+          monto_acumulado?: number | null
+          monto_periodo?: number | null
+          orden?: number
+          partida_id?: string
+          porcentaje_acumulado?: number | null
+          porcentaje_periodo?: number | null
+          precio_unitario?: number
+          valorizacion_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valorizacion_partidas_partida_id_fkey"
+            columns: ["partida_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto_partidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valorizacion_partidas_valorizacion_id_fkey"
+            columns: ["valorizacion_id"]
+            isOneToOne: false
+            referencedRelation: "v_valorizacion_totales"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valorizacion_partidas_valorizacion_id_fkey"
+            columns: ["valorizacion_id"]
+            isOneToOne: false
+            referencedRelation: "valorizaciones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      valorizaciones: {
+        Row: {
+          amortizacion_adelanto: number
+          aprobada_at: string | null
+          codigo: string | null
+          created_at: string
+          created_by: string | null
+          enviada_at: string | null
+          estado: Database["public"]["Enums"]["valorizacion_estado"]
+          id: string
+          igv_porcentaje: number
+          notas: string | null
+          numero: number
+          pagada_at: string | null
+          periodo_fin: string
+          periodo_inicio: string
+          proyecto_id: string
+          retencion_porcentaje: number
+          updated_at: string
+        }
+        Insert: {
+          amortizacion_adelanto?: number
+          aprobada_at?: string | null
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          enviada_at?: string | null
+          estado?: Database["public"]["Enums"]["valorizacion_estado"]
+          id?: string
+          igv_porcentaje?: number
+          notas?: string | null
+          numero: number
+          pagada_at?: string | null
+          periodo_fin: string
+          periodo_inicio: string
+          proyecto_id: string
+          retencion_porcentaje?: number
+          updated_at?: string
+        }
+        Update: {
+          amortizacion_adelanto?: number
+          aprobada_at?: string | null
+          codigo?: string | null
+          created_at?: string
+          created_by?: string | null
+          enviada_at?: string | null
+          estado?: Database["public"]["Enums"]["valorizacion_estado"]
+          id?: string
+          igv_porcentaje?: number
+          notas?: string | null
+          numero?: number
+          pagada_at?: string | null
+          periodo_fin?: string
+          periodo_inicio?: string
+          proyecto_id?: string
+          retencion_porcentaje?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       v_cajas_saldos: {
@@ -1734,6 +1948,31 @@ export type Database = {
         }
         Relationships: []
       }
+      v_curva_s: {
+        Row: {
+          fecha: string | null
+          monto_acumulado: number | null
+          monto_periodo: number | null
+          periodo: number | null
+          proyecto_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_proyectos_resumen: {
         Row: {
           codigo: string | null
@@ -1753,6 +1992,41 @@ export type Database = {
         }
         Relationships: []
       }
+      v_valorizacion_totales: {
+        Row: {
+          amortizacion_adelanto: number | null
+          codigo: string | null
+          estado: Database["public"]["Enums"]["valorizacion_estado"] | null
+          id: string | null
+          igv: number | null
+          igv_porcentaje: number | null
+          monto_a_pagar: number | null
+          monto_acumulado: number | null
+          monto_periodo: number | null
+          numero: number | null
+          periodo_fin: string | null
+          periodo_inicio: string | null
+          proyecto_id: string | null
+          retencion: number | null
+          retencion_porcentaje: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       current_user_rol: {
@@ -1768,11 +2042,20 @@ export type Database = {
         Args: { p_cotizacion_id: string }
         Returns: string
       }
+      fn_generar_valorizacion: {
+        Args: {
+          p_periodo_fin: string
+          p_periodo_inicio: string
+          p_proyecto_id: string
+        }
+        Returns: string
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       tiene_proyecto: { Args: { p_proyecto_id: string }; Returns: boolean }
     }
     Enums: {
+      addtype: "adicional" | "deductivo"
       cotizacion_estado:
         | "borrador"
         | "enviada"
@@ -1810,6 +2093,12 @@ export type Database = {
         | "programada"
         | "pagada"
         | "cancelada"
+      valorizacion_estado:
+        | "borrador"
+        | "enviada"
+        | "aprobada"
+        | "pagada"
+        | "rechazada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1937,6 +2226,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      addtype: ["adicional", "deductivo"],
       cotizacion_estado: [
         "borrador",
         "enviada",
@@ -1978,6 +2268,13 @@ export const Constants = {
         "programada",
         "pagada",
         "cancelada",
+      ],
+      valorizacion_estado: [
+        "borrador",
+        "enviada",
+        "aprobada",
+        "pagada",
+        "rechazada",
       ],
     },
   },
