@@ -78,6 +78,13 @@ export type Database = {
             foreignKeyName: "adicionales_deductivos_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adicionales_deductivos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "v_proyectos_resumen"
             referencedColumns: ["id"]
           },
@@ -135,6 +142,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asistencias_gps_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
             referencedColumns: ["id"]
           },
           {
@@ -304,6 +318,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cajas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
             referencedColumns: ["id"]
           },
           {
@@ -590,6 +611,13 @@ export type Database = {
             foreignKeyName: "cotizaciones_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cotizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "v_proyectos_resumen"
             referencedColumns: ["id"]
           },
@@ -711,6 +739,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidencias_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
             referencedColumns: ["id"]
           },
           {
@@ -1139,6 +1174,13 @@ export type Database = {
             foreignKeyName: "proyecto_etapas_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_etapas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "v_proyectos_resumen"
             referencedColumns: ["id"]
           },
@@ -1184,6 +1226,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_hitos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
             referencedColumns: ["id"]
           },
           {
@@ -1289,6 +1338,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyecto_partidas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
             referencedColumns: ["id"]
           },
           {
@@ -1539,6 +1595,13 @@ export type Database = {
             foreignKeyName: "rdo_partes_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rdo_partes_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "v_proyectos_resumen"
             referencedColumns: ["id"]
           },
@@ -1682,6 +1745,13 @@ export type Database = {
             foreignKeyName: "solicitudes_pago_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_pago_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "v_proyectos_resumen"
             referencedColumns: ["id"]
           },
@@ -1739,6 +1809,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "usuario_proyectos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
             referencedColumns: ["id"]
           },
           {
@@ -1893,6 +1970,13 @@ export type Database = {
             foreignKeyName: "valorizaciones_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "v_proyectos_resumen"
             referencedColumns: ["id"]
           },
@@ -1918,6 +2002,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cajas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
             referencedColumns: ["id"]
           },
           {
@@ -1968,10 +2059,65 @@ export type Database = {
             foreignKeyName: "valorizaciones_proyecto_id_fkey"
             columns: ["proyecto_id"]
             isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
             referencedRelation: "v_proyectos_resumen"
             referencedColumns: ["id"]
           },
         ]
+      }
+      v_dashboard_actividad_30d: {
+        Row: {
+          deletes: number | null
+          dia: string | null
+          inserts: number | null
+          total: number | null
+          updates: number | null
+        }
+        Relationships: []
+      }
+      v_dashboard_avance_vs_gasto: {
+        Row: {
+          codigo: string | null
+          contractual: number | null
+          ejecutado_venta: number | null
+          estado: string | null
+          gastado_real: number | null
+          id: string | null
+          nombre: string | null
+          pct_avance: number | null
+          presupuesto_venta: number | null
+        }
+        Relationships: []
+      }
+      v_dashboard_cartera: {
+        Row: {
+          cantidad: number | null
+          estado: string | null
+          monto_contrato: number | null
+        }
+        Relationships: []
+      }
+      v_dashboard_gasto_categoria: {
+        Row: {
+          cantidad: number | null
+          categoria: Database["public"]["Enums"]["solicitud_categoria"] | null
+          total: number | null
+        }
+        Relationships: []
+      }
+      v_dashboard_solicitudes: {
+        Row: {
+          cantidad: number | null
+          estado: Database["public"]["Enums"]["solicitud_estado"] | null
+          total: number | null
+        }
+        Relationships: []
       }
       v_proyectos_resumen: {
         Row: {
@@ -2016,6 +2162,13 @@ export type Database = {
             columns: ["proyecto_id"]
             isOneToOne: false
             referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "valorizaciones_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
             referencedColumns: ["id"]
           },
           {
