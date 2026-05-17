@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { ROLES, ROL_LABEL, type RolSistema } from '@/lib/auth/roles';
 import { initials } from '@/lib/utils';
-import { asignarProyecto, cambiarRol, desasignarProyecto, toggleActivo } from './actions';
+import { asignarProyecto, desasignarProyecto, toggleActivo } from './actions';
+import { RolSelect } from './rol-select';
 
 export const metadata = { title: 'Usuarios' };
 export const dynamic = 'force-dynamic';
@@ -138,16 +139,7 @@ export default async function UsuariosPage() {
                     {u.id === session.userId ? (
                       <Badge variant={ROL_VARIANT[rol]}>{ROL_LABEL[rol]} (tú)</Badge>
                     ) : (
-                      <form action={cambiarRol} className="w-full">
-                        <input type="hidden" name="user_id" value={u.id} />
-                        <select name="rol" defaultValue={rol} className={selectClass} onChange={(e) => e.currentTarget.form?.requestSubmit()}>
-                          {ROLES.map((r) => (
-                            <option key={r} value={r}>
-                              {ROL_LABEL[r]}
-                            </option>
-                          ))}
-                        </select>
-                      </form>
+                      <RolSelect userId={u.id} rolActual={rol} />
                     )}
                   </div>
 

@@ -16,7 +16,7 @@ const SRC = path.join(ROOT, 'public', 'logo.png');
 const OUT = path.join(ROOT, 'public', 'icons');
 
 const BRAND_BG = { r: 255, g: 255, b: 255, alpha: 1 }; // fondo blanco para íconos "any"
-const MASKABLE_BG = { r: 190, g: 23, b: 35, alpha: 1 }; // #BE1723 para maskable
+const MASKABLE_BG = { r: 255, g: 255, b: 255, alpha: 1 }; // blanco también para maskable (logo Azur ya tiene su rojo)
 
 async function generate() {
   await mkdir(OUT, { recursive: true });
