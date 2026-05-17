@@ -77,6 +77,115 @@ export type Database = {
         }
         Relationships: []
       }
+      caja_movimientos: {
+        Row: {
+          caja_id: string
+          concepto: string
+          created_at: string
+          fecha: string
+          id: string
+          monto: number
+          pago_id: string | null
+          referencia: string | null
+          registrado_por: string | null
+          tipo: string
+        }
+        Insert: {
+          caja_id: string
+          concepto: string
+          created_at?: string
+          fecha?: string
+          id?: string
+          monto: number
+          pago_id?: string | null
+          referencia?: string | null
+          registrado_por?: string | null
+          tipo: string
+        }
+        Update: {
+          caja_id?: string
+          concepto?: string
+          created_at?: string
+          fecha?: string
+          id?: string
+          monto?: number
+          pago_id?: string | null
+          referencia?: string | null
+          registrado_por?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "caja_movimientos_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "cajas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caja_movimientos_caja_id_fkey"
+            columns: ["caja_id"]
+            isOneToOne: false
+            referencedRelation: "v_cajas_saldos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "caja_movimientos_pago_id_fkey"
+            columns: ["pago_id"]
+            isOneToOne: false
+            referencedRelation: "pagos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cajas: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          moneda: string
+          nombre: string
+          proyecto_id: string | null
+          saldo_inicial: number
+          tipo: string
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          moneda?: string
+          nombre: string
+          proyecto_id?: string | null
+          saldo_inicial?: number
+          tipo: string
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          moneda?: string
+          nombre?: string
+          proyecto_id?: string | null
+          saldo_inicial?: number
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cajas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cajas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           activo: boolean
@@ -470,6 +579,80 @@ export type Database = {
           },
         ]
       }
+      pagos: {
+        Row: {
+          banco_destino: string | null
+          banco_origen: string | null
+          codigo: string | null
+          created_at: string
+          cuenta_destino: string | null
+          cuenta_origen: string | null
+          ejecutado_por: string | null
+          fecha_ejecutado: string | null
+          fecha_programada: string
+          id: string
+          moneda: string
+          monto: number
+          numero_operacion: string | null
+          observaciones: string | null
+          programado_por: string | null
+          solicitud_id: string
+          updated_at: string
+          voucher_path: string | null
+          voucher_token: string | null
+        }
+        Insert: {
+          banco_destino?: string | null
+          banco_origen?: string | null
+          codigo?: string | null
+          created_at?: string
+          cuenta_destino?: string | null
+          cuenta_origen?: string | null
+          ejecutado_por?: string | null
+          fecha_ejecutado?: string | null
+          fecha_programada?: string
+          id?: string
+          moneda?: string
+          monto: number
+          numero_operacion?: string | null
+          observaciones?: string | null
+          programado_por?: string | null
+          solicitud_id: string
+          updated_at?: string
+          voucher_path?: string | null
+          voucher_token?: string | null
+        }
+        Update: {
+          banco_destino?: string | null
+          banco_origen?: string | null
+          codigo?: string | null
+          created_at?: string
+          cuenta_destino?: string | null
+          cuenta_origen?: string | null
+          ejecutado_por?: string | null
+          fecha_ejecutado?: string | null
+          fecha_programada?: string
+          id?: string
+          moneda?: string
+          monto?: number
+          numero_operacion?: string | null
+          observaciones?: string | null
+          programado_por?: string | null
+          solicitud_id?: string
+          updated_at?: string
+          voucher_path?: string | null
+          voucher_token?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pagos_solicitud_id_fkey"
+            columns: ["solicitud_id"]
+            isOneToOne: false
+            referencedRelation: "solicitudes_pago"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       partida_apu_componentes: {
         Row: {
           cantidad: number
@@ -615,6 +798,54 @@ export type Database = {
           id?: string
           preferencias?: Json
           rol?: Database["public"]["Enums"]["rol_sistema"]
+          telefono?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      proveedores: {
+        Row: {
+          activo: boolean
+          banco: string | null
+          cci: string | null
+          contacto: string | null
+          created_at: string
+          cuenta: string | null
+          detraccion_porcentaje: number | null
+          email: string | null
+          id: string
+          razon_social: string
+          ruc: string | null
+          telefono: string | null
+          updated_at: string
+        }
+        Insert: {
+          activo?: boolean
+          banco?: string | null
+          cci?: string | null
+          contacto?: string | null
+          created_at?: string
+          cuenta?: string | null
+          detraccion_porcentaje?: number | null
+          email?: string | null
+          id?: string
+          razon_social: string
+          ruc?: string | null
+          telefono?: string | null
+          updated_at?: string
+        }
+        Update: {
+          activo?: boolean
+          banco?: string | null
+          cci?: string | null
+          contacto?: string | null
+          created_at?: string
+          cuenta?: string | null
+          detraccion_porcentaje?: number | null
+          email?: string | null
+          id?: string
+          razon_social?: string
+          ruc?: string | null
           telefono?: string | null
           updated_at?: string
         }
@@ -972,6 +1203,116 @@ export type Database = {
         }
         Relationships: []
       }
+      solicitudes_pago: {
+        Row: {
+          adjunto_url: string | null
+          aprobada_gerencia_at: string | null
+          aprobada_gerencia_por: string | null
+          aprobada_jefe_at: string | null
+          aprobada_jefe_por: string | null
+          beneficiario: string
+          categoria: Database["public"]["Enums"]["solicitud_categoria"]
+          codigo: string | null
+          concepto: string
+          created_at: string
+          estado: Database["public"]["Enums"]["solicitud_estado"]
+          id: string
+          moneda: string
+          monto: number
+          motivo_rechazo: string | null
+          notas: string | null
+          partida_id: string | null
+          proveedor_id: string | null
+          proyecto_id: string
+          rechazada_at: string | null
+          rechazada_por: string | null
+          solicitado_por: string | null
+          updated_at: string
+          urgencia: string
+        }
+        Insert: {
+          adjunto_url?: string | null
+          aprobada_gerencia_at?: string | null
+          aprobada_gerencia_por?: string | null
+          aprobada_jefe_at?: string | null
+          aprobada_jefe_por?: string | null
+          beneficiario: string
+          categoria: Database["public"]["Enums"]["solicitud_categoria"]
+          codigo?: string | null
+          concepto: string
+          created_at?: string
+          estado?: Database["public"]["Enums"]["solicitud_estado"]
+          id?: string
+          moneda?: string
+          monto: number
+          motivo_rechazo?: string | null
+          notas?: string | null
+          partida_id?: string | null
+          proveedor_id?: string | null
+          proyecto_id: string
+          rechazada_at?: string | null
+          rechazada_por?: string | null
+          solicitado_por?: string | null
+          updated_at?: string
+          urgencia?: string
+        }
+        Update: {
+          adjunto_url?: string | null
+          aprobada_gerencia_at?: string | null
+          aprobada_gerencia_por?: string | null
+          aprobada_jefe_at?: string | null
+          aprobada_jefe_por?: string | null
+          beneficiario?: string
+          categoria?: Database["public"]["Enums"]["solicitud_categoria"]
+          codigo?: string | null
+          concepto?: string
+          created_at?: string
+          estado?: Database["public"]["Enums"]["solicitud_estado"]
+          id?: string
+          moneda?: string
+          monto?: number
+          motivo_rechazo?: string | null
+          notas?: string | null
+          partida_id?: string | null
+          proveedor_id?: string | null
+          proyecto_id?: string
+          rechazada_at?: string | null
+          rechazada_por?: string | null
+          solicitado_por?: string | null
+          updated_at?: string
+          urgencia?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitudes_pago_partida_id_fkey"
+            columns: ["partida_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto_partidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_pago_proveedor_id_fkey"
+            columns: ["proveedor_id"]
+            isOneToOne: false
+            referencedRelation: "proveedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_pago_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_pago_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       unidades_medida: {
         Row: {
           codigo: string
@@ -1037,6 +1378,35 @@ export type Database = {
       }
     }
     Views: {
+      v_cajas_saldos: {
+        Row: {
+          entradas: number | null
+          id: string | null
+          moneda: string | null
+          nombre: string | null
+          proyecto_id: string | null
+          saldo_actual: number | null
+          saldo_inicial: number | null
+          salidas: number | null
+          tipo: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cajas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cajas_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_cotizacion_totales: {
         Row: {
           codigo: string | null
@@ -1115,6 +1485,23 @@ export type Database = {
         | "administrador"
         | "comercial"
         | "residente"
+      solicitud_categoria:
+        | "proveedor"
+        | "contratista"
+        | "jornales"
+        | "caja_chica"
+        | "agua"
+        | "alquiler_equipo"
+        | "flete"
+        | "servicios"
+        | "otros"
+      solicitud_estado:
+        | "pendiente"
+        | "aprobada_jefe"
+        | "rechazada"
+        | "programada"
+        | "pagada"
+        | "cancelada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1264,6 +1651,25 @@ export const Constants = {
         "administrador",
         "comercial",
         "residente",
+      ],
+      solicitud_categoria: [
+        "proveedor",
+        "contratista",
+        "jornales",
+        "caja_chica",
+        "agua",
+        "alquiler_equipo",
+        "flete",
+        "servicios",
+        "otros",
+      ],
+      solicitud_estado: [
+        "pendiente",
+        "aprobada_jefe",
+        "rechazada",
+        "programada",
+        "pagada",
+        "cancelada",
       ],
     },
   },
