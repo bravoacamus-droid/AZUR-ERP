@@ -17,6 +17,69 @@ export type Database = {
   }
   public: {
     Tables: {
+      asistencias_gps: {
+        Row: {
+          created_at: string
+          dentro_geofence: boolean | null
+          distancia_obra_m: number | null
+          fecha: string
+          hora: string
+          id: string
+          latitud: number
+          longitud: number
+          observaciones: string | null
+          precision_metros: number | null
+          proyecto_id: string
+          tipo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dentro_geofence?: boolean | null
+          distancia_obra_m?: number | null
+          fecha?: string
+          hora?: string
+          id?: string
+          latitud: number
+          longitud: number
+          observaciones?: string | null
+          precision_metros?: number | null
+          proyecto_id: string
+          tipo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dentro_geofence?: boolean | null
+          distancia_obra_m?: number | null
+          fecha?: string
+          hora?: string
+          id?: string
+          latitud?: number
+          longitud?: number
+          observaciones?: string | null
+          precision_metros?: number | null
+          proyecto_id?: string
+          tipo?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asistencias_gps_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asistencias_gps_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -526,6 +589,80 @@ export type Database = {
         }
         Relationships: []
       }
+      evidencias: {
+        Row: {
+          capturada_por: string | null
+          created_at: string
+          descripcion: string | null
+          id: string
+          latitud: number | null
+          longitud: number | null
+          partida_id: string | null
+          proyecto_id: string
+          rdo_id: string | null
+          storage_path: string
+          titulo: string | null
+          tomada_en: string
+        }
+        Insert: {
+          capturada_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          latitud?: number | null
+          longitud?: number | null
+          partida_id?: string | null
+          proyecto_id: string
+          rdo_id?: string | null
+          storage_path: string
+          titulo?: string | null
+          tomada_en?: string
+        }
+        Update: {
+          capturada_por?: string | null
+          created_at?: string
+          descripcion?: string | null
+          id?: string
+          latitud?: number | null
+          longitud?: number | null
+          partida_id?: string | null
+          proyecto_id?: string
+          rdo_id?: string | null
+          storage_path?: string
+          titulo?: string | null
+          tomada_en?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "evidencias_partida_id_fkey"
+            columns: ["partida_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto_partidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidencias_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidencias_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "evidencias_rdo_id_fkey"
+            columns: ["rdo_id"]
+            isOneToOne: false
+            referencedRelation: "rdo_partes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       insumos_maestros: {
         Row: {
           activo: boolean
@@ -578,6 +715,39 @@ export type Database = {
             referencedColumns: ["codigo"]
           },
         ]
+      }
+      notificaciones: {
+        Row: {
+          created_at: string
+          href: string | null
+          id: string
+          leida: boolean
+          mensaje: string
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          href?: string | null
+          id?: string
+          leida?: boolean
+          mensaje: string
+          tipo: string
+          titulo: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          href?: string | null
+          id?: string
+          leida?: boolean
+          mensaje?: string
+          tipo?: string
+          titulo?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       pagos: {
         Row: {
@@ -1166,6 +1336,144 @@ export type Database = {
             columns: ["cotizacion_id"]
             isOneToOne: false
             referencedRelation: "v_cotizacion_totales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          endpoint: string
+          id: string
+          last_used_at: string | null
+          p256dh: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          endpoint: string
+          id?: string
+          last_used_at?: string | null
+          p256dh: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          endpoint?: string
+          id?: string
+          last_used_at?: string | null
+          p256dh?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rdo_avances: {
+        Row: {
+          created_at: string
+          id: string
+          metrado_dia: number
+          observaciones: string | null
+          partida_id: string
+          rdo_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metrado_dia: number
+          observaciones?: string | null
+          partida_id: string
+          rdo_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metrado_dia?: number
+          observaciones?: string | null
+          partida_id?: string
+          rdo_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rdo_avances_partida_id_fkey"
+            columns: ["partida_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto_partidas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rdo_avances_rdo_id_fkey"
+            columns: ["rdo_id"]
+            isOneToOne: false
+            referencedRelation: "rdo_partes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rdo_partes: {
+        Row: {
+          clima: string | null
+          codigo: string | null
+          created_at: string
+          fecha: string
+          id: string
+          incidencias: string | null
+          observaciones: string | null
+          personal_total: number | null
+          proyecto_id: string
+          reportado_por: string | null
+          resumen: string | null
+          temperatura_c: number | null
+          updated_at: string
+        }
+        Insert: {
+          clima?: string | null
+          codigo?: string | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          incidencias?: string | null
+          observaciones?: string | null
+          personal_total?: number | null
+          proyecto_id: string
+          reportado_por?: string | null
+          resumen?: string | null
+          temperatura_c?: number | null
+          updated_at?: string
+        }
+        Update: {
+          clima?: string | null
+          codigo?: string | null
+          created_at?: string
+          fecha?: string
+          id?: string
+          incidencias?: string | null
+          observaciones?: string | null
+          personal_total?: number | null
+          proyecto_id?: string
+          reportado_por?: string | null
+          resumen?: string | null
+          temperatura_c?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rdo_partes_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rdo_partes_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
             referencedColumns: ["id"]
           },
         ]
