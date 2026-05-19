@@ -62,6 +62,7 @@ const ERP_NAV_BY_ROLE: Record<RolSistema, NavGroup[]> = {
       items: [
         { label: 'Proyectos', href: '/proyectos', icon: Building2, description: 'Avance físico vs financiero' },
         { label: 'Cotizaciones', href: '/comercial/cotizaciones', icon: ClipboardCheck, description: 'Pipeline comercial' },
+        { label: 'Clientes', href: '/clientes', icon: Users, description: 'Empresas/personas con cotizaciones' },
         { label: 'Catálogo & APU', href: '/comercial/catalogo', icon: Calculator, description: 'Partidas e insumos' },
         { label: 'Almacén', href: '/inventario', icon: Package, description: 'Salidas y devoluciones por proyecto' },
       ],
@@ -107,6 +108,7 @@ const ERP_NAV_BY_ROLE: Record<RolSistema, NavGroup[]> = {
       label: 'Comercial',
       items: [
         { label: 'Cotizaciones', href: '/comercial/cotizaciones', icon: ClipboardCheck },
+        { label: 'Clientes', href: '/clientes', icon: Users },
         { label: 'Catálogo', href: '/comercial/catalogo', icon: Calculator },
         { label: 'APU', href: '/comercial/apu', icon: Briefcase },
       ],
@@ -141,6 +143,7 @@ const ERP_NAV_BY_ROLE: Record<RolSistema, NavGroup[]> = {
       label: 'Comercial',
       items: [
         { label: 'Cotizaciones', href: '/comercial/cotizaciones', icon: ClipboardCheck },
+        { label: 'Clientes', href: '/clientes', icon: Users },
         { label: 'Catálogo', href: '/comercial/catalogo', icon: Calculator },
         { label: 'APU', href: '/comercial/apu', icon: Briefcase },
       ],

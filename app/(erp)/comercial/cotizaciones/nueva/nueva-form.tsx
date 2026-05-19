@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useFormState, useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 import { ArrowRight } from 'lucide-react';
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { crearCotizacion, type CrearCotizacionState } from '../actions';
+import { ClienteQuickCreate } from './cliente-quick-create';
 
 type Cliente = { id: string; razon_social: string; ruc: string | null };
 
@@ -22,14 +23,21 @@ function SubmitButton() {
   );
 }
 
-export function NuevaCotizacionForm({ clientes }: { clientes: Cliente[] }) {
+export function NuevaCotizacionForm({ clientes: initialClientes }: { clientes: Cliente[] }) {
   const [state, formAction] = useFormState<CrearCotizacionState, FormData>(crearCotizacion, {
     ok: true,
   });
+  const [clientes, setClientes] = useState<Cliente[]>(initialClientes);
+  const [selectedClienteId, setSelectedClienteId] = useState<string>('');
 
   useEffect(() => {
     if (state.error) toast.error(state.error);
   }, [state.error]);
+
+  function handleClienteCreated(c: Cliente) {
+    setClientes((prev) => [c, ...prev]);
+    setSelectedClienteId(c.id);
+  }
 
   return (
     <form action={formAction} className="grid gap-6 lg:grid-cols-3">
@@ -49,10 +57,15 @@ export function NuevaCotizacionForm({ clientes }: { clientes: Cliente[] }) {
           </div>
 
           <div className="space-y-1.5 sm:col-span-2">
-            <Label htmlFor="cliente_id">Cliente</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label htmlFor="cliente_id">Cliente</Label>
+              <ClienteQuickCreate onCreated={handleClienteCreated} />
+            </div>
             <select
               id="cliente_id"
               name="cliente_id"
+              value={selectedClienteId}
+              onChange={(e) => setSelectedClienteId(e.target.value)}
               className="flex h-11 w-full rounded-xl border border-input bg-background px-4 text-sm shadow-sm focus-visible:border-azur-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azur-coral/40"
             >
               <option value="">— Sin cliente asignado —</option>
