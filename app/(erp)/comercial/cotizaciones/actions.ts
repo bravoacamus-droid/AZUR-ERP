@@ -5,20 +5,21 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
+import { optionalString, optionalUuid } from '@/lib/zod-helpers';
 
 const ROLES_COMERCIAL = ['gerencia_general', 'jefe_presupuestos', 'comercial'] as const;
 
 const crearCotizacionSchema = z.object({
   titulo: z.string().min(3, 'Mínimo 3 caracteres'),
-  descripcion: z.string().optional().or(z.literal('')),
-  ubicacion: z.string().optional().or(z.literal('')),
-  cliente_id: z.string().uuid().optional().or(z.literal('')),
+  descripcion: optionalString(),
+  ubicacion: optionalString(),
+  cliente_id: optionalUuid(),
   validez_dias: z.coerce.number().int().min(1).max(365).default(15),
   moneda: z.enum(['PEN', 'USD']).default('PEN'),
   margen_porcentaje: z.coerce.number().min(0).max(200).default(10),
   gastos_generales_porcentaje: z.coerce.number().min(0).max(50).default(8),
   igv_porcentaje: z.coerce.number().min(0).max(30).default(18),
-  notas: z.string().optional().or(z.literal('')),
+  notas: optionalString(),
 });
 
 export type CrearCotizacionState = {
@@ -117,7 +118,7 @@ const agregarPartidaSchema = z.object({
   unidad: z.string().min(1),
   cantidad: z.coerce.number().min(0),
   precio_unitario: z.coerce.number().min(0),
-  partida_maestra_id: z.string().uuid().optional().or(z.literal('')),
+  partida_maestra_id: optionalUuid(),
 });
 
 export async function agregarPartida(formData: FormData) {

@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
+import { optionalString } from '@/lib/zod-helpers';
 
 const movSchema = z.object({
   proyecto_id: z.string().uuid(),
@@ -11,8 +12,8 @@ const movSchema = z.object({
   descripcion: z.string().min(3),
   cantidad: z.coerce.number().min(0.0001),
   unidad: z.string().min(1),
-  responsable: z.string().optional().or(z.literal('')),
-  notas: z.string().optional().or(z.literal('')),
+  responsable: optionalString(),
+  notas: optionalString(),
 });
 
 export async function registrarMovimientoAlmacen(formData: FormData) {

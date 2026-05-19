@@ -5,14 +5,15 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
+import { optionalNumber, optionalString, optionalUuid } from '@/lib/zod-helpers';
 
 const evidenciaSchema = z.object({
   proyecto_id: z.string().uuid(),
-  partida_id: z.string().uuid().optional().or(z.literal('')),
-  titulo: z.string().optional().or(z.literal('')),
-  descripcion: z.string().optional().or(z.literal('')),
-  latitud: z.coerce.number().optional(),
-  longitud: z.coerce.number().optional(),
+  partida_id: optionalUuid(),
+  titulo: optionalString(),
+  descripcion: optionalString(),
+  latitud: optionalNumber(),
+  longitud: optionalNumber(),
 });
 
 export type SubirEvidenciaState = { ok: boolean; error?: string };

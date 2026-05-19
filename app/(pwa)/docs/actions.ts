@@ -5,12 +5,13 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
+import { optionalString } from '@/lib/zod-helpers';
 
 const docSchema = z.object({
   proyecto_id: z.string().uuid(),
   titulo: z.string().min(3),
   carpeta: z.enum(['general', 'planos', 'contratos', 'cotizaciones', 'fichas', 'permisos']),
-  descripcion: z.string().optional().or(z.literal('')),
+  descripcion: optionalString(),
 });
 
 export async function subirDocumento(formData: FormData) {

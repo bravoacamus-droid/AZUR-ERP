@@ -4,13 +4,14 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
+import { optionalString } from '@/lib/zod-helpers';
 
 const charlaSchema = z.object({
   proyecto_id: z.string().uuid(),
   fecha: z.string(),
   tema: z.string().min(3),
   asistencia: z.coerce.number().int().min(0),
-  notas: z.string().optional().or(z.literal('')),
+  notas: optionalString(),
 });
 
 export type SstActionState = { ok: boolean; error?: string };
@@ -51,7 +52,7 @@ const obsSchema = z.object({
   proyecto_id: z.string().uuid(),
   tipo: z.enum(['acto_inseguro', 'condicion_insegura', 'sugerencia']),
   descripcion: z.string().min(5),
-  accion_correctiva: z.string().optional().or(z.literal('')),
+  accion_correctiva: optionalString(),
 });
 
 export async function registrarObservacion(formData: FormData) {
@@ -80,8 +81,8 @@ const incSchema = z.object({
   proyecto_id: z.string().uuid(),
   severidad: z.enum(['leve', 'moderado', 'grave', 'critico']),
   descripcion: z.string().min(5),
-  involucrados: z.string().optional().or(z.literal('')),
-  acciones: z.string().optional().or(z.literal('')),
+  involucrados: optionalString(),
+  acciones: optionalString(),
 });
 
 export async function registrarIncidente(formData: FormData) {

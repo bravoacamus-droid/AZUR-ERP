@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
 import { haversineMeters } from '@/lib/geo/haversine';
+import { optionalString } from '@/lib/zod-helpers';
 
 const checkSchema = z.object({
   proyecto_id: z.string().uuid(),
@@ -12,7 +13,7 @@ const checkSchema = z.object({
   latitud: z.coerce.number().min(-90).max(90),
   longitud: z.coerce.number().min(-180).max(180),
   precision_metros: z.coerce.number().min(0).default(0),
-  observaciones: z.string().optional().or(z.literal('')),
+  observaciones: optionalString(),
 });
 
 export type CheckActionResult =

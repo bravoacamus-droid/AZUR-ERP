@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
+import { optionalString, optionalUuid } from '@/lib/zod-helpers';
 
 const ROLES_APROBADORES = ['gerencia_general', 'jefe_proyectos', 'jefe_presupuestos', 'administrador'] as const;
 const ROLES_SOLICITAR = [
@@ -18,7 +19,7 @@ const ROLES_SOLICITAR = [
 
 const crearSchema = z.object({
   proyecto_id: z.string().uuid(),
-  partida_id: z.string().uuid().optional().or(z.literal('')),
+  partida_id: optionalUuid(),
   categoria: z.enum([
     'proveedor',
     'contratista',
@@ -35,7 +36,7 @@ const crearSchema = z.object({
   monto: z.coerce.number().min(0.01),
   moneda: z.enum(['PEN', 'USD']).default('PEN'),
   urgencia: z.enum(['baja', 'normal', 'alta', 'critica']).default('normal'),
-  notas: z.string().optional().or(z.literal('')),
+  notas: optionalString(),
 });
 
 export type CrearSolicitudState = { ok: boolean; error?: string };
@@ -95,7 +96,7 @@ export async function crearSolicitud(
 const decidirSchema = z.object({
   id: z.string().uuid(),
   decision: z.enum(['aprobar_jefe', 'aprobar_gerencia', 'rechazar', 'cancelar']),
-  motivo: z.string().optional().or(z.literal('')),
+  motivo: optionalString(),
 });
 
 export async function decidirSolicitud(formData: FormData) {
@@ -158,12 +159,12 @@ const programarPagoSchema = z.object({
   solicitud_id: z.string().uuid(),
   monto: z.coerce.number().min(0.01),
   fecha_programada: z.string(),
-  banco_origen: z.string().optional().or(z.literal('')),
-  cuenta_origen: z.string().optional().or(z.literal('')),
-  banco_destino: z.string().optional().or(z.literal('')),
-  cuenta_destino: z.string().optional().or(z.literal('')),
-  numero_operacion: z.string().optional().or(z.literal('')),
-  observaciones: z.string().optional().or(z.literal('')),
+  banco_origen: optionalString(),
+  cuenta_origen: optionalString(),
+  banco_destino: optionalString(),
+  cuenta_destino: optionalString(),
+  numero_operacion: optionalString(),
+  observaciones: optionalString(),
 });
 
 export async function programarPago(formData: FormData) {

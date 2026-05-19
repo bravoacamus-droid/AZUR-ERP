@@ -5,15 +5,19 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
+import { optionalNumber, optionalString } from '@/lib/zod-helpers';
 
 const rdoSchema = z.object({
   proyecto_id: z.string().uuid(),
   fecha: z.string(),
-  clima: z.enum(['soleado', 'nublado', 'lluvioso', 'tormenta', 'nuboso']).optional().or(z.literal('')),
-  temperatura_c: z.coerce.number().optional(),
+  clima: z.preprocess(
+    (v) => (v === '' || v == null ? undefined : v),
+    z.enum(['soleado', 'nublado', 'lluvioso', 'tormenta', 'nuboso']).optional(),
+  ),
+  temperatura_c: optionalNumber(),
   resumen: z.string().min(5),
-  observaciones: z.string().optional().or(z.literal('')),
-  incidencias: z.string().optional().or(z.literal('')),
+  observaciones: optionalString(),
+  incidencias: optionalString(),
   personal_total: z.coerce.number().int().min(0).default(0),
 });
 

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
+import { optionalString } from '@/lib/zod-helpers';
 
 const generarSchema = z.object({
   proyecto_id: z.string().uuid(),
@@ -76,7 +77,7 @@ const adicSchema = z.object({
   proyecto_id: z.string().uuid(),
   tipo: z.enum(['adicional', 'deductivo']),
   descripcion: z.string().min(3),
-  sustento: z.string().optional().or(z.literal('')),
+  sustento: optionalString(),
   monto: z.coerce.number().min(0.01),
 });
 
