@@ -1514,7 +1514,10 @@ export type Database = {
           cotizacion_id: string | null
           created_at: string
           created_by: string | null
+          departamento: string | null
           descripcion: string | null
+          direccion: string | null
+          distrito: string | null
           estado: string
           fecha_fin_plan: string | null
           fecha_fin_real: string | null
@@ -1529,8 +1532,10 @@ export type Database = {
           nombre: string
           presupuesto_costo: number | null
           presupuesto_venta: number | null
+          provincia: string | null
           radio_geofence_m: number | null
           ubicacion: string | null
+          ubigeo_codigo: string | null
           updated_at: string
         }
         Insert: {
@@ -1541,7 +1546,10 @@ export type Database = {
           cotizacion_id?: string | null
           created_at?: string
           created_by?: string | null
+          departamento?: string | null
           descripcion?: string | null
+          direccion?: string | null
+          distrito?: string | null
           estado?: string
           fecha_fin_plan?: string | null
           fecha_fin_real?: string | null
@@ -1556,8 +1564,10 @@ export type Database = {
           nombre: string
           presupuesto_costo?: number | null
           presupuesto_venta?: number | null
+          provincia?: string | null
           radio_geofence_m?: number | null
           ubicacion?: string | null
+          ubigeo_codigo?: string | null
           updated_at?: string
         }
         Update: {
@@ -1568,7 +1578,10 @@ export type Database = {
           cotizacion_id?: string | null
           created_at?: string
           created_by?: string | null
+          departamento?: string | null
           descripcion?: string | null
+          direccion?: string | null
+          distrito?: string | null
           estado?: string
           fecha_fin_plan?: string | null
           fecha_fin_real?: string | null
@@ -1583,8 +1596,10 @@ export type Database = {
           nombre?: string
           presupuesto_costo?: number | null
           presupuesto_venta?: number | null
+          provincia?: string | null
           radio_geofence_m?: number | null
           ubicacion?: string | null
+          ubigeo_codigo?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1601,6 +1616,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_cotizacion_totales"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "proyectos_ubigeo_codigo_fkey"
+            columns: ["ubigeo_codigo"]
+            isOneToOne: false
+            referencedRelation: "ubigeos"
+            referencedColumns: ["codigo"]
           },
         ]
       }
@@ -2075,6 +2097,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ubigeos: {
+        Row: {
+          codigo: string
+          departamento: string
+          distrito: string
+          latitud: number | null
+          longitud: number | null
+          provincia: string
+          tipo: string
+        }
+        Insert: {
+          codigo: string
+          departamento: string
+          distrito: string
+          latitud?: number | null
+          longitud?: number | null
+          provincia: string
+          tipo: string
+        }
+        Update: {
+          codigo?: string
+          departamento?: string
+          distrito?: string
+          latitud?: number | null
+          longitud?: number | null
+          provincia?: string
+          tipo?: string
+        }
+        Relationships: []
       }
       unidades_medida: {
         Row: {

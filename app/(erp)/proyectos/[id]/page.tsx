@@ -24,6 +24,7 @@ import {
 } from '@/lib/proyectos/estados';
 import { cambiarEstadoProyecto } from './actions';
 import { MetradoInput } from './metrado-input';
+import { UbicacionSection } from '@/components/proyectos/ubicacion-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,9 +32,12 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
   await requireSession();
   const supabase = createClient();
 
-  const [{ data: proyecto }, { data: resumen }] = await Promise.all([
+  const [{ data: proyecto }, { data: resumen }, { data: ubigeos }] = await Promise.all([
     supabase.from('proyectos').select('*').eq('id', params.id).single(),
     supabase.from('v_proyectos_resumen').select('*').eq('id', params.id).single(),
+    supabase
+      .from('ubigeos')
+      .select('codigo, departamento, provincia, distrito, latitud, longitud, tipo'),
   ]);
 
   if (!proyecto) notFound();
@@ -164,9 +168,33 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
         </div>
       </div>
 
-      {/* Datos del proyecto */}
-      <div className="azur-card grid gap-4 sm:grid-cols-2 md:grid-cols-4">
-        <Field icon={MapPin} label="Ubicación" value={proyecto.ubicacion ?? '—'} />
+      {/* Ubicación con ubigeo + mapa */}
+      <UbicacionSection
+        proyectoId={params.id}
+        ubigeos={(ubigeos ?? []).map((u) => ({
+          codigo: u.codigo,
+          departamento: u.departamento,
+          provincia: u.provincia,
+          distrito: u.distrito,
+          latitud: u.latitud == null ? null : Number(u.latitud),
+          longitud: u.longitud == null ? null : Number(u.longitud),
+          tipo: u.tipo as 'departamento' | 'provincia' | 'distrito',
+        }))}
+        initial={{
+          ubigeo_codigo: proyecto.ubigeo_codigo ?? null,
+          departamento: proyecto.departamento ?? null,
+          provincia: proyecto.provincia ?? null,
+          distrito: proyecto.distrito ?? null,
+          direccion: proyecto.direccion ?? null,
+          ubicacion: proyecto.ubicacion ?? null,
+          latitud: proyecto.latitud == null ? null : Number(proyecto.latitud),
+          longitud: proyecto.longitud == null ? null : Number(proyecto.longitud),
+          radio_geofence_m: proyecto.radio_geofence_m ?? null,
+        }}
+      />
+
+      {/* Otros datos del proyecto */}
+      <div className="azur-card grid gap-4 sm:grid-cols-3">
         <Field
           icon={CalendarRange}
           label="Fecha inicio"

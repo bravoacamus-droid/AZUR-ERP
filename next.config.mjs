@@ -90,10 +90,10 @@ const nextConfig = {
     const csp = [
       "default-src 'self'",
       `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com",
       "font-src 'self' https://fonts.gstatic.com data:",
-      `img-src 'self' data: blob: ${supabaseHost}`,
-      `connect-src 'self' ${supabaseHost} wss://zguodhyafasjgigzbcpi.supabase.co`,
+      `img-src 'self' data: blob: ${supabaseHost} https://*.tile.openstreetmap.org https://unpkg.com`,
+      `connect-src 'self' ${supabaseHost} wss://zguodhyafasjgigzbcpi.supabase.co https://nominatim.openstreetmap.org`,
       `frame-src 'self' ${supabaseHost}`,
       "worker-src 'self' blob:",
       "manifest-src 'self'",
