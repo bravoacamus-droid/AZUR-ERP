@@ -36,18 +36,20 @@ export default async function RdoDetallePage({
 
   const [{ data: proyecto }, { data: rdo }] = await Promise.all([
     supabase.from('proyectos').select('id, codigo, nombre').eq('id', params.id).single(),
-    supabase
-      .from('rdo_partes')
-      .select(
-        '*, perfil:reportado_por(full_name, email)',
-      )
-      .eq('id', params.rdoId)
-      .single(),
+    supabase.from('rdo_partes').select('*').eq('id', params.rdoId).single(),
   ]);
 
   if (!proyecto || !rdo) notFound();
 
-  const perfil = Array.isArray(rdo.perfil) ? rdo.perfil[0] ?? null : rdo.perfil;
+  let perfil: { full_name: string; email: string } | null = null;
+  if (rdo.reportado_por) {
+    const { data: p } = await supabase
+      .from('profiles')
+      .select('full_name, email')
+      .eq('id', rdo.reportado_por)
+      .single();
+    perfil = p ?? null;
+  }
   const fecha = new Date(rdo.fecha).toLocaleDateString('es-PE', {
     weekday: 'long',
     day: '2-digit',

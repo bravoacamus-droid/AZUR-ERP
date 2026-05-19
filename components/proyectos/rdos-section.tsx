@@ -21,15 +21,25 @@ export async function RdosSection({ proyectoId }: Props) {
   const { data } = await supabase
     .from('rdo_partes')
     .select(
-      'id, codigo, fecha, clima, temperatura_c, resumen, observaciones, incidencias, personal_total, reportado_por, perfil:reportado_por(full_name)',
+      'id, codigo, fecha, clima, temperatura_c, resumen, observaciones, incidencias, personal_total, reportado_por',
     )
     .eq('proyecto_id', proyectoId)
     .order('fecha', { ascending: false })
     .limit(10);
 
+  const userIds = [...new Set((data ?? []).map((r) => r.reportado_por).filter(Boolean))] as string[];
+  const perfilMap = new Map<string, { full_name: string }>();
+  if (userIds.length > 0) {
+    const { data: perfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', userIds);
+    (perfiles ?? []).forEach((p) => perfilMap.set(p.id, { full_name: p.full_name }));
+  }
+
   const items = (data ?? []).map((r) => ({
     ...r,
-    perfil: Array.isArray(r.perfil) ? r.perfil[0] ?? null : r.perfil,
+    perfil: r.reportado_por ? perfilMap.get(r.reportado_por) ?? null : null,
   }));
 
   return (

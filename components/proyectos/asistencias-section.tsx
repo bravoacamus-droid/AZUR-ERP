@@ -23,15 +23,26 @@ type AsistenciaRow = {
 export async function AsistenciasSection({ proyectoId }: Props) {
   const supabase = createClient();
 
-  // Últimas 30 asistencias del proyecto con join al perfil del usuario
+  // Últimas 30 asistencias del proyecto
   const { data } = await supabase
     .from('asistencias_gps')
-    .select(
-      'id, tipo, fecha, hora, distancia_obra_m, dentro_geofence, observaciones, user_id, perfil:user_id(full_name, email)',
-    )
+    .select('id, tipo, fecha, hora, distancia_obra_m, dentro_geofence, observaciones, user_id')
     .eq('proyecto_id', proyectoId)
     .order('hora', { ascending: false })
     .limit(30);
+
+  // Perfiles por separado (FK indirecta vía auth.users — PostgREST no la resuelve)
+  const userIds = [...new Set((data ?? []).map((r) => r.user_id))];
+  const perfilMap = new Map<string, { full_name: string; email: string }>();
+  if (userIds.length > 0) {
+    const { data: perfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+    (perfiles ?? []).forEach((p) =>
+      perfilMap.set(p.id, { full_name: p.full_name, email: p.email }),
+    );
+  }
 
   const rows = (data ?? []).map((r): AsistenciaRow => ({
     id: r.id,
@@ -42,7 +53,7 @@ export async function AsistenciasSection({ proyectoId }: Props) {
     dentro_geofence: r.dentro_geofence,
     observaciones: r.observaciones,
     user_id: r.user_id,
-    perfil: Array.isArray(r.perfil) ? r.perfil[0] ?? null : r.perfil,
+    perfil: perfilMap.get(r.user_id) ?? null,
   }));
 
   // Asistencias de hoy

@@ -42,7 +42,7 @@ export default async function AsistenciasProyectoPage({
   let q = supabase
     .from('asistencias_gps')
     .select(
-      'id, tipo, fecha, hora, latitud, longitud, precision_metros, distancia_obra_m, dentro_geofence, observaciones, user_id, perfil:user_id(full_name, email)',
+      'id, tipo, fecha, hora, latitud, longitud, precision_metros, distancia_obra_m, dentro_geofence, observaciones, user_id',
     )
     .eq('proyecto_id', params.id)
     .gte('fecha', desde)
@@ -54,10 +54,24 @@ export default async function AsistenciasProyectoPage({
   if (searchParams?.tipo) q = q.eq('tipo', searchParams.tipo);
 
   const { data: rows } = await q;
+
+  // Perfiles por separado
+  const userIds = [...new Set((rows ?? []).map((r) => r.user_id))];
+  const perfilMap = new Map<string, { full_name: string; email: string }>();
+  if (userIds.length > 0) {
+    const { data: perfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+    (perfiles ?? []).forEach((p) =>
+      perfilMap.set(p.id, { full_name: p.full_name, email: p.email }),
+    );
+  }
+
   const items = (rows ?? []).map((r) => ({
     ...r,
     distancia_obra_m: r.distancia_obra_m == null ? null : Number(r.distancia_obra_m),
-    perfil: Array.isArray(r.perfil) ? r.perfil[0] ?? null : r.perfil,
+    perfil: perfilMap.get(r.user_id) ?? null,
   }));
 
   // Lista de usuarios distintos para el filtro

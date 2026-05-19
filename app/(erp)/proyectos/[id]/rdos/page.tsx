@@ -46,7 +46,7 @@ export default async function RdosProyectoPage({
   const { data: rdos } = await supabase
     .from('rdo_partes')
     .select(
-      'id, codigo, fecha, clima, temperatura_c, resumen, observaciones, incidencias, personal_total, reportado_por, created_at, perfil:reportado_por(full_name, email)',
+      'id, codigo, fecha, clima, temperatura_c, resumen, observaciones, incidencias, personal_total, reportado_por, created_at',
     )
     .eq('proyecto_id', params.id)
     .gte('fecha', desde)
@@ -54,9 +54,21 @@ export default async function RdosProyectoPage({
     .order('fecha', { ascending: false })
     .limit(200);
 
+  const userIds = [...new Set((rdos ?? []).map((r) => r.reportado_por).filter(Boolean))] as string[];
+  const perfilMap = new Map<string, { full_name: string; email: string }>();
+  if (userIds.length > 0) {
+    const { data: perfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', userIds);
+    (perfiles ?? []).forEach((p) =>
+      perfilMap.set(p.id, { full_name: p.full_name, email: p.email }),
+    );
+  }
+
   const items = (rdos ?? []).map((r) => ({
     ...r,
-    perfil: Array.isArray(r.perfil) ? r.perfil[0] ?? null : r.perfil,
+    perfil: r.reportado_por ? perfilMap.get(r.reportado_por) ?? null : null,
   }));
 
   const inputClass =
