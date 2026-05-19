@@ -1,19 +1,28 @@
 import { ArrowLeftRight, TrendingUp } from 'lucide-react';
 import { getTipoCambio } from '@/lib/finanzas/tipo-cambio';
 
+const ORIGEN_LABEL: Record<string, string> = {
+  sunat: 'SUNAT',
+  'er-api': 'ExchangeRate-API',
+  'exchangerate-api': 'ExchangeRate.com',
+};
+
 /**
- * Banner con el tipo de cambio USD/PEN actual SUNAT.
- * Se actualiza cada hora (revalidate en el fetch).
- * Server component — se puede embeber en cualquier página ERP.
+ * Banner con el tipo de cambio USD/PEN actual.
+ * Si todas las fuentes fallan, el banner no se renderiza.
  */
 export async function TipoCambioBanner() {
   const tc = await getTipoCambio();
+  if (!tc) return null;
+
   const fechaLima = new Date(tc.fecha + 'T12:00:00').toLocaleDateString('es-PE', {
     timeZone: 'America/Lima',
     day: '2-digit',
     month: 'short',
     year: 'numeric',
   });
+
+  const esSunat = tc.origen === 'sunat';
 
   return (
     <div className="azur-card flex flex-wrap items-center justify-between gap-4 border-azur-coral/40 bg-gradient-to-r from-azur-coral/10 via-white to-white p-4">
@@ -23,7 +32,7 @@ export async function TipoCambioBanner() {
         </div>
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Tipo de cambio SUNAT
+            Tipo de cambio · {ORIGEN_LABEL[tc.origen] ?? tc.origen}
           </p>
           <p className="font-display text-sm font-bold text-azur-ink">
             USD → PEN · {fechaLima}
@@ -47,15 +56,15 @@ export async function TipoCambioBanner() {
             S/ {tc.venta.toFixed(3)}
           </p>
         </div>
-        {tc.origen === 'fallback' && (
-          <span className="rounded-full bg-warning/15 px-2 py-0.5 text-[10px] font-semibold text-[hsl(38_92%_30%)]" title="API SUNAT no disponible, mostrando valor referencial">
-            Referencial
-          </span>
-        )}
-        {tc.origen === 'sunat' && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success">
+        {esSunat ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-semibold text-success" title="Tipo de cambio oficial publicado por SUNAT">
             <TrendingUp className="h-3 w-3" />
-            Oficial
+            Oficial SUNAT
+          </span>
+        ) : (
+          <span className="inline-flex items-center gap-1 rounded-full bg-azur-coral/20 px-2 py-0.5 text-[10px] font-semibold text-azur-red" title={`Fuente: ${ORIGEN_LABEL[tc.origen] ?? tc.origen} (mercado internacional)`}>
+            <TrendingUp className="h-3 w-3" />
+            Mercado
           </span>
         )}
       </div>

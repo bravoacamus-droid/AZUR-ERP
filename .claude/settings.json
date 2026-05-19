@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://azur-erp.vercel.app/api/push/test\")",
+      "Bash(curl -s \"https://azur-erp.vercel.app/_next/static/\" -I)",
+      "Bash(curl -s \"https://azur-erp.vercel.app\" -I)",
+      "Bash(curl -s \"https://azur-erp.vercel.app/sw.js\")",
+      "Bash(git restore *)"
+    ]
+  }
+}

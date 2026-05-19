@@ -90,13 +90,16 @@ export type Database = {
       almacen_movimientos: {
         Row: {
           cantidad: number
+          costo_unit: number | null
           created_at: string
           descripcion: string
           fecha: string
           id: string
           insumo_id: string | null
           notas: string | null
-          proyecto_id: string
+          numero_documento: string | null
+          proveedor: string | null
+          proyecto_id: string | null
           registrado_por: string | null
           responsable: string | null
           tipo: string
@@ -104,13 +107,16 @@ export type Database = {
         }
         Insert: {
           cantidad: number
+          costo_unit?: number | null
           created_at?: string
           descripcion: string
           fecha?: string
           id?: string
           insumo_id?: string | null
           notas?: string | null
-          proyecto_id: string
+          numero_documento?: string | null
+          proveedor?: string | null
+          proyecto_id?: string | null
           registrado_por?: string | null
           responsable?: string | null
           tipo: string
@@ -118,13 +124,16 @@ export type Database = {
         }
         Update: {
           cantidad?: number
+          costo_unit?: number | null
           created_at?: string
           descripcion?: string
           fecha?: string
           id?: string
           insumo_id?: string | null
           notas?: string | null
-          proyecto_id?: string
+          numero_documento?: string | null
+          proveedor?: string | null
+          proyecto_id?: string | null
           registrado_por?: string | null
           responsable?: string | null
           tipo?: string
@@ -137,6 +146,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "insumos_maestros"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "v_almacen_central_stock"
+            referencedColumns: ["insumo_id"]
           },
           {
             foreignKeyName: "almacen_movimientos_proyecto_id_fkey"
@@ -515,6 +531,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "cotizacion_apu_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "v_almacen_central_stock"
+            referencedColumns: ["insumo_id"]
+          },
+          {
             foreignKeyName: "cotizacion_apu_unidad_fkey"
             columns: ["unidad"]
             isOneToOne: false
@@ -731,6 +754,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "insumos_maestros"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuadrilla_componentes_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "v_almacen_central_stock"
+            referencedColumns: ["insumo_id"]
           },
         ]
       }
@@ -1104,6 +1134,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "insumos_maestros"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "partida_apu_componentes_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "v_almacen_central_stock"
+            referencedColumns: ["insumo_id"]
           },
           {
             foreignKeyName: "partida_apu_componentes_partida_id_fkey"
@@ -2385,6 +2422,30 @@ export type Database = {
       }
     }
     Views: {
+      v_almacen_central_stock: {
+        Row: {
+          cantidad_movimientos: number | null
+          categoria: string | null
+          descripcion: string | null
+          insumo_codigo: string | null
+          insumo_id: string | null
+          stock_disponible: number | null
+          total_devoluciones: number | null
+          total_ingresos: number | null
+          total_salidas: number | null
+          ultimo_movimiento: string | null
+          unidad: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "insumos_maestros_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidades_medida"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
       v_almacen_stock: {
         Row: {
           cantidad_movimientos: number | null
@@ -2408,6 +2469,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "insumos_maestros"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "v_almacen_central_stock"
+            referencedColumns: ["insumo_id"]
           },
           {
             foreignKeyName: "almacen_movimientos_proyecto_id_fkey"

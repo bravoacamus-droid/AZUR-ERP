@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import {
   AlertTriangle,
   ArrowDownToLine,
@@ -7,6 +8,7 @@ import {
   CheckCircle2,
   Package,
   PackageCheck,
+  ShoppingCart,
   Users,
   Warehouse,
 } from 'lucide-react';
@@ -15,6 +17,7 @@ import { requireSession } from '@/lib/auth/server';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
+import { CompraForm, type InsumoOption } from './compra-form';
 
 export const metadata = { title: 'Almacén · Movimientos por proyecto' };
 export const dynamic = 'force-dynamic';
@@ -26,13 +29,16 @@ type SearchParams = {
   hasta?: string;
 };
 
+const ROLES_PUEDEN_COMPRAR = ['gerencia_general', 'jefe_proyectos', 'administrador'];
+
 export default async function AlmacenErpPage({
   searchParams,
 }: {
   searchParams?: SearchParams;
 }) {
-  await requireSession();
+  const session = await requireSession();
   const supabase = createClient();
+  const puedeComprar = ROLES_PUEDEN_COMPRAR.includes(session.rol);
 
   // Lista de proyectos para el filtro
   const { data: proyectos } = await supabase
@@ -40,6 +46,33 @@ export default async function AlmacenErpPage({
     .select('id, codigo, nombre')
     .neq('estado', 'cancelado')
     .order('codigo', { ascending: false });
+
+  // Catálogo para el form de compra
+  const { data: insumosCatalogo } = await supabase
+    .from('insumos_maestros')
+    .select('id, codigo, descripcion, categoria, unidad, precio_unit')
+    .eq('activo', true)
+    .in('categoria', ['equipo', 'material'])
+    .order('codigo');
+  const insumosOptions: InsumoOption[] = (insumosCatalogo ?? []).map((i) => ({
+    id: i.id,
+    codigo: i.codigo,
+    descripcion: i.descripcion,
+    categoria: i.categoria,
+    unidad: i.unidad,
+    precio_unit: i.precio_unit != null ? Number(i.precio_unit) : null,
+  }));
+
+  // Stock del almacén CENTRAL (lo que físicamente está)
+  const { data: stockCentralData } = await supabase
+    .from('v_almacen_central_stock')
+    .select('insumo_codigo, descripcion, categoria, unidad, total_ingresos, total_salidas, total_devoluciones, stock_disponible, ultimo_movimiento')
+    .gt('total_ingresos', 0)
+    .order('stock_disponible', { ascending: false })
+    .limit(200);
+  const stockCentral = stockCentralData ?? [];
+  const stockCentralItems = stockCentral.length;
+  const stockAgotado = stockCentral.filter((s) => Number(s.stock_disponible ?? 0) <= 0).length;
 
   // Query movimientos
   let q = supabase
@@ -95,7 +128,7 @@ export default async function AlmacenErpPage({
     <div className="space-y-8">
       <PageHeader
         title="Almacén"
-        description="Movimientos de herramientas y materiales por proyecto — salidas y devoluciones registradas desde campo."
+        description="Stock del almacén central, ingresos por compras y movimientos cruzados por proyecto."
         icon={Package}
         breadcrumbs={[{ label: 'Almacén' }]}
       />
@@ -103,17 +136,24 @@ export default async function AlmacenErpPage({
       {/* KPIs */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
-          icon={ArrowUpFromLine}
-          label="Salidas"
-          value={totalSalidas}
-          subtitle="Material entregado a campo"
+          icon={Warehouse}
+          label="Items en almacén central"
+          value={stockCentralItems}
+          subtitle={stockAgotado > 0 ? `${stockAgotado} agotado(s)` : 'Stock saludable'}
           accent="brand"
+        />
+        <Kpi
+          icon={ArrowUpFromLine}
+          label="Salidas a obra"
+          value={totalSalidas}
+          subtitle="Movimientos a proyectos"
+          accent="default"
         />
         <Kpi
           icon={ArrowDownToLine}
           label="Devoluciones"
           value={totalDevoluciones}
-          subtitle="Material regresado a almacén"
+          subtitle="Regresaron al central"
           accent="success"
         />
         <Kpi
@@ -122,13 +162,103 @@ export default async function AlmacenErpPage({
           value={proyectosConMov}
           accent="default"
         />
-        <Kpi
-          icon={Users}
-          label="Responsables únicos"
-          value={responsablesUnicos}
-          accent="default"
-        />
       </div>
+
+      {/* Stock del almacén central */}
+      <section className="azur-card overflow-hidden p-0">
+        <header className="flex items-center justify-between border-b border-border/60 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-azur-gradient text-white shadow-azur-md">
+              <Warehouse className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-display text-base font-bold text-azur-ink">
+                Stock del almacén central
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Lo que físicamente tienes disponible para entregar a las obras (compras − salidas + devoluciones).
+              </p>
+            </div>
+          </div>
+        </header>
+        {stockCentral.length === 0 ? (
+          <div className="px-6 py-8 text-center">
+            <p className="text-sm text-muted-foreground">
+              Aún no hay ingresos al almacén central. Usa el form de abajo para registrar tu primera compra.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-azur-coral/5 text-left text-xs uppercase tracking-wider text-azur-red">
+                <tr>
+                  <th className="px-6 py-3 font-semibold">Insumo</th>
+                  <th className="px-6 py-3 font-semibold">Categoría</th>
+                  <th className="px-6 py-3 text-right font-semibold">Ingresos</th>
+                  <th className="px-6 py-3 text-right font-semibold">Salidas</th>
+                  <th className="px-6 py-3 text-right font-semibold">Devolv.</th>
+                  <th className="px-6 py-3 text-right font-semibold">Stock actual</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {stockCentral.map((s, i) => {
+                  const stock = Number(s.stock_disponible ?? 0);
+                  const stockColor = stock <= 0 ? 'destructive' : stock < 5 ? 'warning' : 'success';
+                  return (
+                    <tr key={`${s.insumo_codigo}-${i}`} className="hover:bg-azur-coral/5">
+                      <td className="px-6 py-2.5">
+                        <p className="text-sm font-semibold text-azur-ink">{s.descripcion}</p>
+                        <p className="font-mono text-[10px] text-muted-foreground">
+                          {s.insumo_codigo}
+                        </p>
+                      </td>
+                      <td className="px-6 py-2.5">
+                        <Badge variant={s.categoria === 'equipo' ? 'default' : 'coral'}>
+                          {s.categoria === 'equipo' ? 'Herramienta' : 'Material'}
+                        </Badge>
+                      </td>
+                      <td className="px-6 py-2.5 text-right font-mono text-xs text-success">
+                        +{Number(s.total_ingresos).toLocaleString('es-PE')}
+                      </td>
+                      <td className="px-6 py-2.5 text-right font-mono text-xs text-azur-red">
+                        −{Number(s.total_salidas).toLocaleString('es-PE')}
+                      </td>
+                      <td className="px-6 py-2.5 text-right font-mono text-xs text-muted-foreground">
+                        +{Number(s.total_devoluciones).toLocaleString('es-PE')}
+                      </td>
+                      <td className="px-6 py-2.5 text-right">
+                        <Badge variant={stockColor}>
+                          {Number(stock).toLocaleString('es-PE')} {s.unidad}
+                        </Badge>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Form de compra (solo gerencia/jefe/admin) */}
+      {puedeComprar && (
+        <section className="azur-card p-6">
+          <header className="mb-4 flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-azur-coral/20 text-azur-red">
+              <ShoppingCart className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-display text-base font-bold text-azur-ink">
+                Registrar compra / ingreso al almacén central
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Cada compra a proveedor incrementa el stock del central.
+              </p>
+            </div>
+          </header>
+          <CompraForm insumos={insumosOptions} />
+        </section>
+      )}
 
       {/* Filtros */}
       <form className="azur-card grid gap-3 sm:grid-cols-2 lg:grid-cols-5 lg:items-end">
