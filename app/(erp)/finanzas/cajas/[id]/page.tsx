@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatPEN } from '@/lib/utils';
 import { MovimientoForm } from './movimiento-form';
+import { TrasladoDialog } from './traslado-dialog';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,6 +40,20 @@ export default async function CajaDetallePage({ params }: { params: { id: string
   ]);
 
   if (!caja) notFound();
+
+  // Cajas posibles destino para traslado (misma moneda, distinta de la actual, activas)
+  const { data: destinosRaw } = await supabase
+    .from('v_cajas_saldos')
+    .select('id, nombre, tipo, moneda, saldo_actual')
+    .eq('moneda', caja.moneda)
+    .neq('id', caja.id);
+  const cajasDestino = (destinosRaw ?? []).map((d) => ({
+    id: d.id as string,
+    nombre: d.nombre as string,
+    tipo: d.tipo as string,
+    moneda: d.moneda as string,
+    saldo_actual: Number(d.saldo_actual ?? 0),
+  }));
 
   const { data: movsRaw } = await supabase
     .from('caja_movimientos')
@@ -89,6 +104,15 @@ export default async function CajaDetallePage({ params }: { params: { id: string
           { label: 'Cajas', href: '/finanzas/cajas' },
           { label: caja.nombre },
         ]}
+        actions={
+          <TrasladoDialog
+            cajaOrigenId={caja.id}
+            cajaOrigenNombre={caja.nombre}
+            cajaOrigenMoneda={caja.moneda}
+            saldoOrigen={saldo}
+            cajasDestino={cajasDestino}
+          />
+        }
       />
 
       {/* KPIs */}
