@@ -5,6 +5,7 @@
 import {
   BarChart3,
   Bell,
+  BookOpen,
   Briefcase,
   Building2,
   Calculator,
@@ -82,6 +83,7 @@ const ERP_NAV_BY_ROLE: Record<RolSistema, NavGroup[]> = {
       items: [
         { label: 'Usuarios', href: '/usuarios', icon: UserCog },
         { label: 'Auditoría', href: '/auditoria', icon: History },
+        { label: 'Manual de usuario', href: '/manual', icon: BookOpen },
       ],
     },
   ],
