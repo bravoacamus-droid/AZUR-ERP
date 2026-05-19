@@ -80,6 +80,7 @@ export function UbicacionEditor({ proyectoId, ubigeos, initial, onSaved }: Props
   const [radio, setRadio] = useState(Number(initial.radio_geofence_m ?? 200));
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState<Nominatim[]>([]);
   const [pending, startTransition] = useTransition();
 
   // Provincias filtradas por departamento (de distritos seedeados)
@@ -119,7 +120,7 @@ export function UbicacionEditor({ proyectoId, ubigeos, initial, onSaved }: Props
     }
   }
 
-  // Search address via Nominatim
+  // Search address via Nominatim (devuelve top 5 para que el usuario elija)
   async function searchAddress() {
     const q = searchQuery.trim();
     if (q.length < 3) {
@@ -127,30 +128,51 @@ export function UbicacionEditor({ proyectoId, ubigeos, initial, onSaved }: Props
       return;
     }
     setSearching(true);
+    setSearchResults([]);
     try {
       const url = new URL('https://nominatim.openstreetmap.org/search');
       url.searchParams.set('q', q);
       url.searchParams.set('format', 'json');
       url.searchParams.set('countrycodes', 'pe');
-      url.searchParams.set('limit', '1');
+      url.searchParams.set('limit', '5');
       url.searchParams.set('addressdetails', '1');
+      url.searchParams.set('accept-language', 'es');
+      // Bounding box aproximado de Perú para priorizar resultados peruanos
+      url.searchParams.set('viewbox', '-81.4,-0.04,-68.6,-18.4');
+      url.searchParams.set('bounded', '1');
       const res = await fetch(url.toString(), {
         headers: { 'Accept-Language': 'es' },
       });
       const data = (await res.json()) as Nominatim[];
       if (!data || data.length === 0) {
-        toast.error('No se encontró esa dirección');
+        toast.error('No se encontró esa dirección. Intenta con menos detalle (ej. solo calle + distrito).');
         return;
       }
-      const r = data[0]!;
-      setCoords({ lat: Number(r.lat), lng: Number(r.lon) });
-      if (!direccion) setDireccion(r.display_name);
-      toast.success('Ubicación encontrada');
+      setSearchResults(data);
+      // Si solo hay 1 resultado, aplicar directo
+      if (data.length === 1) {
+        applyResult(data[0]!);
+      }
     } catch {
       toast.error('Error al buscar (verifica tu conexión)');
     } finally {
       setSearching(false);
     }
+  }
+
+  function applyResult(r: Nominatim) {
+    setCoords({ lat: Number(r.lat), lng: Number(r.lon) });
+    if (!direccion) setDireccion(r.display_name);
+    // Auto-fill ubigeo si el address tiene esa info
+    const addr = r.address;
+    if (addr?.state && !departamento) {
+      const match = departamentos.find((d) =>
+        d.departamento.toLowerCase().includes(addr.state!.toLowerCase()),
+      );
+      if (match) setDepartamento(match.departamento);
+    }
+    setSearchResults([]);
+    toast.success('Ubicación aplicada — ajusta el marcador si es necesario');
   }
 
   function save() {
@@ -204,8 +226,33 @@ export function UbicacionEditor({ proyectoId, ubigeos, initial, onSaved }: Props
           </Button>
         </div>
         <p className="text-[11px] text-muted-foreground">
-          Busca por dirección o referencia. Solo Perú. Powered by OpenStreetMap.
+          Busca por dirección o referencia. Solo Perú. Powered by OpenStreetMap. Si el resultado no
+          es exacto, ajusta el marcador en el mapa con la mano.
         </p>
+
+        {searchResults.length > 1 && (
+          <div className="rounded-xl border border-azur-coral/40 bg-azur-coral/5 p-2">
+            <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wider text-azur-red">
+              {searchResults.length} resultados — elige el correcto
+            </p>
+            <ul className="space-y-1">
+              {searchResults.map((r, i) => (
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => applyResult(r)}
+                    className="w-full rounded-lg border border-transparent bg-white p-2 text-left text-xs transition-colors hover:border-azur-red hover:bg-azur-coral/10"
+                  >
+                    <p className="line-clamp-2 font-medium text-azur-ink">{r.display_name}</p>
+                    <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                      {Number(r.lat).toFixed(5)}, {Number(r.lon).toFixed(5)}
+                    </p>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
 
       {/* Ubigeo */}
