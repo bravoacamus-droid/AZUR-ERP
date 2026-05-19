@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
 import { optionalString, optionalUuid } from '@/lib/zod-helpers';
+import { autoMovimientoPorPago } from '@/lib/finanzas/cajas-auto';
 
 const ROLES_APROBADORES = ['gerencia_general', 'jefe_proyectos', 'jefe_presupuestos', 'administrador'] as const;
 const ROLES_SOLICITAR = [
@@ -223,7 +224,7 @@ export async function programarPago(formData: FormData) {
 }
 
 export async function subirVoucher(formData: FormData) {
-  await requireSession();
+  const session = await requireSession();
   const pagoId = formData.get('pago_id') as string;
   const file = formData.get('file') as File | null;
   if (!pagoId || !file || file.size === 0) throw new Error('Selecciona un archivo');
@@ -263,7 +264,21 @@ export async function subirVoucher(formData: FormData) {
       .from('solicitudes_pago')
       .update({ estado: 'pagada' })
       .eq('id', pago.solicitud_id);
+
+    // Auto-movimiento de caja (traslado o salida según categoría)
+    try {
+      await autoMovimientoPorPago(supabase, {
+        userId: session.userId,
+        solicitudId: pago.solicitud_id,
+      });
+      revalidatePath('/finanzas/cajas');
+    } catch (err) {
+      // No revertir el pago — solo log
+      console.error('autoMovimientoPorPago error:', err);
+    }
+
     revalidatePath(`/finanzas/solicitudes/${pago.solicitud_id}`);
+    revalidatePath(`/solicitudes/${pago.solicitud_id}`);
   }
 
   revalidatePath('/finanzas/pagos');

@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
 import { optionalString } from '@/lib/zod-helpers';
+import { autoMovimientoPorCobroValorizacion } from '@/lib/finanzas/cajas-auto';
 
 const generarSchema = z.object({
   proyecto_id: z.string().uuid(),
@@ -50,7 +51,7 @@ const cambiarEstadoSchema = z.object({
 });
 
 export async function cambiarEstadoValorizacion(formData: FormData) {
-  await requireSession();
+  const session = await requireSession();
   const parsed = cambiarEstadoSchema.safeParse({
     id: formData.get('id'),
     proyecto_id: formData.get('proyecto_id'),
@@ -68,6 +69,19 @@ export async function cambiarEstadoValorizacion(formData: FormData) {
   };
   const { error } = await supabase.from('valorizaciones').update(patch).eq('id', parsed.data.id);
   if (error) throw new Error(error.message);
+
+  // Auto-crédito en caja central al cobrar
+  if (parsed.data.estado === 'pagada') {
+    try {
+      await autoMovimientoPorCobroValorizacion(supabase, {
+        userId: session.userId,
+        valorizacionId: parsed.data.id,
+      });
+      revalidatePath('/finanzas/cajas');
+    } catch (err) {
+      console.error('autoMovimientoPorCobroValorizacion error:', err);
+    }
+  }
 
   revalidatePath(`/proyectos/${parsed.data.proyecto_id}/valorizaciones`);
   revalidatePath(`/proyectos/${parsed.data.proyecto_id}/valorizaciones/${parsed.data.id}`);
