@@ -60,6 +60,7 @@ const ERP_ROUTES = [
   '/comercial',
   '/usuarios',
   '/auditoria',
+  '/inventario',
 ] as const;
 
 const PWA_ROUTES = [
@@ -90,10 +91,10 @@ export function isAuthRoute(pathname: string) {
 // ----------------------- Permisos por rol -----------------------
 
 const ROL_ALLOWED_ERP: Record<RolSistema, string[]> = {
-  gerencia_general: ['/dashboard', '/finanzas', '/proyectos', '/comercial', '/usuarios', '/auditoria'],
-  jefe_proyectos: ['/proyectos', '/finanzas'],
+  gerencia_general: ['/dashboard', '/finanzas', '/proyectos', '/comercial', '/usuarios', '/auditoria', '/inventario'],
+  jefe_proyectos: ['/proyectos', '/finanzas', '/inventario'],
   jefe_presupuestos: ['/comercial', '/proyectos'],
-  administrador: ['/finanzas'],
+  administrador: ['/finanzas', '/inventario'],
   comercial: ['/comercial'],
   residente: [], // residente no entra al ERP
 };

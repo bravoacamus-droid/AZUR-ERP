@@ -63,6 +63,7 @@ const ERP_NAV_BY_ROLE: Record<RolSistema, NavGroup[]> = {
         { label: 'Proyectos', href: '/proyectos', icon: Building2, description: 'Avance físico vs financiero' },
         { label: 'Cotizaciones', href: '/comercial/cotizaciones', icon: ClipboardCheck, description: 'Pipeline comercial' },
         { label: 'Catálogo & APU', href: '/comercial/catalogo', icon: Calculator, description: 'Partidas e insumos' },
+        { label: 'Almacén', href: '/inventario', icon: Package, description: 'Salidas y devoluciones por proyecto' },
       ],
     },
     {
@@ -88,6 +89,7 @@ const ERP_NAV_BY_ROLE: Record<RolSistema, NavGroup[]> = {
       label: 'Mis proyectos',
       items: [
         { label: 'Proyectos', href: '/proyectos', icon: Building2 },
+        { label: 'Almacén', href: '/inventario', icon: Package, description: 'Salidas y devoluciones por proyecto' },
       ],
     },
     {
@@ -125,6 +127,12 @@ const ERP_NAV_BY_ROLE: Record<RolSistema, NavGroup[]> = {
         { label: 'Pagos', href: '/finanzas/pagos', icon: Receipt },
         { label: 'Cajas', href: '/finanzas/cajas', icon: Wallet },
         { label: 'Reportes', href: '/finanzas/reportes', icon: FileText },
+      ],
+    },
+    {
+      label: 'Operación',
+      items: [
+        { label: 'Almacén', href: '/inventario', icon: Package, description: 'Salidas y devoluciones por proyecto' },
       ],
     },
   ],
