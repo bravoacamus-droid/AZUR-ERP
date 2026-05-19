@@ -165,8 +165,9 @@ export async function decidirSolicitud(formData: FormData) {
     .eq('id', parsed.data.id);
   if (error) throw new Error(error.message);
 
-  // Push al solicitante
-  const { data: sol } = await supabase
+  // Push al solicitante (admin client para bypass RLS)
+  const adminClient = createAdminClient();
+  const { data: sol } = await adminClient
     .from('solicitudes_pago')
     .select('solicitado_por, concepto, monto, moneda')
     .eq('id', parsed.data.id)
@@ -233,7 +234,8 @@ export async function programarPago(formData: FormData) {
   if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Datos inválidos');
 
   const supabase = createClient();
-  const { data: sol } = await supabase
+  const adminClient = createAdminClient();
+  const { data: sol } = await adminClient
     .from('solicitudes_pago')
     .select('moneda, solicitado_por, concepto')
     .eq('id', parsed.data.solicitud_id)
@@ -330,8 +332,8 @@ export async function subirVoucher(formData: FormData) {
       console.error('autoMovimientoPorPago error:', err);
     }
 
-    // Push al solicitante: pago ejecutado
-    const { data: solPago } = await supabase
+    // Push al solicitante: pago ejecutado (admin para bypass RLS)
+    const { data: solPago } = await admin
       .from('solicitudes_pago')
       .select('solicitado_por, concepto')
       .eq('id', pago.solicitud_id)
