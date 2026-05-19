@@ -6,11 +6,14 @@ const withPWA = withPWAInit({
   aggressiveFrontEndNavCaching: true,
   reloadOnOnline: true,
   swcMinify: true,
+  register: true,
   disable: process.env.NODE_ENV === 'development',
   extendDefaultRuntimeCaching: false,
   workboxOptions: {
     disableDevLogs: true,
     importScripts: ['/sw-push.js'],
+    skipWaiting: true,
+    clientsClaim: true,
     runtimeCaching: [
       {
         // App shell / pages

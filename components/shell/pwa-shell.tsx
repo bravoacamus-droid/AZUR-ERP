@@ -22,7 +22,12 @@ export function PwaShell({ children, fullName, email, rol, cargo }: PwaShellProp
     <div className="min-h-screen bg-gradient-to-b from-azur-coral/15 via-white to-white safe-top">
       <Topbar fullName={fullName} email={email} rol={rol} cargo={cargo} surface="pwa" />
 
-      <main className="px-4 pb-40 pt-6 safe-bottom">{children}</main>
+      <main
+        className="px-4 pt-6"
+        style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 7rem)' }}
+      >
+        {children}
+      </main>
 
       <BottomNav primary={primary} more={more} />
       <InstallPwaPrompt />
