@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
 import { optionalString, optionalUuid } from '@/lib/zod-helpers';
 import { autoMovimientoPorPago } from '@/lib/finanzas/cajas-auto';
+import { notifyUser, notifyRoles, ROLES_APROBADORES_PUSH } from '@/lib/push/notify';
 
 const ROLES_APROBADORES = ['gerencia_general', 'jefe_proyectos', 'jefe_presupuestos', 'administrador'] as const;
 const ROLES_SOLICITAR = [
@@ -93,6 +94,15 @@ export async function crearSolicitud(
   revalidatePath('/finanzas/aprobaciones');
   revalidatePath('/solicitudes');
 
+  // Push a aprobadores (fire-and-forget)
+  const montoFmt = parsed.data.monto.toLocaleString('es-PE', { minimumFractionDigits: 2 });
+  await notifyRoles(ROLES_APROBADORES_PUSH, {
+    title: `Nueva solicitud · ${parsed.data.moneda} ${montoFmt}`,
+    body: `${parsed.data.concepto} — ${parsed.data.beneficiario}`,
+    url: `/finanzas/solicitudes/${data.id}`,
+    tag: `solicitud-${data.id}`,
+  });
+
   // El residente vive en la PWA y no puede acceder a /finanzas/*
   const base = session.rol === 'residente' ? '/solicitudes' : '/finanzas/solicitudes';
   redirect(`${base}/${data.id}`);
@@ -155,6 +165,38 @@ export async function decidirSolicitud(formData: FormData) {
     .eq('id', parsed.data.id);
   if (error) throw new Error(error.message);
 
+  // Push al solicitante
+  const { data: sol } = await supabase
+    .from('solicitudes_pago')
+    .select('solicitado_por, concepto, monto, moneda')
+    .eq('id', parsed.data.id)
+    .single();
+  if (sol?.solicitado_por) {
+    const montoFmt = Number(sol.monto ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2 });
+    let title = '';
+    let body = '';
+    if (parsed.data.decision === 'aprobar_jefe') {
+      title = `✓ Solicitud aprobada · ${sol.moneda} ${montoFmt}`;
+      body = `${sol.concepto} — aprobada por jefatura, pendiente programar pago.`;
+    } else if (parsed.data.decision === 'aprobar_gerencia') {
+      title = `✓ Aprobación final · ${sol.moneda} ${montoFmt}`;
+      body = `${sol.concepto} — aprobada por gerencia.`;
+    } else if (parsed.data.decision === 'rechazar') {
+      title = `✗ Solicitud rechazada · ${sol.moneda} ${montoFmt}`;
+      body = parsed.data.motivo ? `Motivo: ${parsed.data.motivo}` : sol.concepto ?? '';
+    } else {
+      title = 'Solicitud cancelada';
+      body = sol.concepto ?? '';
+    }
+    const base = '/solicitudes'; // ruta común al PWA, residente la abre directo
+    await notifyUser(sol.solicitado_por, {
+      title,
+      body,
+      url: `${base}/${parsed.data.id}`,
+      tag: `solicitud-${parsed.data.id}`,
+    });
+  }
+
   revalidatePath('/finanzas/aprobaciones');
   revalidatePath('/finanzas/solicitudes');
   revalidatePath(`/finanzas/solicitudes/${parsed.data.id}`);
@@ -193,7 +235,7 @@ export async function programarPago(formData: FormData) {
   const supabase = createClient();
   const { data: sol } = await supabase
     .from('solicitudes_pago')
-    .select('moneda')
+    .select('moneda, solicitado_por, concepto')
     .eq('id', parsed.data.solicitud_id)
     .single();
 
@@ -217,6 +259,17 @@ export async function programarPago(formData: FormData) {
     .update({ estado: 'programada' })
     .eq('id', parsed.data.solicitud_id);
   if (solError) throw new Error(solError.message);
+
+  // Push al solicitante
+  if (sol?.solicitado_por) {
+    const montoFmt = parsed.data.monto.toLocaleString('es-PE', { minimumFractionDigits: 2 });
+    await notifyUser(sol.solicitado_por, {
+      title: `📅 Pago programado · ${sol.moneda ?? 'PEN'} ${montoFmt}`,
+      body: `${sol.concepto ?? 'Solicitud'} — programado para ${parsed.data.fecha_programada}.`,
+      url: `/solicitudes/${parsed.data.solicitud_id}`,
+      tag: `solicitud-${parsed.data.solicitud_id}`,
+    });
+  }
 
   revalidatePath('/finanzas/solicitudes');
   revalidatePath('/finanzas/pagos');
@@ -246,7 +299,7 @@ export async function subirVoucher(formData: FormData) {
   const supabase = createClient();
   const { data: pago } = await supabase
     .from('pagos')
-    .select('solicitud_id')
+    .select('solicitud_id, monto, moneda')
     .eq('id', pagoId)
     .single();
 
@@ -275,6 +328,22 @@ export async function subirVoucher(formData: FormData) {
     } catch (err) {
       // No revertir el pago — solo log
       console.error('autoMovimientoPorPago error:', err);
+    }
+
+    // Push al solicitante: pago ejecutado
+    const { data: solPago } = await supabase
+      .from('solicitudes_pago')
+      .select('solicitado_por, concepto')
+      .eq('id', pago.solicitud_id)
+      .single();
+    if (solPago?.solicitado_por) {
+      const montoFmt = Number(pago.monto ?? 0).toLocaleString('es-PE', { minimumFractionDigits: 2 });
+      await notifyUser(solPago.solicitado_por, {
+        title: `💰 Pago ejecutado · ${pago.moneda ?? 'PEN'} ${montoFmt}`,
+        body: `${solPago.concepto ?? 'Solicitud'} — voucher disponible.`,
+        url: `/solicitudes/${pago.solicitud_id}`,
+        tag: `solicitud-${pago.solicitud_id}`,
+      });
     }
 
     revalidatePath(`/finanzas/solicitudes/${pago.solicitud_id}`);
