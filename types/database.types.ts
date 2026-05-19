@@ -776,6 +776,7 @@ export type Database = {
           tamano_bytes: number | null
           tipo_mime: string | null
           titulo: string
+          visibilidad: string
         }
         Insert: {
           carpeta?: string
@@ -788,6 +789,7 @@ export type Database = {
           tamano_bytes?: number | null
           tipo_mime?: string | null
           titulo: string
+          visibilidad?: string
         }
         Update: {
           carpeta?: string
@@ -800,6 +802,7 @@ export type Database = {
           tamano_bytes?: number | null
           tipo_mime?: string | null
           titulo?: string
+          visibilidad?: string
         }
         Relationships: [
           {

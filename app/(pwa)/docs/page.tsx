@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { File, FolderOpen, Upload } from 'lucide-react';
+import { File, FolderOpen, Lock, Upload } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
@@ -8,6 +8,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/ui/empty-state';
+import {
+  CARPETA_LABEL,
+  CARPETA_VARIANT,
+  VISIBILIDAD_LABEL,
+  VISIBILIDAD_VARIANT,
+  formatBytes,
+  visibilidadesPermitidas,
+  type DocCarpeta,
+  type DocVisibilidad,
+} from '@/lib/proyectos/documentos';
 import { subirDocumento } from './actions';
 
 export const metadata = { title: 'Documentos del proyecto' };
@@ -16,33 +26,10 @@ export const dynamic = 'force-dynamic';
 const inputClass =
   'flex h-11 w-full rounded-xl border border-input bg-background px-3 text-sm shadow-sm focus-visible:border-azur-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azur-coral/40';
 
-const CARPETA_LABEL: Record<string, string> = {
-  general: 'General',
-  planos: 'Planos',
-  contratos: 'Contratos',
-  cotizaciones: 'Cotizaciones',
-  fichas: 'Fichas técnicas',
-  permisos: 'Permisos',
-};
-
-const CARPETA_VARIANT: Record<string, 'default' | 'coral' | 'success' | 'outline' | 'ink'> = {
-  general: 'outline',
-  planos: 'default',
-  contratos: 'coral',
-  cotizaciones: 'success',
-  fichas: 'ink',
-  permisos: 'outline',
-};
-
-function formatSize(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
 export default async function DocsPage() {
   const session = await requireSession();
   const supabase = createClient();
+  const visPermitidas = visibilidadesPermitidas(session.rol);
 
   const { data: asignados } = await supabase
     .from('usuario_proyectos')
@@ -69,7 +56,7 @@ export default async function DocsPage() {
   const { data: docs } = proyectoIds.length
     ? await supabase
         .from('documentos_proyecto')
-        .select('id, titulo, descripcion, carpeta, storage_path, tipo_mime, tamano_bytes, created_at, proyecto:proyecto_id(codigo)')
+        .select('id, titulo, descripcion, carpeta, visibilidad, storage_path, tipo_mime, tamano_bytes, created_at, proyecto:proyecto_id(codigo)')
         .in('proyecto_id', proyectoIds)
         .order('created_at', { ascending: false })
         .limit(50)
@@ -124,9 +111,9 @@ export default async function DocsPage() {
             <div className="space-y-2">
               <Label htmlFor="carpeta">Carpeta</Label>
               <select name="carpeta" id="carpeta" required className={inputClass} defaultValue="general">
-                {Object.entries(CARPETA_LABEL).map(([v, l]) => (
+                {(Object.keys(CARPETA_LABEL) as DocCarpeta[]).map((v) => (
                   <option key={v} value={v}>
-                    {l}
+                    {CARPETA_LABEL[v]}
                   </option>
                 ))}
               </select>
@@ -136,6 +123,29 @@ export default async function DocsPage() {
               <Input name="titulo" id="titulo" required minLength={3} placeholder="Ej. Plano arq. nivel 3" />
             </div>
           </div>
+          {visPermitidas.length > 1 ? (
+            <div className="space-y-2">
+              <Label htmlFor="visibilidad">Visibilidad</Label>
+              <select
+                name="visibilidad"
+                id="visibilidad"
+                required
+                className={inputClass}
+                defaultValue="publica"
+              >
+                {visPermitidas.map((v) => (
+                  <option key={v} value={v}>
+                    {VISIBILIDAD_LABEL[v]}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground">
+                Pública: todos los del proyecto · Mando: solo jefes/gerencia · Gerencia: solo gerencia general.
+              </p>
+            </div>
+          ) : (
+            <input type="hidden" name="visibilidad" value="publica" />
+          )}
           <div className="space-y-2">
             <Label htmlFor="file">Archivo (máx 50 MB)</Label>
             <input
@@ -162,6 +172,8 @@ export default async function DocsPage() {
             {docs.map((d) => {
               const proyecto = Array.isArray(d.proyecto) ? d.proyecto[0] : d.proyecto;
               const url = urls[d.storage_path];
+              const carpeta = d.carpeta as DocCarpeta;
+              const vis = d.visibilidad as DocVisibilidad;
               return (
                 <li
                   key={d.id}
@@ -173,13 +185,19 @@ export default async function DocsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-1 text-sm font-semibold text-azur-ink">{d.titulo}</p>
                     <p className="text-[11px] text-muted-foreground">
-                      {proyecto?.codigo ?? ''} · {formatSize(Number(d.tamano_bytes ?? 0))}
+                      {proyecto?.codigo ?? ''} · {formatBytes(Number(d.tamano_bytes ?? 0))}
                     </p>
                   </div>
                   <div className="flex flex-col items-end gap-1">
-                    <Badge variant={CARPETA_VARIANT[d.carpeta] ?? 'outline'}>
-                      {CARPETA_LABEL[d.carpeta] ?? d.carpeta}
+                    <Badge variant={CARPETA_VARIANT[carpeta] ?? 'outline'}>
+                      {CARPETA_LABEL[carpeta] ?? d.carpeta}
                     </Badge>
+                    {vis && vis !== 'publica' && (
+                      <Badge variant={VISIBILIDAD_VARIANT[vis] ?? 'outline'} className="gap-1">
+                        <Lock className="h-3 w-3" />
+                        {VISIBILIDAD_LABEL[vis] ?? vis}
+                      </Badge>
+                    )}
                     {url && (
                       <a
                         href={url}

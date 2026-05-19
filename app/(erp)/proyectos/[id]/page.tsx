@@ -29,6 +29,7 @@ import { AsistenciasSection } from '@/components/proyectos/asistencias-section';
 import { RdosSection } from '@/components/proyectos/rdos-section';
 import { EvidenciasSection } from '@/components/proyectos/evidencias-section';
 import { SstSection } from '@/components/proyectos/sst-section';
+import { DocumentosSection } from '@/components/proyectos/documentos-section';
 import { AlertasBanner } from '@/components/proyectos/alertas-banner';
 import { computeAlertasProyecto } from '@/lib/proyectos/alertas';
 
@@ -370,6 +371,9 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
 
       {/* Seguridad y Salud (SST) */}
       <SstSection proyectoId={params.id} />
+
+      {/* Documentos del proyecto */}
+      <DocumentosSection proyectoId={params.id} />
 
       {/* Estado del proyecto */}
       <div className="azur-card flex flex-wrap items-center justify-between gap-3 bg-azur-coral/10">

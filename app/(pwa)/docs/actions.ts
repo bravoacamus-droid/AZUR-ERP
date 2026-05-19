@@ -6,11 +6,13 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
 import { optionalString } from '@/lib/zod-helpers';
+import { visibilidadesPermitidas } from '@/lib/proyectos/documentos';
 
 const docSchema = z.object({
   proyecto_id: z.string().uuid(),
   titulo: z.string().min(3),
   carpeta: z.enum(['general', 'planos', 'contratos', 'cotizaciones', 'fichas', 'permisos']),
+  visibilidad: z.enum(['publica', 'mando', 'gerencia']).default('publica'),
   descripcion: optionalString(),
 });
 
@@ -24,9 +26,16 @@ export async function subirDocumento(formData: FormData) {
     proyecto_id: formData.get('proyecto_id'),
     titulo: formData.get('titulo'),
     carpeta: formData.get('carpeta'),
+    visibilidad: formData.get('visibilidad') || 'publica',
     descripcion: formData.get('descripcion'),
   });
   if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Datos inválidos');
+
+  // Validar visibilidad permitida según rol
+  const permitidas = visibilidadesPermitidas(session.rol);
+  if (!permitidas.includes(parsed.data.visibilidad)) {
+    throw new Error(`Tu rol no puede asignar visibilidad "${parsed.data.visibilidad}"`);
+  }
 
   const admin = createAdminClient();
   const ext = (file.name.split('.').pop() ?? 'bin').toLowerCase();
@@ -47,6 +56,7 @@ export async function subirDocumento(formData: FormData) {
     titulo: parsed.data.titulo,
     descripcion: parsed.data.descripcion || null,
     carpeta: parsed.data.carpeta,
+    visibilidad: parsed.data.visibilidad,
     storage_path: path,
     tipo_mime: file.type || 'application/octet-stream',
     tamano_bytes: file.size,
