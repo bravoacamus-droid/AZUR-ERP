@@ -1,6 +1,3 @@
-// Generated from Supabase schema — DO NOT EDIT MANUALLY.
-// Regenerate with: pnpm db:types
-
 export type Json =
   | string
   | number
@@ -2461,8 +2458,13 @@ export type Database = {
           contractual: number | null
           ejecutado_venta: number | null
           estado: string | null
+          fecha_fin_plan: string | null
+          fecha_fin_real: string | null
+          fecha_inicio: string | null
           gastado_real: number | null
           id: string | null
+          latitud: number | null
+          longitud: number | null
           nombre: string | null
           pct_avance: number | null
           presupuesto_venta: number | null
@@ -2810,4 +2812,3 @@ export const Constants = {
     },
   },
 } as const
-

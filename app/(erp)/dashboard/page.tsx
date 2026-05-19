@@ -1,5 +1,8 @@
+import Link from 'next/link';
 import {
+  AlertOctagon,
   AlertTriangle,
+  Bell,
   Building2,
   CheckCircle2,
   ClipboardList,
@@ -16,6 +19,7 @@ import { AvanceFinancieroChart } from '@/components/charts/avance-financiero';
 import { GastoCategoriaChart } from '@/components/charts/gasto-categoria';
 import { formatPEN, formatPercent } from '@/lib/utils';
 import { PROYECTO_ESTADO_LABEL, PROYECTO_ESTADO_VARIANT, type ProyectoEstado } from '@/lib/proyectos/estados';
+import { computeAlertasProyecto, type Alerta } from '@/lib/proyectos/alertas';
 
 export const metadata = { title: 'Dashboard ejecutivo' };
 export const dynamic = 'force-dynamic';
@@ -42,10 +46,39 @@ export default async function DashboardPage() {
     (s, a) => s + Number(a.ejecutado_venta ?? 0),
     0,
   );
-  const gastadoTotal = (avance ?? []).reduce((s, a) => s + Number(a.gastado_real ?? 0), 0);
-  const enRiesgo = (avance ?? []).filter(
-    (a) => Number(a.gastado_real ?? 0) > Number(a.ejecutado_venta ?? 0) * 1.1,
+
+  // Alertas por proyecto (mismo motor que /proyectos/[id])
+  const proyectosConAlertas = (avance ?? []).map((a) => {
+    const contractual = Number(a.contractual ?? 0);
+    const ejecutado = Number(a.ejecutado_venta ?? 0);
+    const presupuesto = Number(a.presupuesto_venta ?? contractual);
+    const alertas = computeAlertasProyecto({
+      estado: a.estado as string,
+      fechaInicio: a.fecha_inicio as string | null,
+      fechaFinPlan: a.fecha_fin_plan as string | null,
+      fechaFinReal: a.fecha_fin_real as string | null,
+      presupuestoVenta: presupuesto,
+      ejecutadoVenta: ejecutado,
+      gastadoReal: Number(a.gastado_real ?? 0),
+      pctAvance: Number(a.pct_avance ?? 0),
+      latitud: a.latitud as number | null,
+      longitud: a.longitud as number | null,
+    });
+    return {
+      id: a.id as string,
+      codigo: a.codigo as string,
+      nombre: a.nombre as string,
+      alertas,
+      maxSeveridad: maxSev(alertas),
+    };
+  });
+
+  const enRiesgo = proyectosConAlertas.filter(
+    (p) => p.maxSeveridad === 'critica' || p.maxSeveridad === 'alta',
   );
+  const proyectosCriticos = proyectosConAlertas
+    .filter((p) => p.alertas.length > 0)
+    .sort((a, b) => sevOrder(a.maxSeveridad) - sevOrder(b.maxSeveridad));
 
   const pendientesAprobar =
     (solicitudes ?? []).find((s) => s.estado === 'pendiente')?.cantidad ?? 0;
@@ -89,9 +122,71 @@ export default async function DashboardPage() {
           label="Proyectos en riesgo"
           value={enRiesgo.length}
           accent={enRiesgo.length > 0 ? 'danger' : 'success'}
-          subtitle={enRiesgo.length > 0 ? 'Gastado > ejecutado' : 'Sin sobrecostos'}
+          subtitle={
+            enRiesgo.length > 0
+              ? `${proyectosCriticos.filter((p) => p.maxSeveridad === 'critica').length} crítico(s) · ${enRiesgo.length - proyectosCriticos.filter((p) => p.maxSeveridad === 'critica').length} alto(s)`
+              : 'Sin alertas críticas'
+          }
         />
       </div>
+
+      {/* Proyectos con alertas */}
+      {proyectosCriticos.length > 0 && (
+        <section className="azur-card p-0">
+          <header className="flex items-center gap-3 border-b border-border/60 px-6 py-4">
+            <div className="grid h-10 w-10 place-items-center rounded-xl bg-destructive/15 text-destructive">
+              <Bell className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="font-display text-base font-bold text-azur-ink">
+                Proyectos con alertas · {proyectosCriticos.length}
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Atiende los críticos primero. Click para abrir el proyecto.
+              </p>
+            </div>
+          </header>
+          <ul className="divide-y divide-border/60">
+            {proyectosCriticos.slice(0, 8).map((p) => {
+              const top = p.alertas[0];
+              const SevIcon = p.maxSeveridad === 'critica' ? AlertOctagon : AlertTriangle;
+              const sevColor =
+                p.maxSeveridad === 'critica'
+                  ? 'text-destructive'
+                  : p.maxSeveridad === 'alta'
+                    ? 'text-[hsl(38_92%_30%)]'
+                    : 'text-muted-foreground';
+              return (
+                <li key={p.id}>
+                  <Link
+                    href={`/proyectos/${p.id}`}
+                    className="flex items-start gap-3 px-6 py-3 hover:bg-azur-coral/5"
+                  >
+                    <div className={`mt-0.5 ${sevColor}`}>
+                      <SevIcon className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-semibold text-azur-ink">
+                        <span className="font-mono text-xs text-azur-red">{p.codigo}</span>{' '}
+                        · {p.nombre}
+                      </p>
+                      {top && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          <span className={`font-semibold ${sevColor}`}>{top.titulo}:</span>{' '}
+                          {top.mensaje}
+                        </p>
+                      )}
+                    </div>
+                    <span className="shrink-0 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {p.alertas.length} alerta{p.alertas.length > 1 ? 's' : ''}
+                    </span>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      )}
 
       {/* Charts */}
       <div className="grid gap-4 lg:grid-cols-3">
@@ -208,6 +303,18 @@ export default async function DashboardPage() {
       </section>
     </div>
   );
+}
+
+function maxSev(alertas: Alerta[]): Alerta['severidad'] | 'ninguna' {
+  if (alertas.length === 0) return 'ninguna';
+  if (alertas.some((a) => a.severidad === 'critica')) return 'critica';
+  if (alertas.some((a) => a.severidad === 'alta')) return 'alta';
+  if (alertas.some((a) => a.severidad === 'media')) return 'media';
+  return 'info';
+}
+
+function sevOrder(s: Alerta['severidad'] | 'ninguna'): number {
+  return { critica: 0, alta: 1, media: 2, info: 3, ninguna: 4 }[s];
 }
 
 function Kpi({
