@@ -1,10 +1,12 @@
 import { History, User } from 'lucide-react';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty-state';
-import { redirect } from 'next/navigation';
+import { describeAudit, type AuditRow } from '@/lib/auditoria/describe';
 
 export const metadata = { title: 'Auditoría · Log inmutable' };
 export const dynamic = 'force-dynamic';
@@ -14,6 +16,8 @@ const ACTION_VARIANT: Record<string, 'default' | 'success' | 'warning' | 'destru
   UPDATE: 'warning',
   DELETE: 'destructive',
 };
+
+type ProyectoLite = { id: string; codigo: string; nombre: string };
 
 export default async function AuditoriaPage({
   searchParams,
@@ -27,7 +31,7 @@ export default async function AuditoriaPage({
 
   let query = supabase
     .from('audit_log')
-    .select('id, occurred_at, actor_email, table_name, record_id, action, diff')
+    .select('id, occurred_at, actor_email, table_name, record_id, action, diff, new_data, old_data')
     .order('occurred_at', { ascending: false })
     .limit(200);
 
@@ -35,6 +39,60 @@ export default async function AuditoriaPage({
   if (searchParams?.action) query = query.eq('action', searchParams.action);
 
   const { data: rows } = await query;
+  const items = rows ?? [];
+
+  // ---------- Resolver proyecto de cada fila ----------
+  const proyectoIds = new Set<string>();
+  const pagosSolicitudIds = new Set<string>();
+
+  for (const r of items) {
+    const data = (r.new_data ?? r.old_data) as Record<string, unknown> | null;
+    const pid = typeof data?.proyecto_id === 'string' ? data.proyecto_id : null;
+    if (pid) proyectoIds.add(pid);
+    if (r.table_name === 'pagos') {
+      const sid = typeof data?.solicitud_id === 'string' ? data.solicitud_id : null;
+      if (sid) pagosSolicitudIds.add(sid);
+    }
+    // proyectos: el record_id ES el proyecto_id
+    if (r.table_name === 'proyectos' && r.record_id) proyectoIds.add(r.record_id);
+  }
+
+  // Mapear solicitud → proyecto para audit de tabla pagos
+  const solicitudProyectoMap = new Map<string, string>();
+  if (pagosSolicitudIds.size > 0) {
+    const { data: sols } = await supabase
+      .from('solicitudes_pago')
+      .select('id, proyecto_id')
+      .in('id', Array.from(pagosSolicitudIds));
+    (sols ?? []).forEach((s) => {
+      if (s.proyecto_id) {
+        solicitudProyectoMap.set(s.id, s.proyecto_id);
+        proyectoIds.add(s.proyecto_id);
+      }
+    });
+  }
+
+  // Batch fetch proyectos
+  const proyectoMap = new Map<string, ProyectoLite>();
+  if (proyectoIds.size > 0) {
+    const { data: ps } = await supabase
+      .from('proyectos')
+      .select('id, codigo, nombre')
+      .in('id', Array.from(proyectoIds));
+    (ps ?? []).forEach((p) => proyectoMap.set(p.id, p));
+  }
+
+  function getProyecto(r: (typeof items)[number]): ProyectoLite | null {
+    const data = (r.new_data ?? r.old_data) as Record<string, unknown> | null;
+    let pid = typeof data?.proyecto_id === 'string' ? data.proyecto_id : null;
+    if (!pid && r.table_name === 'pagos' && typeof data?.solicitud_id === 'string') {
+      pid = solicitudProyectoMap.get(data.solicitud_id) ?? null;
+    }
+    if (!pid && r.table_name === 'proyectos' && r.record_id) {
+      pid = r.record_id;
+    }
+    return pid ? proyectoMap.get(pid) ?? null : null;
+  }
 
   // Lista de tablas distintas para el filtro
   const { data: tablas } = await supabase
@@ -48,7 +106,7 @@ export default async function AuditoriaPage({
     <div className="space-y-8">
       <PageHeader
         title="Auditoría"
-        description="Log inmutable de cambios en tablas críticas — quién, cuándo, qué y diff completo."
+        description="Log inmutable de cambios en tablas críticas — quién, cuándo, qué pasó y a qué proyecto afectó."
         icon={History}
         breadcrumbs={[{ label: 'Auditoría' }]}
       />
@@ -95,7 +153,7 @@ export default async function AuditoriaPage({
         </button>
       </form>
 
-      {!rows || rows.length === 0 ? (
+      {items.length === 0 ? (
         <EmptyState
           icon={History}
           title="Sin registros con esos filtros"
@@ -109,52 +167,87 @@ export default async function AuditoriaPage({
                 <tr>
                   <th className="px-4 py-3 font-semibold">Cuándo</th>
                   <th className="px-4 py-3 font-semibold">Actor</th>
-                  <th className="px-4 py-3 font-semibold">Tabla</th>
-                  <th className="px-4 py-3 font-semibold">Registro</th>
+                  <th className="px-4 py-3 font-semibold">¿Qué pasó?</th>
+                  <th className="px-4 py-3 font-semibold">Proyecto</th>
+                  <th className="px-4 py-3 font-semibold">Tabla técnica</th>
                   <th className="px-4 py-3 font-semibold">Acción</th>
-                  <th className="px-4 py-3 font-semibold">Diff (UPDATE)</th>
+                  <th className="px-4 py-3 font-semibold">Diff técnico</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border/60">
-                {rows.map((r) => (
-                  <tr key={r.id} className="hover:bg-azur-coral/5">
-                    <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                      {new Date(r.occurred_at).toLocaleString('es-PE')}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center gap-1 text-azur-ink">
-                        <User className="h-3 w-3" />
-                        {r.actor_email ?? 'sistema'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 font-mono">{r.table_name}</td>
-                    <td className="px-4 py-2.5 font-mono text-muted-foreground">
-                      {r.record_id ? r.record_id.slice(0, 8) + '…' : '—'}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <Badge variant={ACTION_VARIANT[r.action] ?? 'default'}>{r.action}</Badge>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {r.diff && Object.keys(r.diff).length > 0 ? (
-                        <details className="group">
-                          <summary className="cursor-pointer text-azur-red hover:underline">
-                            Ver cambios
-                          </summary>
-                          <pre className="mt-2 overflow-x-auto rounded-lg bg-muted/40 p-2 text-[10px]">
-                            {JSON.stringify(r.diff, null, 2)}
-                          </pre>
-                        </details>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                {items.map((r) => {
+                  const proyecto = getProyecto(r);
+                  const descripcion = describeAudit(r as AuditRow);
+                  return (
+                    <tr key={r.id} className="hover:bg-azur-coral/5">
+                      <td className="px-4 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
+                        {new Date(r.occurred_at).toLocaleString('es-PE', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center gap-1 text-azur-ink">
+                          <User className="h-3 w-3" />
+                          {r.actor_email ?? 'sistema'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <p className="text-sm font-semibold text-azur-ink">{descripcion}</p>
+                        {r.record_id && (
+                          <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                            ID: {r.record_id.slice(0, 8)}…
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {proyecto ? (
+                          <Link
+                            href={`/proyectos/${proyecto.id}`}
+                            className="group inline-flex flex-col"
+                          >
+                            <span className="font-mono text-[11px] font-semibold text-azur-red group-hover:underline">
+                              {proyecto.codigo}
+                            </span>
+                            <span className="line-clamp-1 text-[10px] text-muted-foreground">
+                              {proyecto.nombre}
+                            </span>
+                          </Link>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-muted-foreground">
+                        {r.table_name}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <Badge variant={ACTION_VARIANT[r.action] ?? 'default'}>{r.action}</Badge>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {r.diff && Object.keys(r.diff).length > 0 ? (
+                          <details className="group">
+                            <summary className="cursor-pointer text-azur-red hover:underline">
+                              Ver cambios
+                            </summary>
+                            <pre className="mt-2 max-w-md overflow-x-auto rounded-lg bg-muted/40 p-2 text-[10px]">
+                              {JSON.stringify(r.diff, null, 2)}
+                            </pre>
+                          </details>
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <p className="border-t border-border/60 px-6 py-2 text-[11px] text-muted-foreground">
-            Mostrando {rows.length} registros (máx 200 por consulta).
+            Mostrando {items.length} registros (máx 200 por consulta).
           </p>
         </div>
       )}
