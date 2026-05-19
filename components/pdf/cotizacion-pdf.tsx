@@ -202,7 +202,7 @@ export function CotizacionPDF({
             </View>
           </View>
           <View style={styles.codigoBox}>
-            <Text style={styles.badge}>Cotización · {estado}</Text>
+            <Text style={styles.badge}>Cotización</Text>
             <Text style={styles.codigo}>{codigo}</Text>
             <Text style={styles.meta}>Emisión: {fechaTxt}</Text>
             <Text style={styles.meta}>Validez: {validezDias} días</Text>
@@ -325,7 +325,9 @@ export function CotizacionPDF({
         </Text>
         <Text
           style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+          render={({ pageNumber, totalPages }) =>
+            totalPages > 1 ? `Página ${pageNumber} de ${totalPages}` : ''
+          }
           fixed
         />
       </Page>

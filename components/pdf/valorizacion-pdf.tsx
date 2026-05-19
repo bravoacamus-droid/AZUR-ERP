@@ -122,7 +122,7 @@ export function ValorizacionPDF({
             </View>
           </View>
           <View style={{ alignItems: 'flex-end' }}>
-            <Text style={styles.badge}>Valorización · {estado}</Text>
+            <Text style={styles.badge}>Valorización</Text>
             <Text style={styles.codigo}>{codigo}</Text>
             <Text style={styles.meta}>N° {numero} · {fechaTxt}</Text>
           </View>
@@ -215,7 +215,9 @@ export function ValorizacionPDF({
         </Text>
         <Text
           style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+          render={({ pageNumber, totalPages }) =>
+            totalPages > 1 ? `Página ${pageNumber} de ${totalPages}` : ''
+          }
           fixed
         />
       </Page>
