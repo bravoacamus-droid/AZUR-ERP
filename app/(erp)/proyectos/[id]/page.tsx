@@ -26,6 +26,7 @@ import { cambiarEstadoProyecto } from './actions';
 import { MetradoInput } from './metrado-input';
 import { UbicacionSection } from '@/components/proyectos/ubicacion-section';
 import { AsistenciasSection } from '@/components/proyectos/asistencias-section';
+import { RdosSection } from '@/components/proyectos/rdos-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -328,6 +329,9 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
 
       {/* Asistencias GPS del personal de campo */}
       <AsistenciasSection proyectoId={params.id} />
+
+      {/* Partes diarios (RDO) */}
+      <RdosSection proyectoId={params.id} />
 
       {/* Estado del proyecto */}
       <div className="azur-card flex flex-wrap items-center justify-between gap-3 bg-azur-coral/10">
