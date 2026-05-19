@@ -15,7 +15,6 @@ import { requireSession } from '@/lib/auth/server';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/empty-state';
 import { formatPEN, formatNumber, formatPercent } from '@/lib/utils';
 import {
@@ -23,7 +22,8 @@ import {
   PROYECTO_ESTADO_VARIANT,
   type ProyectoEstado,
 } from '@/lib/proyectos/estados';
-import { actualizarMetradoEjecutado, cambiarEstadoProyecto } from './actions';
+import { cambiarEstadoProyecto } from './actions';
+import { MetradoInput } from './metrado-input';
 
 export const dynamic = 'force-dynamic';
 
@@ -246,21 +246,13 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
                     <td className="px-4 py-2.5 text-right font-mono">
                       {formatNumber(p.metrado_contractual)}
                     </td>
-                    <td className="px-4 py-2.5">
-                      <form action={actualizarMetradoEjecutado} className="flex justify-end">
-                        <input type="hidden" name="partida_id" value={p.id} />
-                        <input type="hidden" name="proyecto_id" value={params.id} />
-                        <Input
-                          name="metrado_ejecutado"
-                          type="number"
-                          step="0.0001"
-                          min={0}
-                          max={p.metrado_contractual}
-                          defaultValue={p.metrado_ejecutado}
-                          className="h-9 w-28 text-right font-mono text-sm"
-                          onFocus={(e) => e.currentTarget.select()}
-                        />
-                      </form>
+                    <td className="px-4 py-2.5 text-right">
+                      <MetradoInput
+                        partidaId={p.id}
+                        proyectoId={params.id}
+                        inicial={p.metrado_ejecutado}
+                        max={p.metrado_contractual}
+                      />
                     </td>
                     <td className="px-4 py-2.5 text-right font-mono">
                       {fmt(Number(p.precio_unitario_venta))}
