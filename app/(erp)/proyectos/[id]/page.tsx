@@ -27,6 +27,7 @@ import { MetradoInput } from './metrado-input';
 import { UbicacionSection } from '@/components/proyectos/ubicacion-section';
 import { AsistenciasSection } from '@/components/proyectos/asistencias-section';
 import { RdosSection } from '@/components/proyectos/rdos-section';
+import { EvidenciasSection } from '@/components/proyectos/evidencias-section';
 
 export const dynamic = 'force-dynamic';
 
@@ -332,6 +333,9 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
 
       {/* Partes diarios (RDO) */}
       <RdosSection proyectoId={params.id} />
+
+      {/* Evidencias fotográficas */}
+      <EvidenciasSection proyectoId={params.id} />
 
       {/* Estado del proyecto */}
       <div className="azur-card flex flex-wrap items-center justify-between gap-3 bg-azur-coral/10">

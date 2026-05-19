@@ -80,7 +80,9 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: 'zguodhyafasjgigzbcpi.supabase.co',
-        pathname: '/storage/v1/object/public/**',
+        // /storage/v1/object/public/** (URLs públicas)
+        // /storage/v1/object/sign/**   (URLs firmadas con token)
+        pathname: '/storage/v1/object/**',
       },
     ],
   },
