@@ -14,12 +14,31 @@ type Payload = {
   tag?: string;
 };
 
-/** Envía push a un usuario sin bloquear. Errores solo se loguean. */
-export async function notifyUser(userId: string, payload: Payload): Promise<void> {
+async function logPush(source: string, userId: string | null, title: string, status: string, detail?: string) {
   try {
-    await sendPushToUser(userId, payload);
+    const admin = createAdminClient();
+    await admin.from('push_log').insert({
+      source,
+      target_user_id: userId,
+      title,
+      status,
+      detail: detail ?? null,
+    });
+  } catch {
+    // si el log falla, no rompemos el flujo
+  }
+}
+
+/** Envía push a un usuario sin bloquear. Errores solo se loguean. */
+export async function notifyUser(userId: string, payload: Payload, source = 'notifyUser'): Promise<void> {
+  await logPush(source, userId, payload.title, 'attempt');
+  try {
+    const r = await sendPushToUser(userId, payload);
+    await logPush(source, userId, payload.title, 'ok', `sent=${r.sent} removed=${r.removed}`);
   } catch (err) {
-    console.error('[push] notifyUser falló', userId, (err as Error).message);
+    const msg = (err as Error).message ?? String(err);
+    await logPush(source, userId, payload.title, 'error', msg);
+    console.error('[push] notifyUser falló', userId, msg);
   }
 }
 
@@ -27,15 +46,22 @@ export async function notifyUser(userId: string, payload: Payload): Promise<void
 export async function notifyRoles(roles: RolSistema[], payload: Payload): Promise<void> {
   try {
     const admin = createAdminClient();
-    const { data: targets } = await admin
+    const { data: targets, error } = await admin
       .from('profiles')
       .select('id')
       .eq('activo', true)
       .in('rol', roles);
+    if (error) {
+      await logPush('notifyRoles', null, payload.title, 'error', `profiles query: ${error.message}`);
+      return;
+    }
+    await logPush('notifyRoles', null, payload.title, 'attempt', `targets=${targets?.length ?? 0} roles=${roles.join(',')}`);
     if (!targets || targets.length === 0) return;
-    await Promise.all(targets.map((t) => notifyUser(t.id, payload)));
+    await Promise.all(targets.map((t) => notifyUser(t.id, payload, 'notifyRoles')));
   } catch (err) {
-    console.error('[push] notifyRoles falló', roles, (err as Error).message);
+    const msg = (err as Error).message ?? String(err);
+    await logPush('notifyRoles', null, payload.title, 'error', msg);
+    console.error('[push] notifyRoles falló', roles, msg);
   }
 }
 

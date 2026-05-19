@@ -1626,6 +1626,36 @@ export type Database = {
           },
         ]
       }
+      push_log: {
+        Row: {
+          created_at: string
+          detail: string | null
+          id: number
+          source: string
+          status: string
+          target_user_id: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string | null
+          id?: number
+          source: string
+          status: string
+          target_user_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string | null
+          id?: number
+          source?: string
+          status?: string
+          target_user_id?: string | null
+          title?: string | null
+        }
+        Relationships: []
+      }
       push_subscriptions: {
         Row: {
           auth: string
