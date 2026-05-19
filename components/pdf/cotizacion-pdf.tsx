@@ -179,7 +179,7 @@ export function CotizacionPDF({
   notas,
   terminos,
 }: Props) {
-  const fechaTxt = new Date(fechaEmision).toLocaleDateString('es-PE', {
+  const fechaTxt = new Date(fechaEmision).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -321,7 +321,7 @@ export function CotizacionPDF({
 
         <Text style={styles.footer} fixed>
           AZUR Constructora e Inmobiliaria · Documento generado el{' '}
-          {new Date().toLocaleString('es-PE')}
+          {new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' })}
         </Text>
         <Text
           style={styles.pageNumber}

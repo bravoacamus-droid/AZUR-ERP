@@ -93,7 +93,7 @@ export default async function CheckinPage() {
           <ul className="space-y-2">
             {hoy.map((h, i) => {
               const proyecto = Array.isArray(h.proyecto) ? h.proyecto[0] : h.proyecto;
-              const tiempo = new Date(h.hora).toLocaleTimeString('es-PE', {
+              const tiempo = new Date(h.hora).toLocaleTimeString('es-PE', { timeZone: 'America/Lima',
                 hour: '2-digit',
                 minute: '2-digit',
               });

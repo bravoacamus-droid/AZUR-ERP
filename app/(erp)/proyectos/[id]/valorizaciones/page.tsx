@@ -177,14 +177,14 @@ export default async function ValorizacionesPage({ params }: { params: { id: str
                   <td className="px-4 py-2.5 font-bold">{v.numero}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">
                     {v.periodo_inicio
-                      ? new Date(v.periodo_inicio).toLocaleDateString('es-PE', {
+                      ? new Date(v.periodo_inicio).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                           day: '2-digit',
                           month: 'short',
                         })
                       : '—'}{' '}
                     →{' '}
                     {v.periodo_fin
-                      ? new Date(v.periodo_fin).toLocaleDateString('es-PE', {
+                      ? new Date(v.periodo_fin).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                           day: '2-digit',
                           month: 'short',
                         })

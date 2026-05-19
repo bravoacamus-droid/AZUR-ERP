@@ -99,7 +99,7 @@ export async function SstSection({ proyectoId }: Props) {
                 <li key={c.id} className="rounded-lg border border-border/60 bg-white p-2.5 text-xs">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-azur-ink">
-                      {new Date(c.fecha).toLocaleDateString('es-PE', {
+                      {new Date(c.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                         day: '2-digit',
                         month: 'short',
                       })}
@@ -146,7 +146,7 @@ export async function SstSection({ proyectoId }: Props) {
                     </p>
                   )}
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    {new Date(o.fecha).toLocaleDateString('es-PE')} ·{' '}
+                    {new Date(o.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })} ·{' '}
                     {o.reportada_por ? perfilMap.get(o.reportada_por) ?? '—' : '—'}
                   </p>
                 </li>
@@ -172,7 +172,7 @@ export async function SstSection({ proyectoId }: Props) {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-semibold text-azur-ink">
-                      {new Date(i.fecha).toLocaleDateString('es-PE')}
+                      {new Date(i.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}
                     </span>
                     <Badge variant={SEV_VARIANT[i.severidad] ?? 'secondary'}>{i.severidad}</Badge>
                   </div>

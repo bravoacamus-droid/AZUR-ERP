@@ -100,7 +100,7 @@ export default async function EvidenciasPage() {
                       width={300}
                       height={300}
                       className="h-full w-full object-cover"
-                      title={`${proyecto?.codigo ?? ''} · ${new Date(e.tomada_en).toLocaleString('es-PE')}`}
+                      title={`${proyecto?.codigo ?? ''} · ${new Date(e.tomada_en).toLocaleString('es-PE', { timeZone: 'America/Lima' })}`}
                     />
                   ) : (
                     <div className="grid h-full place-items-center text-xs text-muted-foreground">

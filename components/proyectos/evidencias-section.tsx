@@ -71,7 +71,7 @@ export async function EvidenciasSection({ proyectoId }: Props) {
           {items.map((e) => {
             const url = urls.get(e.storage_path);
             const reportador = e.capturada_por ? perfilMap.get(e.capturada_por) : null;
-            const fecha = new Date(e.tomada_en).toLocaleDateString('es-PE', {
+            const fecha = new Date(e.tomada_en).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
               day: '2-digit',
               month: 'short',
             });
@@ -80,7 +80,7 @@ export async function EvidenciasSection({ proyectoId }: Props) {
                 key={e.id}
                 href={`/proyectos/${proyectoId}/evidencias`}
                 className="group relative aspect-square overflow-hidden rounded-xl border border-border/60 bg-muted"
-                title={`${e.titulo ?? 'Evidencia'} · ${reportador ?? '—'} · ${new Date(e.tomada_en).toLocaleString('es-PE')}`}
+                title={`${e.titulo ?? 'Evidencia'} · ${reportador ?? '—'} · ${new Date(e.tomada_en).toLocaleString('es-PE', { timeZone: 'America/Lima' })}`}
               >
                 {url ? (
                   <Image

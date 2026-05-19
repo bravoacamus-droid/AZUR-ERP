@@ -141,7 +141,7 @@ export default async function RdosProyectoPage({
                     </Link>
                     <span className="inline-flex items-center gap-1 text-sm text-muted-foreground">
                       <Calendar className="h-3.5 w-3.5" />
-                      {new Date(r.fecha).toLocaleDateString('es-PE', {
+                      {new Date(r.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                         weekday: 'long',
                         day: '2-digit',
                         month: 'long',

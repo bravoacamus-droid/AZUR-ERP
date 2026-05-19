@@ -16,6 +16,7 @@ import {
   COTIZACION_ESTADO_VARIANT,
   type CotizacionEstado,
 } from '@/lib/comercial/estados';
+import { TipoCambioBanner } from '@/components/finanzas/tipo-cambio-banner';
 import { agregarPartida, eliminarPartida, cambiarEstadoCotizacion } from '../actions';
 
 export const dynamic = 'force-dynamic';
@@ -88,6 +89,8 @@ export default async function CotizacionDetallePage({ params }: { params: { id: 
         }
       />
 
+      <TipoCambioBanner />
+
       {/* Resumen + cliente */}
       <div className="grid gap-4 md:grid-cols-4">
         <div className="azur-card md:col-span-2">
@@ -120,7 +123,7 @@ export default async function CotizacionDetallePage({ params }: { params: { id: 
           </Badge>
           <p className="mt-3 text-xs text-muted-foreground">
             Emisión:{' '}
-            {new Date(cot.fecha_emision).toLocaleDateString('es-PE', {
+            {new Date(cot.fecha_emision).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
               day: '2-digit',
               month: 'long',
               year: 'numeric',
@@ -384,7 +387,7 @@ export default async function CotizacionDetallePage({ params }: { params: { id: 
         <Link href="/comercial/cotizaciones" className="hover:text-azur-red">
           ← Volver al listado
         </Link>
-        <span>Última actualización: {new Date(cot.updated_at).toLocaleString('es-PE')}</span>
+        <span>Última actualización: {new Date(cot.updated_at).toLocaleString('es-PE', { timeZone: 'America/Lima' })}</span>
       </p>
     </div>
   );

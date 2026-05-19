@@ -240,7 +240,7 @@ export default async function DocumentosProyectoPage({
                         </div>
                       </td>
                       <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                        {new Date(d.created_at).toLocaleDateString('es-PE', {
+                        {new Date(d.created_at).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',

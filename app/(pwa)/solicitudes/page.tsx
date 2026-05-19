@@ -74,7 +74,7 @@ export default async function PwaSolicitudesPage() {
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-mono text-[10px] font-semibold text-azur-red">{s.codigo}</p>
                       <span className="text-[10px] text-muted-foreground">
-                        {new Date(s.created_at).toLocaleDateString('es-PE', {
+                        {new Date(s.created_at).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                           day: '2-digit',
                           month: 'short',
                         })}

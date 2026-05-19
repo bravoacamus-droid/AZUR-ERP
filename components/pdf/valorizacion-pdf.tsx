@@ -100,10 +100,10 @@ export function ValorizacionPDF({
   partidas,
   totales,
 }: Props) {
-  const fechaTxt = `${new Date(periodoInicio).toLocaleDateString('es-PE', {
+  const fechaTxt = `${new Date(periodoInicio).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
     day: '2-digit',
     month: 'short',
-  })} – ${new Date(periodoFin).toLocaleDateString('es-PE', {
+  })} – ${new Date(periodoFin).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
     day: '2-digit',
     month: 'long',
     year: 'numeric',
@@ -211,7 +211,7 @@ export function ValorizacionPDF({
 
         <Text style={styles.footer} fixed>
           AZUR Constructora e Inmobiliaria · Valorización generada el{' '}
-          {new Date().toLocaleString('es-PE')}
+          {new Date().toLocaleString('es-PE', { timeZone: 'America/Lima' })}
         </Text>
         <Text
           style={styles.pageNumber}

@@ -161,7 +161,7 @@ export default async function ProyectosListPage() {
                     <p className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                       <Calendar className="h-3.5 w-3.5" />
                       Inicio:{' '}
-                      {new Date(p.fecha_inicio).toLocaleDateString('es-PE', {
+                      {new Date(p.fecha_inicio).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                         day: '2-digit',
                         month: 'short',
                         year: 'numeric',

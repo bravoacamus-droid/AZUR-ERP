@@ -87,7 +87,7 @@ export default async function RdoPage() {
                     <div className="flex items-center justify-between gap-2">
                       <p className="font-mono text-[10px] text-azur-red">{r.codigo}</p>
                       <span className="text-[11px] text-muted-foreground">
-                        {new Date(r.fecha).toLocaleDateString('es-PE', {
+                        {new Date(r.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                           weekday: 'short',
                           day: '2-digit',
                           month: 'short',

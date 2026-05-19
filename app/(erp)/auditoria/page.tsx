@@ -181,7 +181,7 @@ export default async function AuditoriaPage({
                   return (
                     <tr key={r.id} className="hover:bg-azur-coral/5">
                       <td className="px-4 py-2.5 font-mono text-muted-foreground whitespace-nowrap">
-                        {new Date(r.occurred_at).toLocaleString('es-PE', {
+                        {new Date(r.occurred_at).toLocaleString('es-PE', { timeZone: 'America/Lima',
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',

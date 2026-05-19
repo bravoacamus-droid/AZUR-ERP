@@ -137,7 +137,7 @@ export async function AsistenciasSection({ proyectoId }: Props) {
                       )}
                     </td>
                     <td className="px-4 py-2.5 text-muted-foreground">
-                      {new Date(r.fecha).toLocaleDateString('es-PE', {
+                      {new Date(r.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                         day: '2-digit',
                         month: 'short',
                         year: 'numeric',
@@ -146,7 +146,7 @@ export async function AsistenciasSection({ proyectoId }: Props) {
                     <td className="px-4 py-2.5">
                       <span className="inline-flex items-center gap-1 font-mono text-xs text-azur-ink">
                         <Clock className="h-3 w-3 text-muted-foreground" />
-                        {new Date(r.hora).toLocaleTimeString('es-PE', {
+                        {new Date(r.hora).toLocaleTimeString('es-PE', { timeZone: 'America/Lima',
                           hour: '2-digit',
                           minute: '2-digit',
                         })}

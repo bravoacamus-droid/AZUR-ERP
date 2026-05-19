@@ -125,7 +125,7 @@ export default async function SstPage() {
                       className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-1.5"
                     >
                       <span>
-                        <strong>{new Date(c.fecha).toLocaleDateString('es-PE')}</strong> · {c.tema}
+                        <strong>{new Date(c.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}</strong> · {c.tema}
                       </span>
                       <Badge variant="outline">
                         <Users className="mr-1 h-3 w-3" />

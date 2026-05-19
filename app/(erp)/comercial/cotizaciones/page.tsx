@@ -12,8 +12,10 @@ import {
   COTIZACION_ESTADO_VARIANT,
   type CotizacionEstado,
 } from '@/lib/comercial/estados';
+import { TipoCambioBanner } from '@/components/finanzas/tipo-cambio-banner';
 
 export const metadata = { title: 'Cotizaciones' };
+export const dynamic = 'force-dynamic';
 
 export default async function CotizacionesPage() {
   await requireSession();
@@ -68,6 +70,8 @@ export default async function CotizacionesPage() {
         }
       />
 
+      <TipoCambioBanner />
+
       {cotizaciones.length === 0 ? (
         <EmptyState
           icon={ClipboardCheck}
@@ -121,7 +125,7 @@ export default async function CotizacionesPage() {
                         </Badge>
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {new Date(c.fecha_emision).toLocaleDateString('es-PE', {
+                        {new Date(c.fecha_emision).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',

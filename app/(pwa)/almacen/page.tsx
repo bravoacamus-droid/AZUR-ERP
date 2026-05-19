@@ -154,7 +154,7 @@ export default async function AlmacenPage() {
                       {m.descripcion}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {proyecto?.codigo ?? ''} · {new Date(m.fecha).toLocaleDateString('es-PE')} · {m.responsable ?? 'sin responsable'}
+                      {proyecto?.codigo ?? ''} · {new Date(m.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })} · {m.responsable ?? 'sin responsable'}
                     </p>
                   </div>
                   <Badge variant="outline">

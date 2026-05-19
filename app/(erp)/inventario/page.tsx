@@ -215,7 +215,7 @@ export default async function AlmacenErpPage({
                   return (
                     <tr key={m.id} className="hover:bg-azur-coral/5">
                       <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground whitespace-nowrap">
-                        {new Date(m.fecha).toLocaleDateString('es-PE', {
+                        {new Date(m.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',

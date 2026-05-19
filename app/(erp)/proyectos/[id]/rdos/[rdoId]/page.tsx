@@ -50,7 +50,7 @@ export default async function RdoDetallePage({
       .single();
     perfil = p ?? null;
   }
-  const fecha = new Date(rdo.fecha).toLocaleDateString('es-PE', {
+  const fecha = new Date(rdo.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
     weekday: 'long',
     day: '2-digit',
     month: 'long',
@@ -131,7 +131,7 @@ export default async function RdoDetallePage({
         </div>
         <div className="ml-auto text-right text-xs text-muted-foreground">
           <p>Registrado el</p>
-          <p className="font-mono">{new Date(rdo.created_at).toLocaleString('es-PE')}</p>
+          <p className="font-mono">{new Date(rdo.created_at).toLocaleString('es-PE', { timeZone: 'America/Lima' })}</p>
         </div>
       </div>
 

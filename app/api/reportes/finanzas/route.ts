@@ -74,7 +74,7 @@ export async function GET(req: Request) {
       estado: s.estado,
       monto: Number(s.monto),
       moneda: s.moneda,
-      created_at: new Date(s.created_at).toLocaleString('es-PE'),
+      created_at: new Date(s.created_at).toLocaleString('es-PE', { timeZone: 'America/Lima' }),
     });
   });
   wsSol.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };

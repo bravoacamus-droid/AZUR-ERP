@@ -235,7 +235,7 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
           label="Fecha inicio"
           value={
             proyecto.fecha_inicio
-              ? new Date(proyecto.fecha_inicio).toLocaleDateString('es-PE', {
+              ? new Date(proyecto.fecha_inicio).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                   day: '2-digit',
                   month: 'long',
                   year: 'numeric',
@@ -248,7 +248,7 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
           label="Fecha fin plan"
           value={
             proyecto.fecha_fin_plan
-              ? new Date(proyecto.fecha_fin_plan).toLocaleDateString('es-PE', {
+              ? new Date(proyecto.fecha_fin_plan).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                   day: '2-digit',
                   month: 'long',
                   year: 'numeric',

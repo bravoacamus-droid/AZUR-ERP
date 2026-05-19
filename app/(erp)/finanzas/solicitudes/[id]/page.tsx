@@ -114,7 +114,7 @@ export default async function SolicitudDetallePage({ params }: { params: { id: s
             <div>
               <p className="text-[11px] text-muted-foreground">Solicitado</p>
               <p className="font-medium text-azur-ink">
-                {new Date(sol.created_at).toLocaleString('es-PE')}
+                {new Date(sol.created_at).toLocaleString('es-PE', { timeZone: 'America/Lima' })}
               </p>
             </div>
             {sol.notas && (
@@ -234,10 +234,10 @@ export default async function SolicitudDetallePage({ params }: { params: { id: s
             </Badge>
           </div>
           <div className="grid gap-3 text-xs sm:grid-cols-4">
-            <KV label="Fecha programada" value={new Date(pago.fecha_programada).toLocaleDateString('es-PE')} />
+            <KV label="Fecha programada" value={new Date(pago.fecha_programada).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })} />
             <KV
               label="Fecha ejecutado"
-              value={pago.fecha_ejecutado ? new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE') : '—'}
+              value={pago.fecha_ejecutado ? new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE', { timeZone: 'America/Lima' }) : '—'}
             />
             <KV label="Banco origen" value={pago.banco_origen ?? '—'} />
             <KV label="N° Operación" value={pago.numero_operacion ?? '—'} />
@@ -273,8 +273,8 @@ export default async function SolicitudDetallePage({ params }: { params: { id: s
               monto={fmt(Number(pago.monto))}
               fecha={
                 pago.fecha_ejecutado
-                  ? new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE')
-                  : new Date(pago.fecha_programada).toLocaleDateString('es-PE')
+                  ? new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })
+                  : new Date(pago.fecha_programada).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })
               }
             />
           )}

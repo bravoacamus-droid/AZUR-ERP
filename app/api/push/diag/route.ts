@@ -51,7 +51,7 @@ export async function GET() {
               },
               JSON.stringify({
                 title: 'AZUR · DIAG',
-                body: 'Push desde Vercel ' + new Date().toLocaleTimeString('es-PE'),
+                body: 'Push desde Vercel ' + new Date().toLocaleTimeString('es-PE', { timeZone: 'America/Lima' }),
                 url: '/inicio',
                 tag: 'diag',
               }),

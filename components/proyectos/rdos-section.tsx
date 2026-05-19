@@ -80,7 +80,7 @@ export async function RdosSection({ proyectoId }: Props) {
                     </Link>
                     <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
                       <Calendar className="h-3 w-3" />
-                      {new Date(r.fecha).toLocaleDateString('es-PE', {
+                      {new Date(r.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                         weekday: 'short',
                         day: '2-digit',
                         month: 'short',

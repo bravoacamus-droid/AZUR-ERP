@@ -72,7 +72,7 @@ export default async function VoucherPublicPage({ params }: { params: { token: s
               label="Fecha de ejecución"
               value={
                 pago.fecha_ejecutado
-                  ? new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE', {
+                  ? new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                       day: '2-digit',
                       month: 'long',
                       year: 'numeric',

@@ -73,10 +73,10 @@ export default async function PagosPage() {
                       </td>
                       <td className="px-4 py-3 text-azur-ink">{sol?.beneficiario ?? '—'}</td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {new Date(p.fecha_programada).toLocaleDateString('es-PE')}
+                        {new Date(p.fecha_programada).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}
                       </td>
                       <td className="px-4 py-3 text-muted-foreground">
-                        {p.fecha_ejecutado ? new Date(p.fecha_ejecutado).toLocaleDateString('es-PE') : '—'}
+                        {p.fecha_ejecutado ? new Date(p.fecha_ejecutado).toLocaleDateString('es-PE', { timeZone: 'America/Lima' }) : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <Badge variant={p.voucher_path ? 'success' : 'warning'}>

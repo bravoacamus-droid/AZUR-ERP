@@ -233,7 +233,7 @@ export default async function EvidenciasProyectoPage({
                     </p>
                   </div>
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    {new Date(e.tomada_en).toLocaleString('es-PE')}
+                    {new Date(e.tomada_en).toLocaleString('es-PE', { timeZone: 'America/Lima' })}
                   </p>
                 </div>
               </article>

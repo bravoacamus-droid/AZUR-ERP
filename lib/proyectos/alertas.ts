@@ -145,7 +145,7 @@ export function computeAlertasProyecto(p: Input): Alerta[] {
 }
 
 function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('es-PE', {
+  return new Date(iso).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
     day: '2-digit',
     month: 'short',
     year: 'numeric',

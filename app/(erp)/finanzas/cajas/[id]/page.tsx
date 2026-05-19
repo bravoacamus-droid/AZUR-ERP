@@ -208,7 +208,7 @@ export default async function CajaDetallePage({ params }: { params: { id: string
                         </span>
                       </td>
                       <td className="px-4 py-2.5 text-muted-foreground">
-                        {new Date(m.fecha).toLocaleDateString('es-PE', {
+                        {new Date(m.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
                           day: '2-digit',
                           month: 'short',
                           year: 'numeric',

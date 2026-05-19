@@ -91,9 +91,9 @@ export default async function ValorizacionDetallePage({
             Periodo
           </p>
           <p className="mt-1 text-sm font-bold text-azur-ink">
-            {new Date(val.periodo_inicio).toLocaleDateString('es-PE', { day: '2-digit', month: 'short' })}
+            {new Date(val.periodo_inicio).toLocaleDateString('es-PE', { timeZone: 'America/Lima', day: '2-digit', month: 'short' })}
             {' → '}
-            {new Date(val.periodo_fin).toLocaleDateString('es-PE', {
+            {new Date(val.periodo_fin).toLocaleDateString('es-PE', { timeZone: 'America/Lima',
               day: '2-digit',
               month: 'short',
               year: 'numeric',

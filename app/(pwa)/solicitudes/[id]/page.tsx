@@ -76,8 +76,8 @@ export default async function PwaSolicitudDetallePage({ params }: { params: { id
         concepto: sol.concepto,
         monto: fmt(Number(pago.monto)),
         fecha: pago.fecha_ejecutado
-          ? new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE')
-          : new Date(pago.fecha_programada).toLocaleDateString('es-PE'),
+          ? new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })
+          : new Date(pago.fecha_programada).toLocaleDateString('es-PE', { timeZone: 'America/Lima' }),
         voucherUrl: voucherPublicUrl,
       })
     : null;
@@ -143,7 +143,7 @@ export default async function PwaSolicitudDetallePage({ params }: { params: { id
           </p>
           <p className="mt-0.5 flex items-center gap-1.5 text-muted-foreground">
             <Clock className="h-3.5 w-3.5" />
-            {new Date(sol.created_at).toLocaleString('es-PE')}
+            {new Date(sol.created_at).toLocaleString('es-PE', { timeZone: 'America/Lima' })}
           </p>
         </div>
         {sol.notas && (
@@ -210,7 +210,7 @@ export default async function PwaSolicitudDetallePage({ params }: { params: { id
             )}
             {pago.numero_operacion && <KV label="N° Operación" value={pago.numero_operacion} mono />}
             {pago.fecha_ejecutado && (
-              <KV label="Fecha pagado" value={new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE')} />
+              <KV label="Fecha pagado" value={new Date(pago.fecha_ejecutado).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })} />
             )}
           </div>
           {voucherPreviewUrl && (

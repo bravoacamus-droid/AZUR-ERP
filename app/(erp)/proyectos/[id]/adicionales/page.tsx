@@ -178,7 +178,7 @@ export default async function AdicionalesPage({ params }: { params: { id: string
                   </td>
                   <td className="px-4 py-2.5 text-azur-ink">{i.descripcion}</td>
                   <td className="px-4 py-2.5 text-muted-foreground">
-                    {new Date(i.fecha).toLocaleDateString('es-PE')}
+                    {new Date(i.fecha).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}
                   </td>
                   <td className="px-4 py-2.5">
                     <Badge variant={i.aprobado ? 'success' : 'warning'}>

@@ -110,7 +110,7 @@ export async function DocumentosSection({ proyectoId }: Props) {
                   <p className="line-clamp-1 text-sm font-semibold text-azur-ink">{d.titulo}</p>
                   <p className="text-[11px] text-muted-foreground">
                     {reportador ?? '—'} · {formatBytes(Number(d.tamano_bytes ?? 0))} ·{' '}
-                    {new Date(d.created_at).toLocaleDateString('es-PE')}
+                    {new Date(d.created_at).toLocaleDateString('es-PE', { timeZone: 'America/Lima' })}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
