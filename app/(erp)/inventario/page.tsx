@@ -1,11 +1,14 @@
 import Link from 'next/link';
 import {
+  AlertTriangle,
   ArrowDownToLine,
   ArrowUpFromLine,
   Building2,
+  CheckCircle2,
   Package,
   PackageCheck,
   Users,
+  Warehouse,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
@@ -55,6 +58,18 @@ export default async function AlmacenErpPage({
 
   const { data: movs } = await q;
   const items = movs ?? [];
+
+  // Stock disponible (vista v_almacen_stock)
+  let stockQ = supabase
+    .from('v_almacen_stock')
+    .select('proyecto_id, proyecto_codigo, proyecto_nombre, insumo_codigo, descripcion, categoria, unidad, total_salidas, total_devoluciones, disponible, ultimo_movimiento')
+    .gt('disponible', 0)
+    .order('proyecto_codigo', { ascending: true })
+    .order('disponible', { ascending: false })
+    .limit(200);
+  if (searchParams?.proyecto) stockQ = stockQ.eq('proyecto_id', searchParams.proyecto);
+  const { data: stockRows } = await stockQ;
+  const stockItems = stockRows ?? [];
 
   // Perfiles de quienes registraron
   const userIds = [...new Set(items.map((m) => m.registrado_por).filter(Boolean))] as string[];
@@ -185,6 +200,114 @@ export default async function AlmacenErpPage({
           </button>
         </div>
       </form>
+
+      {/* Existencias actuales (stock pendiente de devolver) */}
+      {stockItems.length > 0 && (
+        <div className="azur-card overflow-hidden p-0">
+          <header className="flex items-center justify-between border-b border-border/60 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-azur-coral/20 text-azur-red">
+                <Warehouse className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className="font-display text-base font-bold text-azur-ink">
+                  Existencias actualmente entregadas · {stockItems.length}
+                </h2>
+                <p className="text-xs text-muted-foreground">
+                  Material y herramientas que salieron del almacén y aún no han sido devueltos.
+                </p>
+              </div>
+            </div>
+          </header>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-azur-coral/5 text-left text-xs uppercase tracking-wider text-azur-red">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">Proyecto</th>
+                  <th className="px-4 py-3 font-semibold">Material / herramienta</th>
+                  <th className="px-4 py-3 font-semibold">Categoría</th>
+                  <th className="px-4 py-3 text-right font-semibold">Salidas</th>
+                  <th className="px-4 py-3 text-right font-semibold">Devoluciones</th>
+                  <th className="px-4 py-3 text-right font-semibold">Pendiente</th>
+                  <th className="px-4 py-3 font-semibold">Último mov.</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border/60">
+                {stockItems.map((s, idx) => (
+                  <tr key={`${s.proyecto_id}-${s.descripcion}-${idx}`} className="hover:bg-azur-coral/5">
+                    <td className="px-4 py-2.5">
+                      {s.proyecto_id ? (
+                        <Link href={`/proyectos/${s.proyecto_id}`} className="group inline-flex flex-col">
+                          <span className="font-mono text-[11px] font-semibold text-azur-red group-hover:underline">
+                            {s.proyecto_codigo}
+                          </span>
+                          <span className="line-clamp-1 text-[10px] text-muted-foreground">
+                            {s.proyecto_nombre}
+                          </span>
+                        </Link>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div>
+                        <p className="line-clamp-1 text-sm font-semibold text-azur-ink">
+                          {s.descripcion}
+                        </p>
+                        {s.insumo_codigo && s.insumo_codigo !== '—' && (
+                          <p className="font-mono text-[10px] text-muted-foreground">{s.insumo_codigo}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <Badge
+                        variant={
+                          s.categoria === 'equipo'
+                            ? 'default'
+                            : s.categoria === 'material'
+                              ? 'coral'
+                              : 'outline'
+                        }
+                      >
+                        {s.categoria === 'equipo'
+                          ? 'Herramienta'
+                          : s.categoria === 'material'
+                            ? 'Material'
+                            : s.categoria === 'libre'
+                              ? 'Texto libre'
+                              : s.categoria}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-azur-red">
+                      {Number(s.total_salidas).toLocaleString('es-PE')}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-xs text-success">
+                      {Number(s.total_devoluciones).toLocaleString('es-PE')}
+                    </td>
+                    <td className="px-4 py-2.5 text-right">
+                      <Badge variant="warning">
+                        {Number(s.disponible).toLocaleString('es-PE')} {s.unidad}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-2.5 text-xs text-muted-foreground whitespace-nowrap">
+                      {s.ultimo_movimiento
+                        ? new Date(s.ultimo_movimiento).toLocaleDateString('es-PE', {
+                            timeZone: 'America/Lima',
+                            day: '2-digit',
+                            month: 'short',
+                          })
+                        : '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="border-t border-border/60 px-6 py-2 text-[11px] text-muted-foreground">
+              {stockItems.length} ítem(s) pendientes · Pendiente = Salidas − Devoluciones · Filtra por proyecto arriba.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Lista */}
       {items.length === 0 ? (

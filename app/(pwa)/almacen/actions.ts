@@ -4,11 +4,12 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
-import { optionalString } from '@/lib/zod-helpers';
+import { optionalString, optionalUuid } from '@/lib/zod-helpers';
 
 const movSchema = z.object({
   proyecto_id: z.string().uuid(),
   tipo: z.enum(['salida', 'devolucion']),
+  insumo_id: optionalUuid(),
   descripcion: z.string().min(3),
   cantidad: z.coerce.number().min(0.0001),
   unidad: z.string().min(1),
@@ -21,6 +22,7 @@ export async function registrarMovimientoAlmacen(formData: FormData) {
   const parsed = movSchema.safeParse({
     proyecto_id: formData.get('proyecto_id'),
     tipo: formData.get('tipo'),
+    insumo_id: formData.get('insumo_id'),
     descripcion: formData.get('descripcion'),
     cantidad: formData.get('cantidad'),
     unidad: formData.get('unidad'),
@@ -33,6 +35,7 @@ export async function registrarMovimientoAlmacen(formData: FormData) {
   const { error } = await supabase.from('almacen_movimientos').insert({
     proyecto_id: parsed.data.proyecto_id,
     tipo: parsed.data.tipo,
+    insumo_id: parsed.data.insumo_id || null,
     descripcion: parsed.data.descripcion,
     cantidad: parsed.data.cantidad,
     unidad: parsed.data.unidad,
@@ -43,4 +46,5 @@ export async function registrarMovimientoAlmacen(formData: FormData) {
   if (error) throw new Error(error.message);
 
   revalidatePath('/almacen');
+  revalidatePath('/inventario');
 }

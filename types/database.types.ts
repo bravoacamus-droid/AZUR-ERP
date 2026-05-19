@@ -2385,6 +2385,60 @@ export type Database = {
       }
     }
     Views: {
+      v_almacen_stock: {
+        Row: {
+          cantidad_movimientos: number | null
+          categoria: string | null
+          descripcion: string | null
+          disponible: number | null
+          insumo_codigo: string | null
+          insumo_id: string | null
+          proyecto_codigo: string | null
+          proyecto_id: string | null
+          proyecto_nombre: string | null
+          total_devoluciones: number | null
+          total_salidas: number | null
+          ultimo_movimiento: string | null
+          unidad: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "almacen_movimientos_insumo_id_fkey"
+            columns: ["insumo_id"]
+            isOneToOne: false
+            referencedRelation: "insumos_maestros"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_avance_vs_gasto"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_proyectos_resumen"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "almacen_movimientos_unidad_fkey"
+            columns: ["unidad"]
+            isOneToOne: false
+            referencedRelation: "unidades_medida"
+            referencedColumns: ["codigo"]
+          },
+        ]
+      }
       v_cajas_saldos: {
         Row: {
           entradas: number | null

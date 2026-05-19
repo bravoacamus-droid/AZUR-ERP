@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/ui/empty-state';
 import { registrarMovimientoAlmacen } from './actions';
+import { InsumoSelector, type InsumoOption } from './insumo-selector';
 
 export const metadata = { title: 'Almacén' };
 export const dynamic = 'force-dynamic';
@@ -42,6 +43,21 @@ export default async function AlmacenPage() {
   const proyectoIds = proyectos.map((p) => p.id);
 
   const { data: unidades } = await supabase.from('unidades_medida').select('codigo, nombre').order('codigo');
+
+  // Catálogo de insumos para selector (solo herramientas/materiales — no mano obra etc)
+  const { data: insumosData } = await supabase
+    .from('insumos_maestros')
+    .select('id, codigo, descripcion, categoria, unidad')
+    .eq('activo', true)
+    .in('categoria', ['equipo', 'material'])
+    .order('codigo');
+  const insumos: InsumoOption[] = (insumosData ?? []).map((i) => ({
+    id: i.id,
+    codigo: i.codigo,
+    descripcion: i.descripcion,
+    categoria: i.categoria,
+    unidad: i.unidad,
+  }));
 
   const { data: movs } = proyectoIds.length
     ? await supabase
@@ -82,35 +98,19 @@ export default async function AlmacenPage() {
               ))}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-2">
-              <Label htmlFor="tipo">Tipo</Label>
-              <select name="tipo" id="tipo" required className={inputClass} defaultValue="salida">
-                <option value="salida">Salida</option>
-                <option value="devolucion">Devolución</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="unidad">Unidad</Label>
-              <select name="unidad" id="unidad" required className={inputClass} defaultValue="und">
-                {(unidades ?? []).map((u) => (
-                  <option key={u.codigo} value={u.codigo}>
-                    {u.codigo}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
           <div className="space-y-2">
-            <Label htmlFor="descripcion">Descripción</Label>
-            <Input
-              name="descripcion"
-              id="descripcion"
-              required
-              minLength={3}
-              placeholder="Ej. Taladro Bosch, andamio chico (2 cuerpos)"
-            />
+            <Label htmlFor="tipo">Tipo de movimiento</Label>
+            <select name="tipo" id="tipo" required className={inputClass} defaultValue="salida">
+              <option value="salida">Salida (entrega a obra)</option>
+              <option value="devolucion">Devolución (regreso al almacén)</option>
+            </select>
           </div>
+
+          <div className="space-y-2">
+            <Label>Material / herramienta</Label>
+            <InsumoSelector insumos={insumos} unidades={unidades ?? []} />
+          </div>
+
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-2">
               <Label htmlFor="cantidad">Cantidad</Label>
@@ -120,6 +120,10 @@ export default async function AlmacenPage() {
               <Label htmlFor="responsable">Responsable</Label>
               <Input name="responsable" id="responsable" placeholder="Recibe / devuelve" />
             </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="notas">Notas (opcional)</Label>
+            <Input name="notas" id="notas" placeholder="Estado, observaciones, etc." />
           </div>
           <Button type="submit" className="w-full">
             Registrar movimiento
