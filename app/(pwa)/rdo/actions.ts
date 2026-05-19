@@ -1,7 +1,6 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
@@ -21,7 +20,7 @@ const rdoSchema = z.object({
   personal_total: z.coerce.number().int().min(0).default(0),
 });
 
-export type CrearRdoState = { ok: boolean; error?: string };
+export type CrearRdoState = { ok: boolean; error?: string; savedAt?: number; codigo?: string };
 
 export async function crearRdo(
   _prev: CrearRdoState,
@@ -59,7 +58,7 @@ export async function crearRdo(
       },
       { onConflict: 'proyecto_id,fecha' },
     )
-    .select('id')
+    .select('id, codigo')
     .single();
 
   if (error || !data) {
@@ -67,5 +66,5 @@ export async function crearRdo(
   }
 
   revalidatePath('/rdo');
-  redirect('/rdo');
+  return { ok: true, savedAt: Date.now(), codigo: data.codigo ?? undefined };
 }

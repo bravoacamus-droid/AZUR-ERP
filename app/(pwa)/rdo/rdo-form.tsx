@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { useFormState, useFormStatus } from 'react-dom';
 import { toast } from 'sonner';
 import { Save } from 'lucide-react';
@@ -28,16 +29,30 @@ function SubmitButton() {
 }
 
 export function RdoForm({ proyectos }: { proyectos: Proyecto[] }) {
+  const router = useRouter();
+  const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction] = useFormState<CrearRdoState, FormData>(crearRdo, { ok: true });
+  const lastSavedRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (state.error) toast.error(state.error);
-  }, [state.error]);
+    if (state.error) {
+      toast.error(state.error);
+      return;
+    }
+    if (state.savedAt && state.savedAt !== lastSavedRef.current) {
+      lastSavedRef.current = state.savedAt;
+      toast.success(`Parte diario ${state.codigo ?? ''} guardado`);
+      // Reset form para permitir otro registro
+      formRef.current?.reset();
+      // Refresca para que aparezca en "Últimos partes"
+      router.refresh();
+    }
+  }, [state, router]);
 
   const today = new Date().toISOString().slice(0, 10);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form ref={formRef} action={formAction} className="space-y-4">
       <div className="azur-card space-y-4">
         <div className="space-y-1.5">
           <Label htmlFor="proyecto_id">Proyecto</Label>
