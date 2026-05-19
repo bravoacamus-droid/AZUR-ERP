@@ -1,27 +1,11 @@
-import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 
-Font.register({
-  family: 'Inter',
-  fonts: [
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa1ZL7.woff',
-      fontWeight: 400,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa3ZL7.woff',
-      fontWeight: 600,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa2pL7.woff',
-      fontWeight: 700,
-    },
-  ],
-});
+// Usamos Helvetica (default) — más confiable que cargar Google Fonts en serverless
 
 const BRAND = { red: '#BE1723', bright: '#E20627', coral: '#ECA4A9', coralSoft: '#F8DDDF', ink: '#0A0A0A', muted: '#5b5b5b', border: '#e3e3e3' };
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 30, paddingBottom: 50, paddingHorizontal: 28, fontSize: 8, fontFamily: 'Inter', color: BRAND.ink },
+  page: { paddingTop: 30, paddingBottom: 50, paddingHorizontal: 28, fontSize: 8, fontFamily: 'Helvetica', color: BRAND.ink },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   logo: { width: 32, height: 38 },

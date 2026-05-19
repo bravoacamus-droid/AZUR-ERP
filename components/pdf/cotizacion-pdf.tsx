@@ -1,23 +1,7 @@
-import { Document, Page, Text, View, StyleSheet, Image, Font } from '@react-pdf/renderer';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import type { CotizacionTotales } from '@/lib/comercial/apu';
 
-Font.register({
-  family: 'Inter',
-  fonts: [
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa1ZL7.woff',
-      fontWeight: 400,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa3ZL7.woff',
-      fontWeight: 600,
-    },
-    {
-      src: 'https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50ojIa2pL7.woff',
-      fontWeight: 700,
-    },
-  ],
-});
+// Usamos Helvetica (default) — más confiable que cargar Google Fonts en serverless
 
 const BRAND = {
   red: '#BE1723',
@@ -30,7 +14,7 @@ const BRAND = {
 };
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 36, paddingBottom: 56, paddingHorizontal: 36, fontSize: 9, fontFamily: 'Inter', color: BRAND.ink },
+  page: { paddingTop: 36, paddingBottom: 56, paddingHorizontal: 36, fontSize: 9, fontFamily: 'Helvetica', color: BRAND.ink },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logo: { width: 36, height: 44 },
@@ -82,7 +66,7 @@ const styles = StyleSheet.create({
     borderBottomColor: BRAND.border,
     fontSize: 8.5,
   },
-  mono: { fontFamily: 'Inter' },
+  mono: { fontFamily: 'Helvetica' },
   codigoCell: { color: BRAND.red, fontWeight: 700 },
 
   totalsBox: { marginTop: 14, alignSelf: 'flex-end', width: '52%' },
