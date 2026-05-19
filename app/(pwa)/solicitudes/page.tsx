@@ -44,7 +44,7 @@ export default async function PwaSolicitudesPage() {
         </p>
       </header>
 
-      <Link href="/finanzas/solicitudes/nueva" className="block">
+      <Link href="/solicitudes/nueva" className="block">
         <Button size="lg" className="w-full">
           <Plus className="h-5 w-5" />
           Nueva solicitud
@@ -67,7 +67,7 @@ export default async function PwaSolicitudesPage() {
             return (
               <li key={s.id}>
                 <Link
-                  href={`/finanzas/solicitudes/${s.id}`}
+                  href={`/solicitudes/${s.id}`}
                   className="azur-card flex items-center gap-3 transition-all active:scale-[0.99]"
                 >
                   <div className="min-w-0 flex-1">

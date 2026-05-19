@@ -90,7 +90,11 @@ export async function crearSolicitud(
 
   revalidatePath('/finanzas/solicitudes');
   revalidatePath('/finanzas/aprobaciones');
-  redirect(`/finanzas/solicitudes/${data.id}`);
+  revalidatePath('/solicitudes');
+
+  // El residente vive en la PWA y no puede acceder a /finanzas/*
+  const base = session.rol === 'residente' ? '/solicitudes' : '/finanzas/solicitudes';
+  redirect(`${base}/${data.id}`);
 }
 
 const decidirSchema = z.object({
