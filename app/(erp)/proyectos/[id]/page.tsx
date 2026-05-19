@@ -30,6 +30,7 @@ import { RdosSection } from '@/components/proyectos/rdos-section';
 import { EvidenciasSection } from '@/components/proyectos/evidencias-section';
 import { SstSection } from '@/components/proyectos/sst-section';
 import { DocumentosSection } from '@/components/proyectos/documentos-section';
+import { AlmacenSection } from '@/components/proyectos/almacen-section';
 import { AlertasBanner } from '@/components/proyectos/alertas-banner';
 import { computeAlertasProyecto } from '@/lib/proyectos/alertas';
 
@@ -371,6 +372,9 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
 
       {/* Seguridad y Salud (SST) */}
       <SstSection proyectoId={params.id} />
+
+      {/* Almacén del proyecto */}
+      <AlmacenSection proyectoId={params.id} />
 
       {/* Documentos del proyecto */}
       <DocumentosSection proyectoId={params.id} />

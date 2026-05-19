@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Briefcase, Calculator, Layers, Package, Users } from 'lucide-react';
+import { Briefcase, Calculator, Layers, Package, Search, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
 import { PageHeader } from '@/components/ui/page-header';
@@ -8,25 +8,41 @@ import { formatPEN } from '@/lib/utils';
 import { INSUMO_CATEGORIA_LABEL, INSUMO_CATEGORIA_VARIANT } from '@/lib/comercial/estados';
 
 export const metadata = { title: 'Catálogo' };
+export const dynamic = 'force-dynamic';
 
-export default async function CatalogoPage() {
+type SearchParams = { q?: string; categoria?: string };
+
+export default async function CatalogoPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams;
+}) {
   await requireSession();
   const supabase = createClient();
 
+  // Insumos con filtros
+  let insumosQ = supabase
+    .from('insumos_maestros')
+    .select('id, codigo, descripcion, categoria, unidad, precio_unit, moneda', { count: 'exact' })
+    .eq('activo', true)
+    .order('codigo')
+    .limit(200);
+  if (searchParams?.q) {
+    insumosQ = insumosQ.or(`descripcion.ilike.%${searchParams.q}%,codigo.ilike.%${searchParams.q}%`);
+  }
+  if (searchParams?.categoria) {
+    insumosQ = insumosQ.eq('categoria', searchParams.categoria as 'mano_obra' | 'material' | 'equipo' | 'subcontrato' | 'transporte' | 'gasto_general');
+  }
+
   const [{ data: insumos, count: insumosCount }, { data: partidas, count: partidasCount }, { count: cuadrillasCount }] =
     await Promise.all([
-      supabase
-        .from('insumos_maestros')
-        .select('id, codigo, descripcion, categoria, unidad, precio_unit, moneda', { count: 'exact' })
-        .eq('activo', true)
-        .order('codigo')
-        .limit(30),
+      insumosQ,
       supabase
         .from('partidas_maestras')
         .select('id, codigo, descripcion, unidad, rendimiento', { count: 'exact' })
         .eq('activo', true)
         .order('codigo')
-        .limit(30),
+        .limit(200),
       supabase.from('cuadrillas').select('id', { count: 'exact', head: true }).eq('activo', true),
     ]);
 
@@ -48,11 +64,51 @@ export default async function CatalogoPage() {
 
       {/* Insumos */}
       <section id="insumos" className="azur-card p-0">
-        <div className="flex items-center justify-between border-b border-border/60 px-6 py-4">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border/60 px-6 py-4">
           <div>
             <h2 className="font-display text-lg font-bold text-azur-ink">Insumos</h2>
-            <p className="text-xs text-muted-foreground">Mano de obra, materiales, equipos y otros — precios referenciales</p>
+            <p className="text-xs text-muted-foreground">
+              Mano de obra, materiales, equipos, herramientas y EPP — usados en cotizaciones y movimientos de almacén
+            </p>
           </div>
+          <form className="flex flex-wrap items-end gap-2">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                name="q"
+                defaultValue={searchParams?.q ?? ''}
+                placeholder="Buscar (taladro, cemento…)"
+                className="flex h-9 w-56 rounded-xl border border-input bg-background pl-8 pr-3 text-sm shadow-sm focus-visible:border-azur-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azur-coral/40"
+              />
+            </div>
+            <select
+              name="categoria"
+              defaultValue={searchParams?.categoria ?? ''}
+              className="flex h-9 rounded-xl border border-input bg-background px-3 text-sm shadow-sm"
+            >
+              <option value="">Todas las categorías</option>
+              {Object.entries(INSUMO_CATEGORIA_LABEL).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="inline-flex h-9 items-center rounded-full bg-azur-gradient px-4 text-xs font-semibold text-white shadow-azur-md"
+            >
+              Filtrar
+            </button>
+            {(searchParams?.q || searchParams?.categoria) && (
+              <Link
+                href="/comercial/catalogo"
+                className="inline-flex h-9 items-center rounded-full border border-border bg-white px-3 text-xs font-medium hover:border-azur-coral"
+              >
+                Limpiar
+              </Link>
+            )}
+          </form>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -87,7 +143,8 @@ export default async function CatalogoPage() {
           </table>
         </div>
         <p className="border-t border-border/60 px-6 py-3 text-xs text-muted-foreground">
-          Mostrando {insumos?.length ?? 0} de {insumosCount ?? 0} insumos. Próximamente: editor in-line, importar/exportar Excel y actualización masiva de precios.
+          Mostrando {insumos?.length ?? 0} de {insumosCount ?? 0} insumos
+          {searchParams?.q || searchParams?.categoria ? ' (filtrado)' : ''}. Códigos: <span className="font-mono">INS-</span> usados en cotizaciones · <span className="font-mono">HER-</span> herramientas · <span className="font-mono">MAT-</span> materiales · <span className="font-mono">EPP-</span> equipo de protección personal.
         </p>
       </section>
 
