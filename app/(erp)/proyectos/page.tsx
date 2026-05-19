@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, ArrowRight, MapPin, Calendar } from 'lucide-react';
+import { AlertTriangle, Building2, ArrowRight, MapPin, Calendar } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
 import { PageHeader } from '@/components/ui/page-header';
@@ -11,6 +11,7 @@ import {
   PROYECTO_ESTADO_VARIANT,
   type ProyectoEstado,
 } from '@/lib/proyectos/estados';
+import { computeAlertasProyecto } from '@/lib/proyectos/alertas';
 
 export const metadata = { title: 'Proyectos' };
 export const dynamic = 'force-dynamic';
@@ -25,6 +26,59 @@ export default async function ProyectosListPage() {
     .order('codigo', { ascending: false });
 
   const items = proyectos ?? [];
+
+  // Para alertas necesitamos datos adicionales (fecha_fin_plan, latitud, gastado_real)
+  const ids = items.map((p) => p.id).filter((id): id is string => id != null);
+  const detallesMap = new Map<
+    string,
+    { fecha_fin_plan: string | null; latitud: number | null; longitud: number | null; fecha_inicio: string | null }
+  >();
+  const gastadoMap = new Map<string, number>();
+
+  if (ids.length > 0) {
+    const [{ data: detalles }, { data: gastos }] = await Promise.all([
+      supabase
+        .from('proyectos')
+        .select('id, fecha_fin_plan, fecha_inicio, latitud, longitud')
+        .in('id', ids),
+      supabase
+        .from('solicitudes_pago')
+        .select('proyecto_id, monto')
+        .in('proyecto_id', ids)
+        .eq('estado', 'pagada'),
+    ]);
+    (detalles ?? []).forEach((d) => {
+      detallesMap.set(d.id, {
+        fecha_fin_plan: d.fecha_fin_plan,
+        fecha_inicio: d.fecha_inicio,
+        latitud: d.latitud == null ? null : Number(d.latitud),
+        longitud: d.longitud == null ? null : Number(d.longitud),
+      });
+    });
+    (gastos ?? []).forEach((g) => {
+      gastadoMap.set(g.proyecto_id, (gastadoMap.get(g.proyecto_id) ?? 0) + Number(g.monto ?? 0));
+    });
+  }
+
+  const alertasMap = new Map<string, number>();
+  for (const p of items) {
+    if (!p.id) continue;
+    const det = detallesMap.get(p.id);
+    const alertas = computeAlertasProyecto({
+      estado: p.estado ?? 'planificado',
+      fechaInicio: det?.fecha_inicio ?? null,
+      fechaFinPlan: det?.fecha_fin_plan ?? null,
+      fechaFinReal: null,
+      presupuestoVenta: Number(p.presupuesto_venta ?? 0),
+      ejecutadoVenta: Number(p.ejecutado_venta ?? 0),
+      gastadoReal: gastadoMap.get(p.id) ?? 0,
+      pctAvance: Number(p.porcentaje_avance ?? 0),
+      latitud: det?.latitud ?? null,
+      longitud: det?.longitud ?? null,
+    });
+    // Solo contamos alertas críticas + altas para la badge
+    alertasMap.set(p.id, alertas.filter((a) => a.severidad === 'critica' || a.severidad === 'alta').length);
+  }
 
   return (
     <div className="space-y-8">
@@ -83,9 +137,17 @@ export default async function ProyectosListPage() {
                         {p.nombre}
                       </h3>
                     </div>
-                    <Badge variant={PROYECTO_ESTADO_VARIANT[p.estado as ProyectoEstado]}>
-                      {PROYECTO_ESTADO_LABEL[p.estado as ProyectoEstado]}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-1">
+                      <Badge variant={PROYECTO_ESTADO_VARIANT[p.estado as ProyectoEstado]}>
+                        {PROYECTO_ESTADO_LABEL[p.estado as ProyectoEstado]}
+                      </Badge>
+                      {p.id && (alertasMap.get(p.id) ?? 0) > 0 && (
+                        <Badge variant="destructive" className="gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          {alertasMap.get(p.id)} alerta(s)
+                        </Badge>
+                      )}
+                    </div>
                   </div>
 
                   {p.ubicacion && (

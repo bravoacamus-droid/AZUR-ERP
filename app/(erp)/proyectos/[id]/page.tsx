@@ -29,6 +29,8 @@ import { AsistenciasSection } from '@/components/proyectos/asistencias-section';
 import { RdosSection } from '@/components/proyectos/rdos-section';
 import { EvidenciasSection } from '@/components/proyectos/evidencias-section';
 import { SstSection } from '@/components/proyectos/sst-section';
+import { AlertasBanner } from '@/components/proyectos/alertas-banner';
+import { computeAlertasProyecto } from '@/lib/proyectos/alertas';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,6 +53,17 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
     .select('id, codigo, nombre, orden')
     .eq('proyecto_id', params.id)
     .order('orden');
+
+  // Suma de solicitudes pagadas (para alerta de sobrecosto)
+  const { data: solicitudesPagadas } = await supabase
+    .from('solicitudes_pago')
+    .select('monto')
+    .eq('proyecto_id', params.id)
+    .eq('estado', 'pagada');
+  const gastadoReal = (solicitudesPagadas ?? []).reduce(
+    (sum, s) => sum + Number(s.monto ?? 0),
+    0,
+  );
 
   const { data: partidasRaw } = await supabase
     .from('proyecto_partidas')
@@ -88,6 +101,20 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
   const margenCalculado =
     contratoCosto > 0 ? ((Number(proyecto.presupuesto_venta) - contratoCosto) / contratoCosto) * 100 : 0;
 
+  // Calcular alertas
+  const alertas = computeAlertasProyecto({
+    estado: estado,
+    fechaInicio: proyecto.fecha_inicio,
+    fechaFinPlan: proyecto.fecha_fin_plan,
+    fechaFinReal: proyecto.fecha_fin_real,
+    presupuestoVenta: Number(proyecto.presupuesto_venta ?? 0),
+    ejecutadoVenta: Number(resumen?.ejecutado_venta ?? 0),
+    gastadoReal,
+    pctAvance: avance,
+    latitud: proyecto.latitud == null ? null : Number(proyecto.latitud),
+    longitud: proyecto.longitud == null ? null : Number(proyecto.longitud),
+  });
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -120,6 +147,9 @@ export default async function ProyectoDetallePage({ params }: { params: { id: st
           </>
         }
       />
+
+      {/* Alertas del proyecto */}
+      <AlertasBanner alertas={alertas} />
 
       {/* KPI cards */}
       <div className="grid gap-4 md:grid-cols-4">
