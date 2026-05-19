@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ArrowDownToLine, ArrowUpFromLine, Package } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -44,7 +45,16 @@ export default async function AlmacenPage() {
 
   const { data: unidades } = await supabase.from('unidades_medida').select('codigo, nombre').order('codigo');
 
-  // Catálogo de insumos para selector (solo herramientas/materiales — no mano obra etc)
+  // Catálogo de insumos + stock central (admin client para que residente vea stock)
+  const admin = createAdminClient();
+  const { data: stockCentral } = await admin
+    .from('v_almacen_central_stock')
+    .select('insumo_id, stock_disponible');
+  const stockMap = new Map<string, number>();
+  (stockCentral ?? []).forEach((s) => {
+    if (s.insumo_id) stockMap.set(s.insumo_id, Number(s.stock_disponible ?? 0));
+  });
+
   const { data: insumosData } = await supabase
     .from('insumos_maestros')
     .select('id, codigo, descripcion, categoria, unidad')
@@ -57,6 +67,7 @@ export default async function AlmacenPage() {
     descripcion: i.descripcion,
     categoria: i.categoria,
     unidad: i.unidad,
+    stockCentral: stockMap.get(i.id) ?? 0,
   }));
 
   const { data: movs } = proyectoIds.length

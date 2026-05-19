@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { requireSession } from '@/lib/auth/server';
 import { optionalString, optionalUuid } from '@/lib/zod-helpers';
 
@@ -30,6 +31,22 @@ export async function registrarMovimientoAlmacen(formData: FormData) {
     notas: formData.get('notas'),
   });
   if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Datos inválidos');
+
+  // VALIDACIÓN DE STOCK: solo para salidas con insumo del catálogo
+  if (parsed.data.tipo === 'salida' && parsed.data.insumo_id) {
+    const admin = createAdminClient();
+    const { data: stock } = await admin
+      .from('v_almacen_central_stock')
+      .select('stock_disponible, descripcion, unidad')
+      .eq('insumo_id', parsed.data.insumo_id)
+      .single();
+    const disponible = Number(stock?.stock_disponible ?? 0);
+    if (disponible < parsed.data.cantidad) {
+      throw new Error(
+        `Stock insuficiente en almacén central. Disponible: ${disponible} ${stock?.unidad ?? ''} de "${stock?.descripcion ?? 'insumo'}". Intentas sacar ${parsed.data.cantidad}.`,
+      );
+    }
+  }
 
   const supabase = createClient();
   const { error } = await supabase.from('almacen_movimientos').insert({
