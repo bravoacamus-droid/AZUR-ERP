@@ -171,29 +171,46 @@ export default async function UsuariosPage() {
                       </div>
                     )}
                     {/* Asignar nuevo proyecto */}
-                    {(proyectos ?? []).length > 0 && (
-                      <form action={asignarProyecto} className="flex gap-1">
-                        <input type="hidden" name="user_id" value={u.id} />
-                        <select name="proyecto_id" required className={selectClass}>
-                          <option value="">+ Asignar proyecto…</option>
-                          {(proyectos ?? [])
-                            .filter((p) => !asigs.some((a) => a.proyecto_id === p.id))
-                            .map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.codigo} · {p.nombre}
-                              </option>
-                            ))}
-                        </select>
-                        <select name="rol_obra" defaultValue="residente" className={selectClass}>
-                          <option value="residente">residente</option>
-                          <option value="coordinador">coordinador</option>
-                          <option value="supervisor">supervisor</option>
-                          <option value="jefe">jefe</option>
-                        </select>
-                        <Button type="submit" size="sm" variant="secondary" className="h-9 px-2">
-                          <Plus className="h-3.5 w-3.5" />
-                        </Button>
-                      </form>
+                    {(proyectos ?? []).length > 0 ? (
+                      (() => {
+                        const disponibles = (proyectos ?? []).filter(
+                          (p) => !asigs.some((a) => a.proyecto_id === p.id),
+                        );
+                        if (disponibles.length === 0) {
+                          return (
+                            <p className="text-[11px] italic text-muted-foreground">
+                              Ya asignado a todos los proyectos disponibles.
+                            </p>
+                          );
+                        }
+                        return (
+                          <form action={asignarProyecto} className="flex gap-1">
+                            <input type="hidden" name="user_id" value={u.id} />
+                            <select name="proyecto_id" required className={selectClass}>
+                              <option value="">+ Asignar proyecto…</option>
+                              {disponibles.map((p) => (
+                                <option key={p.id} value={p.id}>
+                                  {p.codigo} · {p.nombre}
+                                </option>
+                              ))}
+                            </select>
+                            <select name="rol_obra" defaultValue="residente" className={selectClass}>
+                              <option value="residente">residente</option>
+                              <option value="coordinador">coordinador</option>
+                              <option value="supervisor">supervisor</option>
+                              <option value="jefe">jefe</option>
+                            </select>
+                            <Button type="submit" size="sm" variant="secondary" className="h-9 px-2">
+                              <Plus className="h-3.5 w-3.5" />
+                            </Button>
+                          </form>
+                        );
+                      })()
+                    ) : (
+                      <p className="text-[11px] italic text-muted-foreground">
+                        Aún no hay proyectos creados. Cuando se cree el primero, aparecerá aquí el
+                        selector para asignar.
+                      </p>
                     )}
                   </div>
 
