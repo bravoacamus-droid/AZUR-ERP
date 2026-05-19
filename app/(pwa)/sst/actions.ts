@@ -6,6 +6,11 @@ import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
 import { optionalString } from '@/lib/zod-helpers';
 
+export type SstActionState = { ok: boolean; error?: string; savedAt?: number };
+
+// ---------------------------------------------------------------------
+// Charla 5 minutos
+// ---------------------------------------------------------------------
 const charlaSchema = z.object({
   proyecto_id: z.string().uuid(),
   fecha: z.string(),
@@ -13,8 +18,6 @@ const charlaSchema = z.object({
   asistencia: z.coerce.number().int().min(0),
   notas: optionalString(),
 });
-
-export type SstActionState = { ok: boolean; error?: string };
 
 export async function registrarCharla(
   _prev: SstActionState,
@@ -45,17 +48,23 @@ export async function registrarCharla(
   if (error) return { ok: false, error: error.message };
 
   revalidatePath('/sst');
-  return { ok: true };
+  return { ok: true, savedAt: Date.now() };
 }
 
+// ---------------------------------------------------------------------
+// Observación
+// ---------------------------------------------------------------------
 const obsSchema = z.object({
   proyecto_id: z.string().uuid(),
   tipo: z.enum(['acto_inseguro', 'condicion_insegura', 'sugerencia']),
-  descripcion: z.string().min(5),
+  descripcion: z.string().min(5, 'La descripción debe tener al menos 5 caracteres'),
   accion_correctiva: optionalString(),
 });
 
-export async function registrarObservacion(formData: FormData) {
+export async function registrarObservacion(
+  _prev: SstActionState,
+  formData: FormData,
+): Promise<SstActionState> {
   const session = await requireSession();
   const parsed = obsSchema.safeParse({
     proyecto_id: formData.get('proyecto_id'),
@@ -63,7 +72,9 @@ export async function registrarObservacion(formData: FormData) {
     descripcion: formData.get('descripcion'),
     accion_correctiva: formData.get('accion_correctiva'),
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Datos inválidos');
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
+  }
 
   const supabase = createClient();
   const { error } = await supabase.from('sst_observaciones').insert({
@@ -73,19 +84,27 @@ export async function registrarObservacion(formData: FormData) {
     accion_correctiva: parsed.data.accion_correctiva || null,
     reportada_por: session.userId,
   });
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, error: error.message };
+
   revalidatePath('/sst');
+  return { ok: true, savedAt: Date.now() };
 }
 
+// ---------------------------------------------------------------------
+// Incidente
+// ---------------------------------------------------------------------
 const incSchema = z.object({
   proyecto_id: z.string().uuid(),
   severidad: z.enum(['leve', 'moderado', 'grave', 'critico']),
-  descripcion: z.string().min(5),
+  descripcion: z.string().min(5, 'La descripción debe tener al menos 5 caracteres'),
   involucrados: optionalString(),
   acciones: optionalString(),
 });
 
-export async function registrarIncidente(formData: FormData) {
+export async function registrarIncidente(
+  _prev: SstActionState,
+  formData: FormData,
+): Promise<SstActionState> {
   const session = await requireSession();
   const parsed = incSchema.safeParse({
     proyecto_id: formData.get('proyecto_id'),
@@ -94,7 +113,9 @@ export async function registrarIncidente(formData: FormData) {
     involucrados: formData.get('involucrados'),
     acciones: formData.get('acciones'),
   });
-  if (!parsed.success) throw new Error(parsed.error.errors[0]?.message ?? 'Datos inválidos');
+  if (!parsed.success) {
+    return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
+  }
 
   const supabase = createClient();
   const { error } = await supabase.from('sst_incidentes').insert({
@@ -105,6 +126,8 @@ export async function registrarIncidente(formData: FormData) {
     acciones: parsed.data.acciones || null,
     reportado_por: session.userId,
   });
-  if (error) throw new Error(error.message);
+  if (error) return { ok: false, error: error.message };
+
   revalidatePath('/sst');
+  return { ok: true, savedAt: Date.now() };
 }

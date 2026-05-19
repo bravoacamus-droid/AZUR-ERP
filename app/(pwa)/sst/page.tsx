@@ -1,14 +1,12 @@
 import Link from 'next/link';
-import { AlertOctagon, AlertTriangle, ClipboardCheck, ShieldAlert, Users } from 'lucide-react';
+import { ClipboardCheck, ShieldAlert, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth/server';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { EmptyState } from '@/components/ui/empty-state';
-import { registrarObservacion, registrarIncidente } from './actions';
 import { CharlaForm } from './charla-form';
+import { ObservacionForm } from './observacion-form';
+import { IncidenteForm } from './incidente-form';
 
 export const metadata = { title: 'SST · Seguridad y Salud' };
 export const dynamic = 'force-dynamic';
@@ -25,12 +23,6 @@ const TIPO_OBS_LABEL: Record<string, string> = {
   condicion_insegura: 'Condición insegura',
   sugerencia: 'Sugerencia',
 };
-
-const inputClass =
-  'flex h-11 w-full rounded-xl border border-input bg-background px-3 text-sm shadow-sm focus-visible:border-azur-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azur-coral/40';
-
-const textareaClass =
-  'flex w-full rounded-xl border border-input bg-background px-4 py-2.5 text-sm shadow-sm focus-visible:border-azur-red focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-azur-coral/40';
 
 export default async function SstPage() {
   const session = await requireSession();
@@ -116,6 +108,7 @@ export default async function SstPage() {
         <EmptyState icon={ShieldAlert} title="Sin proyectos disponibles" />
       ) : (
         <>
+          {/* Charla 5 min */}
           <section className="azur-card space-y-3">
             <div className="flex items-center gap-2">
               <ClipboardCheck className="h-5 w-5 text-azur-red" />
@@ -145,123 +138,51 @@ export default async function SstPage() {
             )}
           </section>
 
-          <form action={registrarObservacion} className="azur-card space-y-3">
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-azur-red" />
-              <h2 className="font-display text-base font-bold text-azur-ink">Reportar observación</h2>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="obs_proy">Proyecto</Label>
-              <select name="proyecto_id" id="obs_proy" required className={inputClass}>
-                {proyectos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.codigo} · {p.nombre}
-                  </option>
+          {/* Observación */}
+          <ObservacionForm proyectos={proyectos} />
+          {obs && obs.length > 0 && (
+            <details className="azur-card text-xs">
+              <summary className="cursor-pointer text-azur-red font-semibold">
+                Últimas observaciones
+              </summary>
+              <ul className="mt-2 space-y-1.5">
+                {obs.map((o) => (
+                  <li
+                    key={o.id}
+                    className="flex items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-1.5"
+                  >
+                    <span className="line-clamp-1">
+                      <strong>{TIPO_OBS_LABEL[o.tipo] ?? o.tipo}</strong> — {o.descripcion}
+                    </span>
+                    <Badge variant={o.resuelta ? 'success' : 'warning'}>
+                      {o.resuelta ? 'Resuelta' : 'Abierta'}
+                    </Badge>
+                  </li>
                 ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="tipo">Tipo</Label>
-              <select name="tipo" id="tipo" required className={inputClass} defaultValue="condicion_insegura">
-                <option value="acto_inseguro">Acto inseguro</option>
-                <option value="condicion_insegura">Condición insegura</option>
-                <option value="sugerencia">Sugerencia</option>
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="descripcion">Descripción</Label>
-              <textarea name="descripcion" id="descripcion" required rows={2} className={textareaClass} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="accion_correctiva">Acción correctiva (opcional)</Label>
-              <textarea name="accion_correctiva" id="accion_correctiva" rows={2} className={textareaClass} />
-            </div>
-            <Button type="submit" className="w-full">
-              Reportar observación
-            </Button>
-            {obs && obs.length > 0 && (
-              <details className="text-xs">
-                <summary className="cursor-pointer text-azur-red">Últimas observaciones</summary>
-                <ul className="mt-2 space-y-1.5">
-                  {obs.map((o) => (
-                    <li
-                      key={o.id}
-                      className="flex items-center justify-between gap-2 rounded-lg bg-muted/30 px-3 py-1.5"
-                    >
-                      <span className="line-clamp-1">
-                        <strong>{TIPO_OBS_LABEL[o.tipo] ?? o.tipo}</strong> — {o.descripcion}
-                      </span>
-                      <Badge variant={o.resuelta ? 'success' : 'warning'}>
-                        {o.resuelta ? 'Resuelta' : 'Abierta'}
-                      </Badge>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </form>
+              </ul>
+            </details>
+          )}
 
-          <form
-            action={registrarIncidente}
-            className="azur-card space-y-3 border-destructive/30 bg-destructive/5"
-          >
-            <div className="flex items-center gap-2">
-              <AlertOctagon className="h-5 w-5 text-destructive" />
-              <h2 className="font-display text-base font-bold text-destructive">Reportar incidente</h2>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="inc_proy">Proyecto</Label>
-              <select name="proyecto_id" id="inc_proy" required className={inputClass}>
-                {proyectos.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.codigo} · {p.nombre}
-                  </option>
+          {/* Incidente */}
+          <IncidenteForm proyectos={proyectos} />
+          {inc && inc.length > 0 && (
+            <details className="azur-card text-xs">
+              <summary className="cursor-pointer text-destructive font-semibold">
+                Últimos incidentes
+              </summary>
+              <ul className="mt-2 space-y-1.5">
+                {inc.map((i) => (
+                  <li
+                    key={i.id}
+                    className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-1.5"
+                  >
+                    <span className="line-clamp-1">{i.descripcion}</span>
+                    <Badge variant={SEV_VARIANT[i.severidad] ?? 'secondary'}>{i.severidad}</Badge>
+                  </li>
                 ))}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="space-y-2">
-                <Label htmlFor="severidad">Severidad</Label>
-                <select name="severidad" id="severidad" required className={inputClass} defaultValue="leve">
-                  <option value="leve">Leve</option>
-                  <option value="moderado">Moderado</option>
-                  <option value="grave">Grave</option>
-                  <option value="critico">Crítico</option>
-                </select>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="involucrados">Involucrados</Label>
-                <Input name="involucrados" id="involucrados" placeholder="Nombres" />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="inc_desc">Descripción</Label>
-              <textarea name="descripcion" id="inc_desc" required rows={3} className={textareaClass} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="acciones">Acciones inmediatas tomadas</Label>
-              <textarea name="acciones" id="acciones" rows={2} className={textareaClass} />
-            </div>
-            <Button type="submit" variant="destructive" className="w-full">
-              Reportar incidente
-            </Button>
-            {inc && inc.length > 0 && (
-              <details className="text-xs">
-                <summary className="cursor-pointer text-destructive">Últimos incidentes</summary>
-                <ul className="mt-2 space-y-1.5">
-                  {inc.map((i) => (
-                    <li
-                      key={i.id}
-                      className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-1.5"
-                    >
-                      <span className="line-clamp-1">{i.descripcion}</span>
-                      <Badge variant={SEV_VARIANT[i.severidad] ?? 'secondary'}>{i.severidad}</Badge>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </form>
+              </ul>
+            </details>
+          )}
         </>
       )}
     </div>
