@@ -79,21 +79,12 @@ export default async function CotizacionDetallePage({ params }: { params: { id: 
           { label: cot.codigo ?? '—' },
         ]}
         actions={
-          <>
-            <a href={`/api/cotizaciones/${cot.id}/pdf`} target="_blank" rel="noopener">
-              <Button variant="secondary">
-                <Download className="h-4 w-4" />
-                Descargar PDF
-              </Button>
-            </a>
-            {!isReadonly && (
-              <form action={cambiarEstadoCotizacion} className="contents">
-                <input type="hidden" name="id" value={cot.id} />
-                <input type="hidden" name="estado" value="enviada" />
-                <Button type="submit">Marcar como enviada</Button>
-              </form>
-            )}
-          </>
+          <a href={`/api/cotizaciones/${cot.id}/pdf`} target="_blank" rel="noopener">
+            <Button variant="secondary">
+              <Download className="h-4 w-4" />
+              Descargar PDF
+            </Button>
+          </a>
         }
       />
 
@@ -323,37 +314,69 @@ export default async function CotizacionDetallePage({ params }: { params: { id: 
         )}
       </div>
 
-      {/* Aprobación */}
-      {!isReadonly && partidas.length > 0 && (
+      {/* Cambio de estado — siempre disponible salvo cuando ya está aprobada (terminal: generó proyecto) */}
+      {estado !== 'aprobada' && partidas.length > 0 && (
         <div className="azur-card flex flex-wrap items-center justify-between gap-3 bg-azur-coral/10">
           <div>
-            <p className="font-display text-base font-bold text-azur-ink">¿Cliente aprobó la cotización?</p>
+            <p className="font-display text-base font-bold text-azur-ink">Cambiar estado</p>
             <p className="text-xs text-muted-foreground">
-              Al marcar como aprobada, en Fase 4 se generará automáticamente el proyecto con el
-              presupuesto descontado el margen comercial.
+              Al marcar como aprobada, se generará automáticamente el proyecto con el presupuesto
+              descontado el margen comercial.
             </p>
           </div>
-          <div className="flex gap-2">
-            <form action={cambiarEstadoCotizacion} className="contents">
-              <input type="hidden" name="id" value={cot.id} />
-              <input type="hidden" name="estado" value="en_negociacion" />
-              <Button type="submit" variant="secondary">
-                En negociación
-              </Button>
-            </form>
-            <form action={cambiarEstadoCotizacion} className="contents">
-              <input type="hidden" name="id" value={cot.id} />
-              <input type="hidden" name="estado" value="rechazada" />
-              <Button type="submit" variant="outline">
-                Rechazada
-              </Button>
-            </form>
+          <div className="flex flex-wrap gap-2">
+            {estado !== 'enviada' && (
+              <form action={cambiarEstadoCotizacion} className="contents">
+                <input type="hidden" name="id" value={cot.id} />
+                <input type="hidden" name="estado" value="enviada" />
+                <Button type="submit" variant="secondary">
+                  Enviada
+                </Button>
+              </form>
+            )}
+            {estado !== 'en_negociacion' && (
+              <form action={cambiarEstadoCotizacion} className="contents">
+                <input type="hidden" name="id" value={cot.id} />
+                <input type="hidden" name="estado" value="en_negociacion" />
+                <Button type="submit" variant="secondary">
+                  En negociación
+                </Button>
+              </form>
+            )}
+            {estado !== 'rechazada' && (
+              <form action={cambiarEstadoCotizacion} className="contents">
+                <input type="hidden" name="id" value={cot.id} />
+                <input type="hidden" name="estado" value="rechazada" />
+                <Button type="submit" variant="outline">
+                  Rechazada
+                </Button>
+              </form>
+            )}
             <form action={cambiarEstadoCotizacion} className="contents">
               <input type="hidden" name="id" value={cot.id} />
               <input type="hidden" name="estado" value="aprobada" />
               <Button type="submit">Marcar aprobada</Button>
             </form>
           </div>
+        </div>
+      )}
+
+      {estado === 'aprobada' && (
+        <div className="azur-card border-success/30 bg-success/5">
+          <p className="font-display text-base font-bold text-success">
+            ✓ Cotización aprobada
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            El proyecto fue generado automáticamente.{' '}
+            {cot.proyecto_id && (
+              <Link
+                href={`/proyectos/${cot.proyecto_id}`}
+                className="font-semibold text-azur-red hover:underline"
+              >
+                Ver proyecto →
+              </Link>
+            )}
+          </p>
         </div>
       )}
 
