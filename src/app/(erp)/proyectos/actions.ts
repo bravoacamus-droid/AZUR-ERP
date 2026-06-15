@@ -1,0 +1,288 @@
+'use server';
+
+import { revalidatePath } from 'next/cache';
+import { z } from 'zod';
+import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { requireRol } from '@/lib/auth';
+import { notifyRoles } from '@/lib/push/notify';
+import { calcEstado, calcPrioridad, proyectadoSemana, semanasEntre } from '@/lib/lastplanner';
+
+type Res = { ok: boolean; error?: string; id?: string };
+const ROLES_PROY = ['gerencia', 'jefe_proyectos', 'presupuestos'] as const;
+
+async function guard() {
+  return requireRol([...ROLES_PROY]);
+}
+
+// ── Cabecera del proyecto ───────────────────────────────────────────────
+export async function actualizarProyecto(id: string, patch: Record<string, unknown>): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('proyectos').update(patch as never).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${id}`);
+  return { ok: true };
+}
+
+// ── Itemizado (cuadrantes 1 y 2) ────────────────────────────────────────
+export async function agregarItemProyecto(proyectoId: string, parentId: string | null, nivel: number): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  if (parentId) await supabase.from('proyecto_items').update({ es_hoja: false }).eq('id', parentId);
+  let q = supabase.from('proyecto_items').select('id', { count: 'exact', head: true }).eq('proyecto_id', proyectoId);
+  q = parentId ? q.eq('parent_id', parentId) : q.is('parent_id', null);
+  const { count } = await q;
+  const { error } = await supabase.from('proyecto_items').insert({
+    proyecto_id: proyectoId, parent_id: parentId, nivel, orden: (count ?? 0) + 1,
+    titulo: nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad',
+    es_hoja: true, estado_tarea: 'pendiente', prioridad: 'media',
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function actualizarItemProyecto(proyectoId: string, itemId: string, patch: Record<string, unknown>): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  // recalcular total_costo si cambian cantidad/cu
+  if ('cantidad' in patch || 'costo_unitario' in patch) {
+    const { data: it } = await supabase.from('proyecto_items').select('cantidad, costo_unitario').eq('id', itemId).single();
+    const cant = Number((patch.cantidad ?? it?.cantidad) ?? 0);
+    const cu = Number((patch.costo_unitario ?? it?.costo_unitario) ?? 0);
+    patch.total_costo = cant * cu;
+  }
+  const { error } = await supabase.from('proyecto_items').update(patch as never).eq('id', itemId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function eliminarItemProyecto(proyectoId: string, itemId: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const { data: item } = await supabase.from('proyecto_items').select('parent_id').eq('id', itemId).single();
+  await supabase.from('proyecto_items').delete().eq('id', itemId);
+  if (item?.parent_id) {
+    const { count } = await supabase.from('proyecto_items').select('id', { count: 'exact', head: true }).eq('parent_id', item.parent_id);
+    if (!count) await supabase.from('proyecto_items').update({ es_hoja: true }).eq('id', item.parent_id);
+  }
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// ── Valorizaciones (cuadrante 3) ────────────────────────────────────────
+export async function crearValorizacion(proyectoId: string): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const { data: ult } = await supabase.from('valorizaciones').select('numero').eq('proyecto_id', proyectoId).order('numero', { ascending: false }).limit(1);
+  const numero = (ult?.[0]?.numero ?? 0) + 1;
+  const { data, error } = await supabase.from('valorizaciones').insert({
+    proyecto_id: proyectoId, numero, semana: numero, created_by: session.id,
+  }).select('id').single();
+  if (error || !data) return { ok: false, error: error?.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true, id: data.id };
+}
+
+const avanceSchema = z.object({
+  itemId: z.string().uuid(),
+  pct: z.number().min(0).max(1),
+});
+
+export async function guardarAvances(
+  proyectoId: string,
+  valorizacionId: string,
+  avances: { itemId: string; pct: number }[],
+): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+
+  // ítems hoja con su total
+  const { data: items } = await supabase
+    .from('proyecto_items')
+    .select('id, total_costo, es_hoja, fecha_inicio, fecha_entrega, duracion_dias, estado_override, parent_id')
+    .eq('proyecto_id', proyectoId);
+  const leafTotal = new Map<string, number>();
+  (items ?? []).forEach((i) => { if (i.es_hoja) leafTotal.set(i.id, Number(i.total_costo ?? 0)); });
+
+  // valorizaciones existentes (para validar acumulado y conocer la semana)
+  const { data: vals } = await supabase
+    .from('valorizaciones')
+    .select('id, numero, valorizacion_items(proyecto_item_id, pct_avance)')
+    .eq('proyecto_id', proyectoId)
+    .order('numero');
+
+  // acumulado previo (sin contar esta valorización)
+  const acumPrevio = new Map<string, number>();
+  (vals ?? []).forEach((v) => {
+    if (v.id === valorizacionId) return;
+    (v.valorizacion_items as { proyecto_item_id: string; pct_avance: number }[]).forEach((vi) => {
+      acumPrevio.set(vi.proyecto_item_id, (acumPrevio.get(vi.proyecto_item_id) ?? 0) + Number(vi.pct_avance));
+    });
+  });
+
+  // validar y upsert
+  let montoValorizado = 0;
+  for (const a of avances) {
+    const p = avanceSchema.safeParse(a);
+    if (!p.success) return { ok: false, error: 'Avance inválido' };
+    const prev = acumPrevio.get(a.itemId) ?? 0;
+    if (prev + a.pct > 1.0001) return { ok: false, error: 'El % acumulado supera el 100% en una partida.' };
+    const total = leafTotal.get(a.itemId) ?? 0;
+    montoValorizado += a.pct * total;
+  }
+
+  // borrar items previos de esta valorización y reinsertar
+  await supabase.from('valorizacion_items').delete().eq('valorizacion_id', valorizacionId);
+  if (avances.length) {
+    await supabase.from('valorizacion_items').insert(
+      avances.filter((a) => a.pct > 0).map((a) => ({
+        valorizacion_id: valorizacionId,
+        proyecto_item_id: a.itemId,
+        pct_avance: a.pct,
+        total: a.pct * (leafTotal.get(a.itemId) ?? 0),
+      })),
+    );
+  }
+
+  // dilución del adelanto (B.9)
+  const { data: proy } = await supabase.from('proyectos').select('adelanto_pct').eq('id', proyectoId).single();
+  const adelantoPct = Number(proy?.adelanto_pct ?? 0);
+  const amortizacion = adelantoPct * montoValorizado;
+  await supabase.from('valorizaciones').update({
+    monto_valorizado: montoValorizado,
+    amortizacion_adelanto: amortizacion,
+    cobro_neto: montoValorizado - amortizacion,
+  }).eq('id', valorizacionId);
+
+  // recomputar estado/prioridad de cada hoja (B.5)
+  const numeroActual = (vals ?? []).find((v) => v.id === valorizacionId)?.numero ?? (vals?.length ?? 1);
+  const avanceMap = new Map(avances.map((a) => [a.itemId, a.pct]));
+  for (const it of items ?? []) {
+    if (!it.es_hoja) continue;
+    const acum = (acumPrevio.get(it.id) ?? 0) + (avanceMap.get(it.id) ?? 0);
+    const numSem = semanasEntre(it.fecha_inicio, it.fecha_entrega, it.duracion_dias ? Number(it.duracion_dias) : null);
+    const proyAcum = proyectadoSemana(numeroActual, numSem);
+    const estado = calcEstado({
+      pctAcum: acum,
+      avanceUltimaSemana: avanceMap.get(it.id) ?? 0,
+      fechaInicio: it.fecha_inicio,
+      fechaEntrega: it.fecha_entrega,
+      override: (it.estado_override as never) ?? null,
+    });
+    const prioridad = calcPrioridad(acum, proyAcum);
+    await supabase.from('proyecto_items').update({ estado_tarea: estado, prioridad }).eq('id', it.id);
+  }
+
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// Registrar el cobro neto de una valorización → caja del proyecto (ingreso)
+export async function registrarCobroValorizacion(proyectoId: string, valorizacionId: string): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const admin = createAdminClient();
+  const { data: val } = await supabase.from('valorizaciones').select('cobro_neto, numero').eq('id', valorizacionId).single();
+  if (!val) return { ok: false, error: 'Valorización no encontrada' };
+  await admin.from('abonos_cliente').insert({
+    proyecto_id: proyectoId, monto: Number(val.cobro_neto), metodo: `Valorización N${val.numero}`, created_by: session.id,
+  });
+  const { data: caja } = await admin.from('cajas').select('id').eq('proyecto_id', proyectoId).eq('tipo', 'chica').limit(1).single();
+  if (caja) {
+    await admin.from('movimientos_caja').insert({
+      caja_id: caja.id, proyecto_id: proyectoId, tipo: 'abono', monto: Number(val.cobro_neto),
+      concepto: `Cobro valorización N${val.numero}`, referencia_tipo: 'valorizacion', referencia_id: valorizacionId, created_by: session.id,
+    });
+  }
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// ── Equipo de obra ──────────────────────────────────────────────────────
+export async function asignarEquipo(proyectoId: string, profileId: string, rolObra: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('proyecto_equipo').insert({
+    proyecto_id: proyectoId, profile_id: profileId, rol_obra: rolObra as never,
+  });
+  if (error && !error.message.includes('duplicate')) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+export async function quitarEquipo(proyectoId: string, id: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  await supabase.from('proyecto_equipo').delete().eq('id', id);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// ── Cronograma de cobros (armadas) ──────────────────────────────────────
+export async function guardarArmadas(
+  proyectoId: string,
+  armadas: { concepto: string; porcentaje: number; condicion_tipo: string; condicion_valor?: number; fecha_esperada?: string }[],
+): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const { data: proy } = await supabase.from('proyectos').select('contrato_total').eq('id', proyectoId).single();
+  const contrato = Number(proy?.contrato_total ?? 0);
+  await supabase.from('cronograma_cobros').delete().eq('proyecto_id', proyectoId);
+  if (armadas.length) {
+    await supabase.from('cronograma_cobros').insert(armadas.map((a, i) => ({
+      proyecto_id: proyectoId, orden: i + 1, concepto: a.concepto, porcentaje: a.porcentaje,
+      monto: contrato * a.porcentaje, condicion_tipo: a.condicion_tipo as never,
+      condicion_valor: a.condicion_valor ?? null, fecha_esperada: a.fecha_esperada ?? null, estado: 'pendiente',
+    })));
+  }
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// ── Adicionales / deductivos ────────────────────────────────────────────
+export async function registrarAdicional(
+  proyectoId: string,
+  input: { tipo: 'adicional' | 'deductivo'; descripcion: string; monto: number; proyecto_item_id?: string },
+): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('adicionales_deductivos').insert({
+    proyecto_id: proyectoId, tipo: input.tipo, descripcion: input.descripcion, monto: input.monto,
+    proyecto_item_id: input.proyecto_item_id || null, solicitado_por: session.id, estado: 'solicitado',
+  });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+export async function resolverAdicional(proyectoId: string, id: string, aprobar: boolean): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  await supabase.from('adicionales_deductivos').update({
+    estado: aprobar ? 'aprobado' : 'rechazado', aprobado_por: session.id,
+  }).eq('id', id);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// ── Hitos ───────────────────────────────────────────────────────────────
+export async function guardarHito(proyectoId: string, nombre: string, fecha: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('hitos').insert({ proyecto_id: proyectoId, nombre, fecha_comprometida: fecha });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// ── Valorización: notificar corte (jueves) ──────────────────────────────
+export async function notificarValorizacionPendiente(proyectoId: string, nombre: string): Promise<Res> {
+  await guard();
+  await notifyRoles(['jefe_proyectos'], {
+    title: 'Valorización por emitir',
+    body: `Llegó la fecha de corte para ${nombre}.`,
+    url: `/proyectos/${proyectoId}`,
+  }, 'proyectos');
+  return { ok: true };
+}

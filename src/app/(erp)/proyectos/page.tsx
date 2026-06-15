@@ -1,0 +1,75 @@
+import Link from 'next/link';
+import { HardHat } from 'lucide-react';
+import { createClient } from '@/lib/supabase/server';
+import { requireRol } from '@/lib/auth';
+import { PageHeader } from '@/components/ui/page';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent } from '@/components/ui/card';
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
+import { EmptyState } from '@/components/ui/misc';
+import { ESTADO_PROYECTO } from '@/lib/estados';
+import { fmtMoney, fmtDate } from '@/lib/format';
+
+export const dynamic = 'force-dynamic';
+
+export default async function ProyectosPage() {
+  await requireRol(['gerencia', 'jefe_proyectos', 'presupuestos']);
+  const supabase = createClient();
+
+  const { data: proys } = await supabase
+    .from('proyectos')
+    .select('id, codigo, nombre, estado, tipo_proyecto, contrato_total, fecha_inicio, fecha_fin, cliente:clientes(razon_social), linea:lineas_negocio(codigo), jefe:profiles!proyectos_jefe_id_fkey(nombre)')
+    .order('created_at', { ascending: false });
+
+  const proyectos = proys ?? [];
+
+  return (
+    <div className="space-y-6">
+      <PageHeader title="Proyectos" description="Gestión de obra — Last Planner, valorizaciones y control." />
+
+      <Card>
+        <CardContent className="p-0">
+          {proyectos.length === 0 ? (
+            <div className="p-6">
+              <EmptyState icon={<HardHat className="size-10" />} titulo="Sin proyectos" descripcion="Los proyectos se crean al aceptar una cotización." />
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Proyecto</TableHead>
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Línea</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Contrato</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead>Entrega</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {proyectos.map((p) => {
+                  const est = ESTADO_PROYECTO[p.estado] ?? { label: p.estado, variant: 'muted' as const };
+                  return (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium">
+                        <Link href={`/proyectos/${p.id}`} className="text-azur-600 hover:underline">{p.codigo ?? '—'}</Link>
+                      </TableCell>
+                      <TableCell><Link href={`/proyectos/${p.id}`}>{p.nombre}</Link></TableCell>
+                      <TableCell className="text-muted-foreground">{(p.cliente as { razon_social?: string } | null)?.razon_social ?? '—'}</TableCell>
+                      <TableCell><Badge variant="outline">{(p.linea as { codigo?: string } | null)?.codigo ?? '—'}</Badge></TableCell>
+                      <TableCell><Badge variant={p.tipo_proyecto === 'grande' ? 'info' : 'secondary'}>{p.tipo_proyecto}</Badge></TableCell>
+                      <TableCell className="tabular-nums">{fmtMoney(Number(p.contrato_total))}</TableCell>
+                      <TableCell><Badge variant={est.variant}>{est.label}</Badge></TableCell>
+                      <TableCell className="text-muted-foreground">{fmtDate(p.fecha_fin)}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
