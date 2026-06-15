@@ -32,9 +32,9 @@ import {
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot, items, formas, versiones, medios, apu, userNombre, userId,
+  cot, items, formas, versiones, medios, apu, catalogo, userNombre, userId,
 }: {
-  cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[];
+  cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
   userNombre: string; userId: string;
 }) {
   const router = useRouter();
@@ -49,6 +49,7 @@ export function CotizacionEditor({
   const [justif, setJustif] = useState('');
   const [motivo, setMotivo] = useState('');
   const [apuItem, setApuItem] = useState<Row | null>(null);
+  const [addTarget, setAddTarget] = useState<{ parent: Row | null; nivel: number } | null>(null);
   const editable = cot.estado === 'borrador' || cot.estado === 'en_negociacion';
 
   useEffect(() => setRows(items), [items]);
@@ -97,15 +98,17 @@ export function CotizacionEditor({
     await actualizarItem(cot.id, id, patch);
   }, [cot.id]);
 
-  async function addRoot() {
-    setBusy(true);
-    await agregarItem(cot.id, null, 1);
-    router.refresh();
-    setBusy(false);
+  function addRoot() {
+    setAddTarget({ parent: null, nivel: 1 });
   }
-  async function addChild(parent: Row) {
+  function addChild(parent: Row) {
+    setAddTarget({ parent, nivel: Math.min(4, parent.nivel + 1) });
+  }
+  async function confirmAdd(prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null }) {
+    if (!addTarget) return;
     setBusy(true);
-    await agregarItem(cot.id, parent.id, Math.min(4, parent.nivel + 1));
+    await agregarItem(cot.id, addTarget.parent?.id ?? null, addTarget.nivel, prefill);
+    setAddTarget(null);
     router.refresh();
     setBusy(false);
   }
@@ -413,7 +416,67 @@ export function CotizacionEditor({
           onChanged={() => router.refresh()}
         />
       )}
+
+      {addTarget && (
+        <CatalogoPicker
+          nivel={addTarget.nivel}
+          catalogo={catalogo}
+          busy={busy}
+          onClose={() => setAddTarget(null)}
+          onPick={confirmAdd}
+        />
+      )}
     </div>
+  );
+}
+
+const NIVEL_LABEL = ['', 'partida', 'sub partida', 'actividad', 'sub actividad'];
+
+function CatalogoPicker({ nivel, catalogo, busy, onClose, onPick }: {
+  nivel: number; catalogo: any[]; busy: boolean;
+  onClose: () => void; onPick: (prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null }) => void;
+}) {
+  const [q, setQ] = useState('');
+  const filtrados = q.trim()
+    ? catalogo.filter((c) => `${c.codigo ?? ''} ${c.descripcion}`.toLowerCase().includes(q.toLowerCase().trim()))
+    : catalogo;
+
+  return (
+    <Modal open onClose={onClose} className="sm:max-w-2xl"
+      title={`Agregar ${NIVEL_LABEL[nivel]}`}
+      description="Elige una partida del catálogo (precio referencial, editable) o créala en blanco.">
+      <div className="space-y-3">
+        <Button variant="outline" className="w-full" disabled={busy} onClick={() => onPick(undefined)}>
+          <Plus /> Crear en blanco
+        </Button>
+        <div className="relative">
+          <input
+            className="h-10 w-full rounded-lg border border-input bg-white pl-9 pr-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            placeholder="Buscar en catálogo por código o descripción…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+          />
+          <ChevronRight className="absolute left-3 top-1/2 size-4 -translate-y-1/2 rotate-90 text-muted-foreground" />
+        </div>
+        <div className="max-h-72 space-y-1 overflow-y-auto">
+          {filtrados.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Sin coincidencias en el catálogo.</p>}
+          {filtrados.map((c) => (
+            <button
+              key={c.id}
+              disabled={busy}
+              onClick={() => onPick({ titulo: c.descripcion, unidad: c.unidad, costo_unitario: Number(c.costo_referencial ?? 0) })}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border bg-white px-3 py-2 text-left transition-colors hover:border-azur-300 hover:bg-azur-50 disabled:opacity-60"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium">{c.descripcion}</p>
+                <p className="text-xs text-muted-foreground">{c.codigo ?? 's/código'} {c.unidad ? `· ${c.unidad}` : ''}</p>
+              </div>
+              <span className="shrink-0 text-sm font-medium tabular-nums text-azur-600">{fmtMoney(Number(c.costo_referencial ?? 0))}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </Modal>
   );
 }
 

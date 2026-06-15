@@ -97,6 +97,7 @@ export async function agregarItem(
   cotizacionId: string,
   parentId: string | null,
   nivel: number,
+  prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null },
 ): Promise<Res> {
   await guard();
   const supabase = createClient();
@@ -110,12 +111,16 @@ export async function agregarItem(
   q = parentId ? q.eq('parent_id', parentId) : q.is('parent_id', null);
   const { count } = await q;
 
+  const tituloDefault = nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad';
   const { error } = await supabase.from('cotizacion_items').insert({
     cotizacion_id: cotizacionId,
     parent_id: parentId,
     nivel,
     orden: (count ?? 0) + 1,
-    titulo: nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad',
+    titulo: prefill?.titulo || tituloDefault,
+    unidad: prefill?.unidad ?? null,
+    costo_unitario: prefill?.costo_unitario ?? null,
+    cantidad: prefill?.costo_unitario != null ? 1 : null,
     es_hoja: true,
     margen_pct: 0.3,
   });
