@@ -1,10 +1,12 @@
 'use client';
 
-import Link from 'next/link';
-import { LogOut, User as UserIcon, ChevronDown } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+import { LogOut, User as UserIcon, ChevronDown, Loader2 } from 'lucide-react';
 import { Avatar } from '@/components/ui/misc';
 import { Dropdown, DropdownItem } from '@/components/ui/dropdown';
 import { rolLabel } from '@/lib/roles';
+import { createClient } from '@/lib/supabase/client';
 
 export function UserMenu({
   nombre,
@@ -17,6 +19,21 @@ export function UserMenu({
   rol: string;
   avatarUrl?: string | null;
 }) {
+  const router = useRouter();
+  const [saliendo, setSaliendo] = useState(false);
+
+  async function cerrarSesion() {
+    setSaliendo(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {
+      /* ignore */
+    }
+    // limpia la sesión en el servidor también y redirige
+    window.location.href = '/auth/logout';
+  }
+
   return (
     <Dropdown
       trigger={
@@ -34,16 +51,15 @@ export function UserMenu({
         <p className="text-sm font-medium">{nombre}</p>
         <p className="text-xs text-muted-foreground">{email}</p>
       </div>
-      <Link href="/perfil">
-        <DropdownItem>
-          <UserIcon /> Mi perfil
-        </DropdownItem>
-      </Link>
-      <Link href="/auth/logout">
-        <DropdownItem className="text-azur-700 hover:bg-azur-50">
-          <LogOut /> Cerrar sesión
-        </DropdownItem>
-      </Link>
+      <DropdownItem onClick={() => router.push('/perfil')}>
+        <UserIcon /> Mi perfil
+      </DropdownItem>
+      <DropdownItem
+        onClick={cerrarSesion}
+        className="text-azur-700 hover:bg-azur-50"
+      >
+        {saliendo ? <Loader2 className="animate-spin" /> : <LogOut />} Cerrar sesión
+      </DropdownItem>
     </Dropdown>
   );
 }
