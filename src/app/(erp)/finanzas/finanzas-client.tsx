@@ -189,8 +189,33 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
   const [busy, setBusy] = useState(false);
   const puede = rol === 'administrador' || rol === 'gerencia';
 
+  // Aging de cuentas por cobrar (Sección 5.4)
+  const hoy = Date.now();
+  const aging = { corriente: 0, d30: 0, d60: 0, mas60: 0 };
+  facturas.forEach((f: any) => {
+    if (f.estado === 'cobrada' || f.estado === 'anulada') return;
+    const saldo = Number(f.monto) - Number(f.monto_cobrado);
+    if (saldo <= 0) return;
+    const venc = f.fecha_vencimiento ? new Date(f.fecha_vencimiento).getTime() : hoy;
+    const dias = Math.floor((hoy - venc) / 86400000);
+    if (dias <= 0) aging.corriente += saldo;
+    else if (dias <= 30) aging.d30 += saldo;
+    else if (dias <= 60) aging.d60 += saldo;
+    else aging.mas60 += saldo;
+  });
+
   return (
     <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        {[
+          { l: 'Corriente', v: aging.corriente, c: 'text-emerald-600' },
+          { l: '1–30 días', v: aging.d30, c: 'text-amber-600' },
+          { l: '31–60 días', v: aging.d60, c: 'text-orange-600' },
+          { l: '+60 días', v: aging.mas60, c: 'text-azur-600' },
+        ].map((a) => (
+          <Card key={a.l}><CardContent className="p-4"><p className="text-xs uppercase tracking-wide text-muted-foreground">{a.l}</p><p className={`mt-1 text-xl font-bold tabular-nums ${a.c}`}>{fmtMoney(a.v)}</p></CardContent></Card>
+        ))}
+      </div>
       {armadas.length > 0 && (
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Armadas por facturar</CardTitle></CardHeader>

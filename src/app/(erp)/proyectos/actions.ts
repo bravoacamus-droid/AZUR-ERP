@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRol } from '@/lib/auth';
 import { notifyRoles } from '@/lib/push/notify';
 import { calcEstado, calcPrioridad, proyectadoSemana, semanasEntre } from '@/lib/lastplanner';
+import { saludRegla1, saludRegla2 } from '@/lib/salud';
 
 type Res = { ok: boolean; error?: string; id?: string };
 const ROLES_PROY = ['gerencia', 'jefe_proyectos', 'presupuestos'] as const;
@@ -176,6 +177,42 @@ export async function guardarAvances(
     await supabase.from('proyecto_items').update({ estado_tarea: estado, prioridad }).eq('id', it.id);
   }
 
+  await generarAlertasSalud(proyectoId);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// Genera/actualiza alertas de salud (reglas #1 y #2) para un proyecto.
+async function generarAlertasSalud(proyectoId: string) {
+  const admin = createAdminClient();
+  const { data: d } = await admin.from('v_dashboard_proyecto').select('*').eq('proyecto_id', proyectoId).single();
+  if (!d) return;
+  const { data: proy } = await admin.from('proyectos').select('nombre').eq('id', proyectoId).single();
+  const nombre = proy?.nombre ?? 'Proyecto';
+  const nums = { proyectado: Number(d.proyectado), pagos: Number(d.pagos), gasto: Number(d.gasto), valorizado: Number(d.valorizado) };
+
+  const evals: { tipo: string; titulo: string; detalle: string }[] = [];
+  if (saludRegla1(nums) === 'critica')
+    evals.push({ tipo: 'salud_caja', titulo: `${nombre}: gasto supera lo cobrado (regla #1)`, detalle: `Gasto ${nums.gasto.toFixed(0)} > Cobrado ${nums.pagos.toFixed(0)}.` });
+  if (saludRegla2(nums) === 'critica')
+    evals.push({ tipo: 'sobrecosto_avance', titulo: `${nombre}: gasto real supera lo valorizado (regla #2)`, detalle: `Gasto ${nums.gasto.toFixed(0)} > Valorizado ${nums.valorizado.toFixed(0)}.` });
+
+  // limpia alertas previas no resueltas de estos tipos y reinserta las vigentes
+  await admin.from('alertas').delete().eq('proyecto_id', proyectoId).eq('resuelta', false).in('tipo', ['salud_caja', 'sobrecosto_avance']);
+  if (evals.length) {
+    await admin.from('alertas').insert(evals.map((e) => ({ ...e, proyecto_id: proyectoId, severidad: 'critica' as const })));
+    await notifyRoles(['gerencia'], { title: '⚠ Alerta de salud de proyecto', body: evals[0].titulo, url: `/proyectos/${proyectoId}` }, 'alertas');
+  }
+}
+
+// Subir documento al expediente
+export async function subirDocumento(proyectoId: string, input: { nombre: string; url: string; carpeta: string }): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('documentos').insert({
+    proyecto_id: proyectoId, nombre: input.nombre, url: input.url, carpeta: input.carpeta, visibilidad: 'mando', created_by: session.id,
+  });
+  if (error) return { ok: false, error: error.message };
   revalidatePath(`/proyectos/${proyectoId}`);
   return { ok: true };
 }

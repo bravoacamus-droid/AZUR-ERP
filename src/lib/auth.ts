@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -13,8 +14,10 @@ export interface SessionUser {
   activo: boolean;
 }
 
-/** Devuelve el perfil del usuario logueado o null. */
-export async function getSession(): Promise<SessionUser | null> {
+/** Devuelve el perfil del usuario logueado o null.
+ *  Memoizado por request (React cache) → evita lookups duplicados
+ *  entre el layout y la página en una misma navegación. */
+export const getSession = cache(async (): Promise<SessionUser | null> => {
   const supabase = createClient();
   const {
     data: { user },
@@ -31,7 +34,7 @@ export async function getSession(): Promise<SessionUser | null> {
 
   if (!profile) return null;
   return profile as SessionUser;
-}
+});
 
 /** Exige sesión; redirige a /login si no hay. */
 export async function requireSession(): Promise<SessionUser> {

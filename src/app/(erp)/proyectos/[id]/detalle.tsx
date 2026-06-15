@@ -15,6 +15,7 @@ import { Tabs } from '@/components/ui/tabs';
 import { Field, EmptyState } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
+import { CurvaS } from '@/components/proyectos/curva-s';
 import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
@@ -22,13 +23,14 @@ import type { DashboardProyecto } from '@/lib/salud';
 import {
   agregarItemProyecto, actualizarItemProyecto, eliminarItemProyecto, crearValorizacion,
   guardarAvances, registrarCobroValorizacion, asignarEquipo, quitarEquipo, guardarArmadas,
-  registrarAdicional, resolverAdicional, actualizarProyecto,
+  registrarAdicional, resolverAdicional, actualizarProyecto, guardarHito, subirDocumento,
 } from '../actions';
+import { createClient } from '@/lib/supabase/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, canManage } = props;
   const [tab, setTab] = useState('resumen');
   const est = ESTADO_PROYECTO[proy.estado] ?? { label: proy.estado, variant: 'muted' as const };
   const cajaSaldo = cajas?.[0]?.saldo_actual ?? 0;
@@ -59,23 +61,26 @@ export function ProyectoDetalle(props: any) {
           { value: 'cobros', label: 'Cronograma de cobros' },
           { value: 'adicionales', label: 'Adicionales' },
           { value: 'equipo', label: 'Equipo' },
+          { value: 'expediente', label: 'Expediente' },
         ]}
       />
 
-      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} armadas={armadas} canManage={canManage} />}
+      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} />}
       {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} canManage={canManage} />}
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
+      {tab === 'expediente' && <Expediente proy={proy} documentos={documentos} canManage={canManage} />}
     </div>
   );
 }
 
 // ───────────────────────────── RESUMEN ────────────────────────────────
-function Resumen({ proy, dash, cajaSaldo, armadas, canManage }: any) {
+function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage }: any) {
   const router = useRouter();
   const d: DashboardProyecto = dash ?? { proyecto_id: proy.id, codigo: proy.codigo, nombre: proy.nombre, linea_id: proy.linea_id, estado: proy.estado, tipo_proyecto: proy.tipo_proyecto, proyectado: Number(proy.contrato_total), pagos: 0, gasto: 0, valorizado: 0 };
   const adelanto = Number(proy.contrato_total) * Number(proy.adelanto_pct);
+  const [hitoForm, setHitoForm] = useState({ nombre: '', fecha: '' });
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -87,6 +92,31 @@ function Resumen({ proy, dash, cajaSaldo, armadas, canManage }: any) {
           <KpiCard label="Caja chica" value={fmtMoney(Number(cajaSaldo))} icon={<Banknote />} />
         </div>
         <BarraTresTramos p={d} />
+        {proy.tipo_proyecto === 'grande' && (
+          <CurvaS contratoTotal={Number(proy.contrato_total)} fechaInicio={proy.fecha_inicio} fechaFin={proy.fecha_fin} valorizaciones={valorizaciones} />
+        )}
+        <Card>
+          <CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-base flex items-center gap-2"><Calendar className="size-4 text-azur-600" /> Hitos contractuales</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {(!hitos || hitos.length === 0) && <p className="text-sm text-muted-foreground">Sin hitos registrados.</p>}
+            {hitos?.map((h: any) => {
+              const vencido = !h.cumplido && new Date(h.fecha_comprometida) < new Date();
+              return (
+                <div key={h.id} className="flex items-center justify-between rounded-lg border p-2.5">
+                  <div><p className="text-sm font-medium">{h.nombre}</p><p className="text-xs text-muted-foreground">{fmtDate(h.fecha_comprometida)}</p></div>
+                  <Badge variant={h.cumplido ? 'success' : vencido ? 'danger' : 'info'}>{h.cumplido ? 'Cumplido' : vencido ? 'Vencido' : 'Próximo'}</Badge>
+                </div>
+              );
+            })}
+            {canManage && (
+              <div className="flex items-end gap-2 border-t pt-2">
+                <Field label="Hito" className="flex-1"><Input value={hitoForm.nombre} onChange={(e) => setHitoForm((f) => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Entrega de casco" /></Field>
+                <Field label="Fecha"><Input type="date" value={hitoForm.fecha} onChange={(e) => setHitoForm((f) => ({ ...f, fecha: e.target.value }))} /></Field>
+                <Button variant="outline" disabled={!hitoForm.nombre || !hitoForm.fecha} onClick={async () => { await guardarHito(proy.id, hitoForm.nombre, hitoForm.fecha); setHitoForm({ nombre: '', fecha: '' }); router.refresh(); }}><Plus /></Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
       <div className="space-y-4">
         <Card>
@@ -323,11 +353,12 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, canManage }: a
             <KpiCard label="Valorizado periodo" value={fmtMoney(montoActivo)} />
             <KpiCard label={`Amortización (${fmtPct(Number(proy.adelanto_pct), 0)})`} value={fmtMoney(dil.amortizacion)} tone="warning" />
             <KpiCard label="Cobro neto" value={fmtMoney(dil.cobroNeto)} tone="success" />
-            {canManage && (
-              <div className="flex items-end">
-                <Button variant="outline" className="w-full" onClick={cobrar} disabled={busy}><CheckCircle2 /> Registrar cobro</Button>
-              </div>
-            )}
+            <div className="flex items-end gap-2">
+              <a href={`/proyectos/${proy.id}/valorizacion/${activeVal.id}/pdf`} target="_blank" rel="noreferrer" className="flex-1">
+                <Button variant="outline" className="w-full"><FileBarChart /> Resumen PDF</Button>
+              </a>
+              {canManage && <Button variant="gradient" className="flex-1" onClick={cobrar} disabled={busy}><CheckCircle2 /> Registrar cobro</Button>}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -337,6 +368,67 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, canManage }: a
 
 function Num({ v, onSave }: { v: any; onSave: (n: number) => void }) {
   return <input type="number" step="any" className="w-16 rounded border bg-white px-1 text-right" defaultValue={v ?? ''} onBlur={(e) => onSave(e.target.value === '' ? 0 : Number(e.target.value))} />;
+}
+
+// ───────────────────────── EXPEDIENTE ─────────────────────────────────
+const CARPETAS = ['Información', 'Contractuales', 'Material utilizado', 'Evidencias', 'SST', 'General'];
+function Expediente({ proy, documentos, canManage }: any) {
+  const router = useRouter();
+  const [carpeta, setCarpeta] = useState('Contractuales');
+  const [subiendo, setSubiendo] = useState(false);
+
+  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSubiendo(true);
+    try {
+      const supabase = createClient();
+      const path = `${proy.id}/${Date.now()}-${file.name}`;
+      const { error } = await supabase.storage.from('documentos').upload(path, file);
+      if (!error) {
+        const { data } = supabase.storage.from('documentos').getPublicUrl(path);
+        await subirDocumento(proy.id, { nombre: file.name, url: data.publicUrl, carpeta });
+        router.refresh();
+      }
+    } finally {
+      setSubiendo(false);
+    }
+  }
+
+  const porCarpeta = (c: string) => (documentos ?? []).filter((d: any) => d.carpeta === c);
+
+  return (
+    <div className="space-y-3">
+      {canManage && (
+        <Card>
+          <CardContent className="flex flex-wrap items-end gap-2 p-4">
+            <Field label="Carpeta" className="flex-1"><Select value={carpeta} onChange={(e) => setCarpeta(e.target.value)}>{CARPETAS.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
+            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-azur-gradient px-4 text-sm font-medium text-white">
+              {subiendo ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Subir documento
+              <input type="file" className="hidden" onChange={onFile} disabled={subiendo} />
+            </label>
+          </CardContent>
+        </Card>
+      )}
+      {CARPETAS.map((c) => {
+        const docs = porCarpeta(c);
+        if (docs.length === 0) return null;
+        return (
+          <Card key={c}>
+            <CardHeader className="pb-2"><CardTitle className="text-base">{c}</CardTitle></CardHeader>
+            <CardContent className="space-y-1">
+              {docs.map((d: any) => (
+                <a key={d.id} href={d.url} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-lg border p-2.5 text-sm hover:bg-secondary">
+                  <span>{d.nombre}</span><span className="text-xs text-muted-foreground">{fmtDate(d.created_at)}</span>
+                </a>
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
+      {(!documentos || documentos.length === 0) && <EmptyState titulo="Expediente vacío" descripcion="Sube contratos, planos, fichas técnicas y más." />}
+    </div>
+  );
 }
 
 // ───────────────────────── CRONOGRAMA COBROS ──────────────────────────

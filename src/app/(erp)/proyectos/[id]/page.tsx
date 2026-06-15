@@ -18,7 +18,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     .single();
   if (!proy) notFound();
 
-  const [items, vals, contrapartes, equipo, armadas, adicionales, dash, caja, perfiles] = await Promise.all([
+  const [items, vals, contrapartes, equipo, armadas, adicionales, dash, caja, perfiles, hitos, documentos] = await Promise.all([
     supabase.from('proyecto_items').select('*').eq('proyecto_id', params.id).order('orden'),
     supabase.from('valorizaciones').select('*, valorizacion_items(*)').eq('proyecto_id', params.id).order('numero'),
     supabase.from('contrapartes').select('id, razon_social, tipo').order('razon_social'),
@@ -28,6 +28,8 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     supabase.from('v_dashboard_proyecto').select('*').eq('proyecto_id', params.id).single(),
     supabase.from('v_cajas_saldos').select('*').eq('proyecto_id', params.id),
     supabase.from('profiles').select('id, nombre, rol').eq('activo', true).order('nombre'),
+    supabase.from('hitos').select('*').eq('proyecto_id', params.id).order('fecha_comprometida'),
+    supabase.from('documentos').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }),
   ]);
 
   return (
@@ -46,6 +48,8 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         dash={dash.data}
         cajas={caja.data ?? []}
         perfiles={perfiles.data ?? []}
+        hitos={hitos.data ?? []}
+        documentos={documentos.data ?? []}
         canManage={['gerencia', 'jefe_proyectos', 'presupuestos'].includes(session.rol)}
       />
     </div>

@@ -189,6 +189,11 @@ export function CotizacionEditor({
                   <FileDown /> Generar PDF (cliente)
                 </DropdownItem>
               </a>
+              <a href={`/comercial/${cot.id}/excel`}>
+                <DropdownItem>
+                  <FileDown /> Descargar Excel (interno)
+                </DropdownItem>
+              </a>
               <a href={`https://wa.me/?text=${waText}`} target="_blank" rel="noreferrer">
                 <DropdownItem>
                   <MessageCircle /> Enviar por WhatsApp
