@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import {
   CheckCircle2, XCircle, CalendarClock, Banknote, MessageCircle, FilePlus,
-  HandCoins, Wallet, Plus, ShieldCheck,
+  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -290,8 +291,12 @@ function Cajas({ rol, cajas, proyectos }: any) {
       {cajas.map((c: any) => {
         const pctUso = c.monto_maximo > 0 ? (1 - Number(c.saldo_actual) / Number(c.monto_maximo)) : 0;
         return (
-          <Card key={c.caja_id}>
-            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Wallet className="size-4 text-azur-600" /> {c.nombre}</CardTitle></CardHeader>
+          <Card key={c.caja_id} className="transition-shadow hover:shadow-md">
+            <CardHeader className="pb-2">
+              <Link href={`/finanzas/cajas/${c.caja_id}`} className="flex items-center gap-2 hover:text-azur-600">
+                <CardTitle className="text-base flex items-center gap-2"><Wallet className="size-4 text-azur-600" /> {c.nombre}</CardTitle>
+              </Link>
+            </CardHeader>
             <CardContent className="space-y-2">
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Saldo actual</span><span className="font-bold tabular-nums">{fmtMoney(Number(c.saldo_actual))}</span></div>
               <div className="flex justify-between text-xs text-muted-foreground"><span>Tope</span><span>{fmtMoney(Number(c.monto_maximo))}</span></div>
@@ -301,7 +306,12 @@ function Cajas({ rol, cajas, proyectos }: any) {
                 </div>
               )}
               {pctUso > 0.8 && <p className="text-xs text-azur-600">⚠ Consumo &gt; 80% — anticipar reposición</p>}
-              {puede && <Button size="sm" variant="outline" className="w-full" onClick={() => { setMov(c); setForm({ tipo: 'reposicion', monto: 0, concepto: '' }); }}><Plus /> Movimiento</Button>}
+              <div className="flex gap-2">
+                <Link href={`/finanzas/cajas/${c.caja_id}`} className="flex-1">
+                  <Button size="sm" variant="outline" className="w-full"><ArrowLeftRight /> Abrir</Button>
+                </Link>
+                {puede && <Button size="sm" variant="gradient" onClick={() => { setMov(c); setForm({ tipo: 'reposicion', monto: 0, concepto: '' }); }}><Plus /></Button>}
+              </div>
             </CardContent>
           </Card>
         );

@@ -205,6 +205,56 @@ export type Database = {
           },
         ]
       }
+      apu_componentes: {
+        Row: {
+          cantidad: number
+          cotizacion_item_id: string
+          created_at: string
+          cuadrilla: number | null
+          descripcion: string
+          id: string
+          orden: number
+          precio: number
+          rendimiento: number | null
+          tipo: Database["public"]["Enums"]["apu_tipo"]
+          unidad: string | null
+        }
+        Insert: {
+          cantidad?: number
+          cotizacion_item_id: string
+          created_at?: string
+          cuadrilla?: number | null
+          descripcion: string
+          id?: string
+          orden?: number
+          precio?: number
+          rendimiento?: number | null
+          tipo?: Database["public"]["Enums"]["apu_tipo"]
+          unidad?: string | null
+        }
+        Update: {
+          cantidad?: number
+          cotizacion_item_id?: string
+          created_at?: string
+          cuadrilla?: number | null
+          descripcion?: string
+          id?: string
+          orden?: number
+          precio?: number
+          rendimiento?: number | null
+          tipo?: Database["public"]["Enums"]["apu_tipo"]
+          unidad?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apu_componentes_cotizacion_item_id_fkey"
+            columns: ["cotizacion_item_id"]
+            isOneToOne: false
+            referencedRelation: "cotizacion_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asistencias: {
         Row: {
           id: string
@@ -541,6 +591,7 @@ export type Database = {
           nivel: number
           orden: number
           parent_id: string | null
+          tiene_apu: boolean
           titulo: string
           unidad: string | null
         }
@@ -556,6 +607,7 @@ export type Database = {
           nivel?: number
           orden?: number
           parent_id?: string | null
+          tiene_apu?: boolean
           titulo: string
           unidad?: string | null
         }
@@ -571,6 +623,7 @@ export type Database = {
           nivel?: number
           orden?: number
           parent_id?: string | null
+          tiene_apu?: boolean
           titulo?: string
           unidad?: string | null
         }
@@ -2516,6 +2569,12 @@ export type Database = {
       es_miembro: { Args: { p: string }; Returns: boolean }
     }
     Enums: {
+      apu_tipo:
+        | "mano_obra"
+        | "materiales"
+        | "equipos"
+        | "subcontratos"
+        | "gastos_generales"
       condicion_armada: "avance" | "fecha"
       constancia_enum: "factura" | "boleta" | "rhe"
       estado_adicional: "solicitado" | "aprobado" | "rechazado"
@@ -2709,6 +2768,13 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      apu_tipo: [
+        "mano_obra",
+        "materiales",
+        "equipos",
+        "subcontratos",
+        "gastos_generales",
+      ],
       condicion_armada: ["avance", "fecha"],
       constancia_enum: ["factura", "boleta", "rhe"],
       estado_adicional: ["solicitado", "aprobado", "rechazado"],

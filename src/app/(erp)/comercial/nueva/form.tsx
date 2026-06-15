@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, ArrowRight } from 'lucide-react';
+import { Loader2, ArrowRight, Plus } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
+import { Modal } from '@/components/ui/dialog';
 import { crearCotizacion } from '../actions';
+import { guardarCliente } from '../../catalogos/actions';
 
 interface Opt {
   id: string;
@@ -29,6 +31,9 @@ export function NuevaCotizacionForm({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [listaClientes, setListaClientes] = useState(clientes);
+  const [nuevoCli, setNuevoCli] = useState<null | { razon_social: string; ruc_dni: string; contacto_nombre: string; origen: string }>(null);
+  const [cliBusy, setCliBusy] = useState(false);
   const [form, setForm] = useState({
     origen: 'directo',
     cliente_id: clientes[0]?.id ?? '',
@@ -61,6 +66,21 @@ export function NuevaCotizacionForm({
     router.push(`/comercial/${res.id}`);
   }
 
+  async function crearCli() {
+    if (!nuevoCli?.razon_social) return;
+    setCliBusy(true);
+    const res = await guardarCliente({
+      razon_social: nuevoCli.razon_social, tipo_doc: 'RUC', ruc_dni: nuevoCli.ruc_dni,
+      contacto_nombre: nuevoCli.contacto_nombre, origen: nuevoCli.origen as never,
+    });
+    setCliBusy(false);
+    if (res.ok && res.id) {
+      setListaClientes((l) => [...l, { id: res.id!, razon_social: nuevoCli.razon_social }]);
+      set('cliente_id', res.id);
+      setNuevoCli(null);
+    }
+  }
+
   return (
     <Card>
       <CardContent className="space-y-4 p-5">
@@ -74,14 +94,19 @@ export function NuevaCotizacionForm({
             </Select>
           </Field>
           <Field label="Cliente" required>
-            <Select value={form.cliente_id} onChange={(e) => set('cliente_id', e.target.value)}>
-              {clientes.length === 0 && <option value="">— sin clientes —</option>}
-              {clientes.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.razon_social}
-                </option>
-              ))}
-            </Select>
+            <div className="flex gap-2">
+              <Select value={form.cliente_id} onChange={(e) => set('cliente_id', e.target.value)} className="flex-1">
+                {listaClientes.length === 0 && <option value="">— sin clientes —</option>}
+                {listaClientes.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.razon_social}
+                  </option>
+                ))}
+              </Select>
+              <Button type="button" variant="outline" size="icon" title="Nuevo cliente" onClick={() => setNuevoCli({ razon_social: '', ruc_dni: '', contacto_nombre: '', origen: 'directo' })}>
+                <Plus />
+              </Button>
+            </div>
           </Field>
           <Field label="Línea de negocio" required>
             <Select value={form.linea_id} onChange={(e) => set('linea_id', e.target.value)}>
@@ -149,6 +174,19 @@ export function NuevaCotizacionForm({
           </Button>
         </div>
       </CardContent>
+
+      <Modal open={!!nuevoCli} onClose={() => setNuevoCli(null)} title="Nuevo cliente"
+        footer={<><Button variant="outline" onClick={() => setNuevoCli(null)}>Cancelar</Button><Button variant="gradient" disabled={cliBusy || !nuevoCli?.razon_social} onClick={crearCli}>{cliBusy ? <Loader2 className="animate-spin" /> : null} Crear</Button></>}>
+        {nuevoCli && (
+          <div className="space-y-3">
+            <Field label="Razón social" required><Input value={nuevoCli.razon_social} onChange={(e) => setNuevoCli({ ...nuevoCli, razon_social: e.target.value })} /></Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="RUC / DNI"><Input value={nuevoCli.ruc_dni} onChange={(e) => setNuevoCli({ ...nuevoCli, ruc_dni: e.target.value })} /></Field>
+              <Field label="Contacto"><Input value={nuevoCli.contacto_nombre} onChange={(e) => setNuevoCli({ ...nuevoCli, contacto_nombre: e.target.value })} /></Field>
+            </div>
+          </div>
+        )}
+      </Modal>
     </Card>
   );
 }

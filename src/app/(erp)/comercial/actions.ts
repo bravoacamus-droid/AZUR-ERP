@@ -158,6 +158,48 @@ export async function eliminarItem(cotizacionId: string, itemId: string): Promis
   return { ok: true };
 }
 
+// ── APU detallado (desglose del costo unitario) ─────────────────────────
+async function recalcularApu(itemId: string) {
+  const admin = createAdminClient();
+  const { data: comps } = await admin.from('apu_componentes').select('cantidad, precio').eq('cotizacion_item_id', itemId);
+  const cu = (comps ?? []).reduce((a, c) => a + Number(c.cantidad) * Number(c.precio), 0);
+  const tiene = (comps ?? []).length > 0;
+  await admin.from('cotizacion_items').update({ costo_unitario: tiene ? cu : undefined, tiene_apu: tiene }).eq('id', itemId);
+}
+
+export async function guardarComponenteApu(
+  cotizacionId: string,
+  itemId: string,
+  comp: { id?: string; tipo: string; descripcion: string; unidad?: string; cuadrilla?: number; rendimiento?: number; cantidad: number; precio: number },
+): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const payload = {
+    cotizacion_item_id: itemId, tipo: comp.tipo as never, descripcion: comp.descripcion,
+    unidad: comp.unidad || null, cuadrilla: comp.cuadrilla ?? null, rendimiento: comp.rendimiento ?? null,
+    cantidad: comp.cantidad, precio: comp.precio,
+  };
+  if (comp.id) {
+    const { error } = await supabase.from('apu_componentes').update(payload).eq('id', comp.id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from('apu_componentes').insert(payload);
+    if (error) return { ok: false, error: error.message };
+  }
+  await recalcularApu(itemId);
+  revalidatePath(`/comercial/${cotizacionId}`);
+  return { ok: true };
+}
+
+export async function eliminarComponenteApu(cotizacionId: string, itemId: string, compId: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  await supabase.from('apu_componentes').delete().eq('id', compId);
+  await recalcularApu(itemId);
+  revalidatePath(`/comercial/${cotizacionId}`);
+  return { ok: true };
+}
+
 // ── Formas de pago ──────────────────────────────────────────────────────
 export async function guardarFormasPago(
   cotizacionId: string,

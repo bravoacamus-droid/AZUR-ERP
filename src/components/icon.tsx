@@ -2,12 +2,12 @@
 
 import {
   LayoutDashboard, BellRing, FileText, HardHat, Wallet, Package, BarChart3,
-  Database, Users, Home, ClipboardList, Receipt, ShieldCheck, type LucideProps,
+  Database, Users, Home, ClipboardList, Receipt, ShieldCheck, Contact, type LucideProps,
 } from 'lucide-react';
 
 const MAP = {
   LayoutDashboard, BellRing, FileText, HardHat, Wallet, Package, BarChart3,
-  Database, Users, Home, ClipboardList, Receipt, ShieldCheck,
+  Database, Users, Home, ClipboardList, Receipt, ShieldCheck, Contact,
 } as const;
 
 export type IconName = keyof typeof MAP;

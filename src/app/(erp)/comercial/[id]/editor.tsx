@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, ChevronRight, Send, Handshake, CheckCircle2, FileDown,
-  MessageCircle, History, Loader2, Percent, Save,
+  MessageCircle, History, Loader2, Percent, Save, Layers, X,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -25,15 +25,16 @@ import {
 import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
   cambiarEstado, guardarVersion, aprobarCotizacion, guardarCabecera,
+  guardarComponenteApu, eliminarComponenteApu,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot, items, formas, versiones, medios, userNombre, userId,
+  cot, items, formas, versiones, medios, apu, userNombre, userId,
 }: {
-  cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[];
+  cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[];
   userNombre: string; userId: string;
 }) {
   const router = useRouter();
@@ -47,6 +48,7 @@ export function CotizacionEditor({
   const [showRechazo, setShowRechazo] = useState(false);
   const [justif, setJustif] = useState('');
   const [motivo, setMotivo] = useState('');
+  const [apuItem, setApuItem] = useState<Row | null>(null);
   const editable = cot.estado === 'borrador' || cot.estado === 'en_negociacion';
 
   useEffect(() => setRows(items), [items]);
@@ -293,7 +295,11 @@ export function CotizacionEditor({
                           </td>
                           <td className="px-1 py-1.5">
                             {hoja ? (
-                              <NumCell value={row.costo_unitario} disabled={!editable} onSave={(v) => { setLocal(row.id, { costo_unitario: v }); persist(row.id, { costo_unitario: v }); }} />
+                              (row as any).tiene_apu ? (
+                                <span className="block w-20 rounded bg-azur-50 px-1 py-0.5 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span>
+                              ) : (
+                                <NumCell value={row.costo_unitario} disabled={!editable} onSave={(v) => { setLocal(row.id, { costo_unitario: v }); persist(row.id, { costo_unitario: v }); }} />
+                              )
                             ) : null}
                           </td>
                           <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(c?.costo_subtotal ?? 0)}</td>
@@ -312,6 +318,11 @@ export function CotizacionEditor({
                           {editable && (
                             <td className="px-1 py-1.5">
                               <div className="flex items-center gap-0.5">
+                                {hoja && (
+                                  <button title="Detallar APU" onClick={() => setApuItem(row)} className={`rounded p-1 hover:bg-secondary ${(row as any).tiene_apu ? 'text-azur-600' : 'text-muted-foreground'}`}>
+                                    <Layers className="size-3.5" />
+                                  </button>
+                                )}
                                 {row.nivel < 4 && (
                                   <button title="Agregar hijo" onClick={() => addChild(row)} className="rounded p-1 hover:bg-secondary">
                                     <Plus className="size-3.5 text-muted-foreground" />
@@ -391,7 +402,107 @@ export function CotizacionEditor({
           <Input value={motivo} onChange={(e) => setMotivo(e.target.value)} />
         </Field>
       </Modal>
+
+      {apuItem && (
+        <ApuModal
+          cotizacionId={cot.id}
+          item={apuItem}
+          componentes={apu.filter((c) => c.cotizacion_item_id === apuItem.id)}
+          editable={editable}
+          onClose={() => setApuItem(null)}
+          onChanged={() => router.refresh()}
+        />
+      )}
     </div>
+  );
+}
+
+const APU_TIPOS = [
+  { v: 'mano_obra', l: 'Mano de obra' },
+  { v: 'materiales', l: 'Materiales' },
+  { v: 'equipos', l: 'Equipos / herramientas' },
+  { v: 'subcontratos', l: 'Subcontratos' },
+  { v: 'gastos_generales', l: 'Gastos generales' },
+];
+
+function ApuModal({ cotizacionId, item, componentes, editable, onClose, onChanged }: {
+  cotizacionId: string; item: Row; componentes: any[]; editable: boolean; onClose: () => void; onChanged: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [nuevo, setNuevo] = useState({ tipo: 'materiales', descripcion: '', unidad: '', cuadrilla: '', rendimiento: '', cantidad: '', precio: '' });
+  const cu = componentes.reduce((a, c) => a + Number(c.cantidad) * Number(c.precio), 0);
+
+  async function agregar() {
+    if (!nuevo.descripcion) return;
+    setBusy(true);
+    await guardarComponenteApu(cotizacionId, item.id, {
+      tipo: nuevo.tipo, descripcion: nuevo.descripcion, unidad: nuevo.unidad,
+      cuadrilla: nuevo.cuadrilla ? Number(nuevo.cuadrilla) : undefined,
+      rendimiento: nuevo.rendimiento ? Number(nuevo.rendimiento) : undefined,
+      cantidad: Number(nuevo.cantidad || 0), precio: Number(nuevo.precio || 0),
+    });
+    setNuevo({ tipo: nuevo.tipo, descripcion: '', unidad: '', cuadrilla: '', rendimiento: '', cantidad: '', precio: '' });
+    setBusy(false);
+    onChanged();
+  }
+  async function eliminar(id: string) {
+    setBusy(true);
+    await eliminarComponenteApu(cotizacionId, item.id, id);
+    setBusy(false);
+    onChanged();
+  }
+
+  const porTipo = (t: string) => componentes.filter((c) => c.tipo === t);
+
+  return (
+    <Modal open onClose={onClose} className="sm:max-w-3xl"
+      title={`APU · ${item.titulo}`}
+      description="Desglose del costo unitario por componentes. El C.U. de la partida se calcula automáticamente."
+      footer={<Button variant="gradient" onClick={onClose}>Listo · C.U. = {fmtNumber(cu)}</Button>}>
+      <div className="space-y-4">
+        {APU_TIPOS.map((t) => {
+          const comps = porTipo(t.v);
+          const sub = comps.reduce((a, c) => a + Number(c.cantidad) * Number(c.precio), 0);
+          if (comps.length === 0) return null;
+          return (
+            <div key={t.v}>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-azur-600">{t.l} · {fmtNumber(sub)}</p>
+              <div className="space-y-1">
+                {comps.map((c) => (
+                  <div key={c.id} className="flex items-center gap-2 rounded-lg border px-2 py-1.5 text-sm">
+                    <span className="flex-1">{c.descripcion} {c.unidad && <span className="text-muted-foreground">({c.unidad})</span>}</span>
+                    <span className="tabular-nums text-muted-foreground">{fmtNumber(Number(c.cantidad), 2)} × {fmtNumber(Number(c.precio))}</span>
+                    <span className="w-20 text-right font-medium tabular-nums">{fmtNumber(Number(c.cantidad) * Number(c.precio))}</span>
+                    {editable && <button onClick={() => eliminar(c.id)} className="text-azur-600"><X className="size-4" /></button>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {componentes.length === 0 && <p className="text-sm text-muted-foreground">Aún no hay componentes. Agrega el primero abajo.</p>}
+
+        {editable && (
+          <div className="rounded-xl border bg-muted/30 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agregar componente</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="col-span-2 sm:col-span-1">
+                <Select value={nuevo.tipo} onChange={(e) => setNuevo((n) => ({ ...n, tipo: e.target.value }))}>
+                  {APU_TIPOS.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}
+                </Select>
+              </div>
+              <Input className="col-span-2" placeholder="Descripción (insumo / MO)" value={nuevo.descripcion} onChange={(e) => setNuevo((n) => ({ ...n, descripcion: e.target.value }))} />
+              <Input placeholder="Unidad" value={nuevo.unidad} onChange={(e) => setNuevo((n) => ({ ...n, unidad: e.target.value }))} />
+              <Input type="number" placeholder="Cantidad/und" value={nuevo.cantidad} onChange={(e) => setNuevo((n) => ({ ...n, cantidad: e.target.value }))} />
+              <Input type="number" placeholder="Precio" value={nuevo.precio} onChange={(e) => setNuevo((n) => ({ ...n, precio: e.target.value }))} />
+              <Input type="number" placeholder="Cuadrilla (opc)" value={nuevo.cuadrilla} onChange={(e) => setNuevo((n) => ({ ...n, cuadrilla: e.target.value }))} />
+              <Input type="number" placeholder="Rendimiento (opc)" value={nuevo.rendimiento} onChange={(e) => setNuevo((n) => ({ ...n, rendimiento: e.target.value }))} />
+              <Button variant="gradient" disabled={busy || !nuevo.descripcion} onClick={agregar}><Plus /> Agregar</Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 

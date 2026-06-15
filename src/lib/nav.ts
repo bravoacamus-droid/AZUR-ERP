@@ -34,6 +34,7 @@ export const ERP_NAV: { grupo: string; items: NavItem[] }[] = [
   {
     grupo: 'Maestros',
     items: [
+      { href: '/clientes', label: 'Clientes', icon: 'Contact', roles: ['gerencia', 'presupuestos', 'comercial', 'administrador'] },
       { href: '/catalogos', label: 'Catálogos', icon: 'Database', roles: ['gerencia', 'presupuestos', 'comercial', 'administrador'] },
       { href: '/usuarios', label: 'Usuarios', icon: 'Users', roles: ['gerencia', 'administrador'] },
     ],
