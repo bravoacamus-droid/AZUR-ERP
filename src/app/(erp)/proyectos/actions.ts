@@ -376,6 +376,31 @@ export async function resolverAdicional(proyectoId: string, id: string, aprobar:
   return { ok: true };
 }
 
+// ── Liquidación / cierre de obra (Sec. 4.6 / 7bis.2) ────────────────────
+export async function liquidarProyecto(proyectoId: string): Promise<Res> {
+  const session = await requireRol(['gerencia', 'jefe_proyectos']);
+  const admin = createAdminClient();
+
+  // remanente de la caja chica → vuelve a caja central
+  const { data: cajaSaldo } = await admin.from('v_cajas_saldos').select('*').eq('proyecto_id', proyectoId).eq('tipo', 'chica').limit(1).single();
+  const { data: central } = await admin.from('cajas').select('id').eq('tipo', 'central').limit(1).single();
+  const remanente = Number(cajaSaldo?.saldo_actual ?? 0);
+  const cajaId = cajaSaldo?.caja_id ?? null;
+  if (cajaId && central && remanente > 0) {
+    await admin.from('movimientos_caja').insert([
+      { caja_id: cajaId, proyecto_id: proyectoId, tipo: 'traslado', monto: -remanente, concepto: 'Cierre de obra: remanente a caja central', created_by: session.id },
+      { caja_id: central.id, proyecto_id: null, tipo: 'traslado', monto: remanente, concepto: `Cierre de obra ${proyectoId}: remanente recibido`, created_by: session.id },
+    ]);
+    await admin.from('cajas').update({ activa: false }).eq('id', cajaId);
+  }
+
+  const { error } = await admin.from('proyectos').update({ estado: 'liquidado' }).eq('id', proyectoId);
+  if (error) return { ok: false, error: error.message };
+  await notifyRoles(['gerencia', 'administrador'], { title: 'Proyecto liquidado', body: 'Se cerró y liquidó un proyecto.', url: `/proyectos/${proyectoId}` }, 'proyectos');
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
 // ── Hitos ───────────────────────────────────────────────────────────────
 export async function guardarHito(proyectoId: string, nombre: string, fecha: string): Promise<Res> {
   await guard();

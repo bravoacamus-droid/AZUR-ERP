@@ -20,12 +20,13 @@ import { CurvaS } from '@/components/proyectos/curva-s';
 import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
+import { calcularLiquidacion } from '@/lib/liquidacion';
 import type { DashboardProyecto } from '@/lib/salud';
 import {
   agregarItemProyecto, actualizarItemProyecto, eliminarItemProyecto, crearValorizacion,
   guardarAvances, registrarCobroValorizacion, asignarEquipo, quitarEquipo, guardarArmadas,
   registrarAdicional, resolverAdicional, actualizarProyecto, guardarHito, subirDocumento,
-  guardarComponenteApuProyecto, eliminarComponenteApuProyecto,
+  guardarComponenteApuProyecto, eliminarComponenteApuProyecto, liquidarProyecto,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 
@@ -64,6 +65,7 @@ export function ProyectoDetalle(props: any) {
           { value: 'adicionales', label: 'Adicionales' },
           { value: 'equipo', label: 'Equipo' },
           { value: 'campo', label: 'Campo' },
+          { value: 'liquidacion', label: 'Liquidación' },
           { value: 'expediente', label: 'Expediente' },
         ]}
       />
@@ -74,6 +76,7 @@ export function ProyectoDetalle(props: any) {
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
       {tab === 'campo' && <CampoTab campo={campo} />}
+      {tab === 'liquidacion' && <Liquidacion proy={proy} items={items} valorizaciones={valorizaciones} adicionales={adicionales} dash={dash} canManage={canManage} />}
       {tab === 'expediente' && <Expediente proy={proy} documentos={documentos} canManage={canManage} />}
     </div>
   );
@@ -477,6 +480,92 @@ function ApuModalProy({ proyectoId, item, componentes, editable, onClose, onChan
         )}
       </div>
     </Modal>
+  );
+}
+
+// ─────────────────────────── LIQUIDACIÓN ──────────────────────────────
+function Liquidacion({ proy, items, valorizaciones, adicionales, dash, canManage }: any) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const contrato = Number(proy.contrato_total);
+  const costoPresupuestado = items.filter((i: any) => i.es_hoja).reduce((a: number, i: any) => a + Number(i.total_costo ?? 0), 0);
+  const amortizado = valorizaciones.reduce((a: number, v: any) => a + Number(v.amortizacion_adelanto ?? 0), 0);
+  const adAprob = adicionales.filter((a: any) => a.estado === 'aprobado');
+  const adicionalesM = adAprob.filter((a: any) => a.tipo === 'adicional').reduce((a: number, x: any) => a + Number(x.monto), 0);
+  const deductivosM = adAprob.filter((a: any) => a.tipo === 'deductivo').reduce((a: number, x: any) => a + Number(x.monto), 0);
+  const liq = calcularLiquidacion({
+    contrato, adelantoPct: Number(proy.adelanto_pct), amortizadoAdelanto: amortizado,
+    valorizado: Number(dash?.valorizado ?? 0), cobrado: Number(dash?.pagos ?? 0), gastado: Number(dash?.gasto ?? 0),
+    costoPresupuestado, adicionales: adicionalesM, deductivos: deductivosM,
+  });
+  const liquidado = proy.estado === 'liquidado';
+
+  async function cerrar() {
+    if (!confirm('¿Cerrar y liquidar la obra? La caja chica se cerrará y el remanente volverá a caja central.')) return;
+    setBusy(true);
+    await liquidarProyecto(proy.id);
+    router.refresh();
+    setBusy(false);
+  }
+
+  const Row = ({ k, v, bold, tone }: { k: string; v: number; bold?: boolean; tone?: 'pos' | 'neg' }) => (
+    <div className={`flex items-center justify-between ${bold ? 'border-t pt-2 font-semibold' : ''}`}>
+      <span className={bold ? '' : 'text-muted-foreground'}>{k}</span>
+      <span className={`tabular-nums ${tone === 'pos' ? 'text-emerald-600' : tone === 'neg' ? 'text-azur-600' : ''}`}>{fmtMoney(v)}</span>
+    </div>
+  );
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      <div className="space-y-4 lg:col-span-2">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Liquidación de obra</CardTitle></CardHeader>
+          <CardContent className="space-y-1.5 text-sm">
+            <Row k="Contrato (precio cliente)" v={contrato} />
+            {adicionalesM > 0 && <Row k="(+) Adicionales aprobados" v={adicionalesM} tone="pos" />}
+            {deductivosM > 0 && <Row k="(−) Deductivos aprobados" v={deductivosM} tone="neg" />}
+            <Row k="Contrato ajustado" v={liq.contratoAjustado} bold />
+            <div className="h-2" />
+            <Row k="Valorizado al cliente" v={Number(dash?.valorizado ?? 0)} />
+            <Row k="Cobrado (abonos)" v={Number(dash?.pagos ?? 0)} tone="pos" />
+            <Row k="Por cobrar" v={liq.porCobrar} />
+            <div className="h-2" />
+            <Row k="Costo presupuestado (interno)" v={costoPresupuestado} />
+            <Row k="Gastado real (egresos)" v={Number(dash?.gasto ?? 0)} tone="neg" />
+            <div className="h-2" />
+            <Row k="Margen vs. presupuesto" v={liq.margenPresupuesto} bold tone={liq.margenPresupuesto >= 0 ? 'pos' : 'neg'} />
+            <div className="flex items-center justify-between font-semibold"><span>Utilidad real (cobrado − gastado)</span><span className={`tabular-nums ${liq.utilidadReal >= 0 ? 'text-emerald-600' : 'text-azur-600'}`}>{fmtMoney(liq.utilidadReal)} <span className="text-xs font-normal text-muted-foreground">({fmtPct(liq.margenPct, 1)})</span></span></div>
+          </CardContent>
+        </Card>
+      </div>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Saldo del adelanto</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            <KpiCard label="Adelanto inicial" value={fmtMoney(liq.adelantoInicial)} />
+            <div className="flex justify-between text-sm"><span className="text-muted-foreground">Amortizado acumulado</span><span className="tabular-nums">{fmtMoney(amortizado)}</span></div>
+            <div className="flex justify-between text-sm font-semibold"><span>Saldo del adelanto</span><span className="tabular-nums text-azur-600">{fmtMoney(liq.adelantoSaldo)}</span></div>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-secondary">
+              <div className="h-full bg-azur-gradient" style={{ width: `${liq.adelantoInicial > 0 ? Math.min(100, (amortizado / liq.adelantoInicial) * 100) : 0}%` }} />
+            </div>
+            <p className="text-xs text-muted-foreground">El adelanto se diluye con cada valorización hasta llegar a 0.</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="space-y-2 p-4">
+            <a href={`/proyectos/${proy.id}/liquidacion/pdf`} target="_blank" rel="noreferrer">
+              <Button variant="outline" className="w-full"><FileBarChart /> PDF de liquidación</Button>
+            </a>
+            {canManage && !liquidado && (
+              <Button variant="gradient" className="w-full" disabled={busy} onClick={cerrar}>
+                {busy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Cerrar y liquidar obra
+              </Button>
+            )}
+            {liquidado && <Badge variant="muted" className="w-full justify-center py-1.5">Obra liquidada</Badge>}
+          </CardContent>
+        </Card>
+      </div>
+    </div>
   );
 }
 
