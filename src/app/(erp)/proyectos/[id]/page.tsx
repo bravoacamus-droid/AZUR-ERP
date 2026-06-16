@@ -40,6 +40,16 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
   const conApu = new Set((apuTpl ?? []).map((a) => a.catalogo_partida_id));
   const catalogoConApu = (catalogo ?? []).map((c) => ({ ...c, tiene_apu: conApu.has(c.id) }));
 
+  // Datos de campo (capturados desde la PWA) para supervisión del Jefe
+  const [asistencias, partesDiarios, evidencias, sstCharlas, sstObs, sstInc] = await Promise.all([
+    supabase.from('asistencias').select('*, persona:profiles(nombre)').eq('proyecto_id', params.id).order('registrado_at', { ascending: false }).limit(50),
+    supabase.from('partes_diarios').select('*, autor:profiles(nombre), rdo_actividades(*)').eq('proyecto_id', params.id).order('fecha', { ascending: false }).limit(30),
+    supabase.from('evidencias').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }).limit(60),
+    supabase.from('sst_charlas').select('*').eq('proyecto_id', params.id).order('fecha', { ascending: false }).limit(20),
+    supabase.from('sst_observaciones').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }).limit(20),
+    supabase.from('sst_incidentes').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }).limit(20),
+  ]);
+
   return (
     <div className="space-y-4">
       <Link href="/proyectos" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -60,6 +70,14 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         documentos={documentos.data ?? []}
         catalogo={catalogoConApu}
         apuProyecto={apuProy ?? []}
+        campo={{
+          asistencias: asistencias.data ?? [],
+          partes: partesDiarios.data ?? [],
+          evidencias: evidencias.data ?? [],
+          sstCharlas: sstCharlas.data ?? [],
+          sstObs: sstObs.data ?? [],
+          sstInc: sstInc.data ?? [],
+        }}
         canManage={['gerencia', 'jefe_proyectos', 'presupuestos'].includes(session.rol)}
       />
     </div>

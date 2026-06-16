@@ -17,7 +17,7 @@ import { Field, EmptyState } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { CurvaS } from '@/components/proyectos/curva-s';
-import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtPct } from '@/lib/format';
+import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
 import type { DashboardProyecto } from '@/lib/salud';
@@ -32,7 +32,7 @@ import { createClient } from '@/lib/supabase/client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, campo, canManage } = props;
   const [tab, setTab] = useState('resumen');
   const est = ESTADO_PROYECTO[proy.estado] ?? { label: proy.estado, variant: 'muted' as const };
   const cajaSaldo = cajas?.[0]?.saldo_actual ?? 0;
@@ -63,6 +63,7 @@ export function ProyectoDetalle(props: any) {
           { value: 'cobros', label: 'Cronograma de cobros' },
           { value: 'adicionales', label: 'Adicionales' },
           { value: 'equipo', label: 'Equipo' },
+          { value: 'campo', label: 'Campo' },
           { value: 'expediente', label: 'Expediente' },
         ]}
       />
@@ -72,6 +73,7 @@ export function ProyectoDetalle(props: any) {
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
+      {tab === 'campo' && <CampoTab campo={campo} />}
       {tab === 'expediente' && <Expediente proy={proy} documentos={documentos} canManage={canManage} />}
     </div>
   );
@@ -466,6 +468,121 @@ function ApuModalProy({ proyectoId, item, componentes, editable, onClose, onChan
         )}
       </div>
     </Modal>
+  );
+}
+
+// ───────────────────────────── CAMPO ──────────────────────────────────
+function CampoTab({ campo }: any) {
+  const [sub, setSub] = useState('asistencias');
+  const { asistencias, partes, evidencias, sstCharlas, sstObs, sstInc } = campo;
+  const sstTotal = sstCharlas.length + sstObs.length + sstInc.length;
+  return (
+    <div className="space-y-4">
+      <Tabs value={sub} onChange={setSub} tabs={[
+        { value: 'asistencias', label: `Asistencia (${asistencias.length})` },
+        { value: 'partes', label: `Partes diarios (${partes.length})` },
+        { value: 'evidencias', label: `Evidencias (${evidencias.length})` },
+        { value: 'sst', label: `SST (${sstTotal})` },
+      ]} />
+
+      {sub === 'asistencias' && (
+        <Card><CardContent className="p-0">
+          {asistencias.length === 0 ? <div className="p-6"><EmptyState titulo="Sin registros de asistencia" /></div> : (
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr><th className="px-3 py-2 text-left">Persona</th><th className="px-3 py-2">Tipo</th><th className="px-3 py-2">Fecha/hora</th><th className="px-3 py-2">Ubicación GPS</th></tr>
+              </thead>
+              <tbody>
+                {asistencias.map((a: any) => (
+                  <tr key={a.id} className="border-b">
+                    <td className="px-3 py-2">{a.persona?.nombre ?? '—'}</td>
+                    <td className="px-3 py-2 text-center"><Badge variant={a.tipo === 'checkin' ? 'success' : 'secondary'}>{a.tipo === 'checkin' ? 'Entrada' : 'Salida'}</Badge></td>
+                    <td className="px-3 py-2 text-center text-muted-foreground">{fmtDateTime(a.registrado_at)}</td>
+                    <td className="px-3 py-2 text-center">
+                      {a.lat && a.lng ? (
+                        <a href={`https://www.google.com/maps?q=${a.lat},${a.lng}`} target="_blank" rel="noreferrer" className="text-azur-600 hover:underline">Ver en mapa</a>
+                      ) : <span className="text-muted-foreground">sin GPS</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </CardContent></Card>
+      )}
+
+      {sub === 'partes' && (
+        <div className="space-y-3">
+          {partes.length === 0 && <EmptyState titulo="Sin partes diarios" />}
+          {partes.map((p: any) => (
+            <Card key={p.id}>
+              <CardHeader className="pb-2">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm">{fmtDate(p.fecha)} · {p.autor?.nombre ?? ''}</CardTitle>
+                  {p.clima && <Badge variant="info">{p.clima}</Badge>}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2 text-sm">
+                {p.rdo_actividades?.length > 0 && (
+                  <ul className="space-y-1">
+                    {p.rdo_actividades.map((a: any) => (
+                      <li key={a.id} className="flex items-center justify-between rounded border px-2 py-1">
+                        <span>{a.descripcion}</span>
+                        {a.avance_pct != null && <Badge variant="muted">{Math.round(Number(a.avance_pct) * 100)}%</Badge>}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                  {p.personal_count != null && <span>👷 Personal: {p.personal_count}</span>}
+                  {p.equipos && <span>🔧 {p.equipos}</span>}
+                  {p.materiales_recibidos && <span>📦 {p.materiales_recibidos}</span>}
+                </div>
+                {p.observaciones && <p className="text-xs"><b>Obs:</b> {p.observaciones}</p>}
+                {p.incidencias && <p className="text-xs text-azur-700"><b>Incidencias:</b> {p.incidencias}</p>}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {sub === 'evidencias' && (
+        evidencias.length === 0 ? <EmptyState titulo="Sin evidencias fotográficas" /> : (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+            {evidencias.map((e: any) => (
+              <a key={e.id} href={e.url} target="_blank" rel="noreferrer" className="group overflow-hidden rounded-xl border bg-white">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={e.url} alt={e.descripcion ?? 'evidencia'} className="aspect-square w-full object-cover transition-transform group-hover:scale-105" />
+                <div className="p-2 text-[11px] text-muted-foreground">
+                  {fmtDate(e.created_at)}{e.lat && e.lng ? ' · 📍' : ''}
+                  {e.descripcion && <p className="truncate text-foreground">{e.descripcion}</p>}
+                </div>
+              </a>
+            ))}
+          </div>
+        )
+      )}
+
+      {sub === 'sst' && (
+        <div className="grid gap-3 lg:grid-cols-3">
+          <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Charlas de 5 min ({sstCharlas.length})</CardTitle></CardHeader>
+            <CardContent className="space-y-1">
+              {sstCharlas.length === 0 && <p className="text-xs text-muted-foreground">Sin registros.</p>}
+              {sstCharlas.map((c: any) => <div key={c.id} className="rounded border p-2 text-xs"><p className="font-medium">{c.tema}</p><p className="text-muted-foreground">{fmtDate(c.fecha)}</p></div>)}
+            </CardContent></Card>
+          <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Observaciones ({sstObs.length})</CardTitle></CardHeader>
+            <CardContent className="space-y-1">
+              {sstObs.length === 0 && <p className="text-xs text-muted-foreground">Sin registros.</p>}
+              {sstObs.map((o: any) => <div key={o.id} className="rounded border p-2 text-xs"><Badge variant="warning">{o.tipo}</Badge> <span>{o.descripcion}</span></div>)}
+            </CardContent></Card>
+          <Card><CardHeader className="pb-2"><CardTitle className="text-sm">Incidentes ({sstInc.length})</CardTitle></CardHeader>
+            <CardContent className="space-y-1">
+              {sstInc.length === 0 && <p className="text-xs text-muted-foreground">Sin registros.</p>}
+              {sstInc.map((i: any) => <div key={i.id} className="rounded border p-2 text-xs"><Badge variant="danger">{i.gravedad}</Badge> <span>{i.descripcion}</span></div>)}
+            </CardContent></Card>
+        </div>
+      )}
+    </div>
   );
 }
 
