@@ -5,6 +5,8 @@ import { BottomNav } from '@/components/shell/bottom-nav';
 import { NotificationBell } from '@/components/shell/notification-bell';
 import { UserMenu } from '@/components/shell/user-menu';
 import { Logo } from '@/components/brand/logo';
+import { InstallPrompt } from '@/components/pwa/install-prompt';
+import { OfflineSync } from '@/components/pwa/offline-sync';
 
 export default async function PwaLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
@@ -25,7 +27,9 @@ export default async function PwaLayout({ children }: { children: React.ReactNod
           />
         </div>
       </header>
+      <OfflineSync />
       <main className="flex-1 px-4 pb-24 pt-4">{children}</main>
+      <InstallPrompt />
       <BottomNav rol={session.rol} />
     </div>
   );

@@ -10,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
 import { crearRdo } from './actions';
+import { enqueue, isOnline } from '@/lib/offline-queue';
 
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
@@ -59,7 +60,7 @@ export function RdoForm({
       return;
     }
     setLoading(true);
-    const res = await crearRdo({
+    const payload = {
       proyecto_id: proyectoId,
       fecha,
       clima: clima || null,
@@ -75,20 +76,38 @@ export function RdoForm({
           proyecto_item_id: a.proyecto_item_id || null,
           avance_pct: a.avance_pct ? Number(a.avance_pct) : null,
         })),
-    });
-    setLoading(false);
-    if (res.ok) {
-      setMsg({ type: 'ok', text: 'Parte diario registrado ✅' });
-      setClima('');
-      setPersonal('');
-      setEquipos('');
-      setMateriales('');
-      setObservaciones('');
-      setIncidencias('');
-      setActividades([nuevaActividad()]);
-      router.refresh();
-    } else {
-      setMsg({ type: 'err', text: res.error ?? 'No se pudo registrar.' });
+    };
+
+    function limpiar() {
+      setClima(''); setPersonal(''); setEquipos(''); setMateriales('');
+      setObservaciones(''); setIncidencias(''); setActividades([nuevaActividad()]);
+    }
+
+    // Sin conexión → encolar para sincronizar luego (Sección 8.9)
+    if (!isOnline()) {
+      enqueue('rdo', payload);
+      setLoading(false);
+      setMsg({ type: 'ok', text: 'Sin conexión: guardado y se enviará al reconectar 📴' });
+      limpiar();
+      return;
+    }
+
+    try {
+      const res = await crearRdo(payload);
+      setLoading(false);
+      if (res.ok) {
+        setMsg({ type: 'ok', text: 'Parte diario registrado ✅' });
+        limpiar();
+        router.refresh();
+      } else {
+        setMsg({ type: 'err', text: res.error ?? 'No se pudo registrar.' });
+      }
+    } catch {
+      // fallo de red → encolar
+      enqueue('rdo', payload);
+      setLoading(false);
+      setMsg({ type: 'ok', text: 'Guardado offline, se enviará al reconectar 📴' });
+      limpiar();
     }
   }
 

@@ -1,6 +1,6 @@
-/* Service Worker — Push + caché básico offline (Anexo A.4) */
-const CACHE = 'azur-v1';
-const PRECACHE = ['/inicio', '/campo', '/logoazur.png', '/icons/icon-192.png'];
+/* Service Worker — Push + offline (Anexo A.4 / Sección 8.9) */
+const CACHE = 'azur-v2';
+const PRECACHE = ['/campo', '/campo/rdo', '/campo/solicitudes', '/login', '/logoazur.png', '/icons/icon-192.png', '/manifest.webmanifest'];
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -16,13 +16,14 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Estrategia network-first para navegación; cache-first para estáticos.
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  if (url.pathname.startsWith('/api/')) return; // no cachear API/auth
 
+  // Navegación: network-first con fallback a caché (offline)
   if (req.mode === 'navigate') {
     event.respondWith(
       fetch(req)
@@ -34,6 +35,26 @@ self.addEventListener('fetch', (event) => {
         .catch(() => caches.match(req).then((r) => r || caches.match('/campo'))),
     );
     return;
+  }
+
+  // Estáticos (_next/static, iconos, imágenes, css/js): cache-first + refresco
+  if (
+    url.pathname.startsWith('/_next/static') ||
+    url.pathname.startsWith('/icons') ||
+    /\.(?:png|jpg|jpeg|svg|webp|ico|css|js|woff2?)$/.test(url.pathname)
+  ) {
+    event.respondWith(
+      caches.match(req).then((cached) => {
+        const network = fetch(req)
+          .then((res) => {
+            const copy = res.clone();
+            caches.open(CACHE).then((c) => c.put(req, copy)).catch(() => {});
+            return res;
+          })
+          .catch(() => cached);
+        return cached || network;
+      }),
+    );
   }
 });
 

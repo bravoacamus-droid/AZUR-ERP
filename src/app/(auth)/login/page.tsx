@@ -1,5 +1,6 @@
 import { Logo } from '@/components/brand/logo';
 import { LoginForm } from './login-form';
+import { InstallPrompt } from '@/components/pwa/install-prompt';
 
 export default function LoginPage() {
   return (
@@ -46,6 +47,7 @@ export default function LoginPage() {
           © {new Date().getFullYear()} AZUR Constructora e Inmobiliaria · ERP integral
         </p>
       </div>
+      <InstallPrompt />
     </div>
   );
 }

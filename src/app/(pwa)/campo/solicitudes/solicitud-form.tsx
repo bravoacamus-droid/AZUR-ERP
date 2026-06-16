@@ -10,6 +10,7 @@ import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
 import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { crearSolicitud, type SolicitudInput } from './actions';
+import { enqueue, isOnline } from '@/lib/offline-queue';
 
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
@@ -69,24 +70,35 @@ export function SolicitudForm({
       razon_social: razonSocial || null,
       num_comprobante: numComprobante || null,
     };
-    const res = await crearSolicitud(payload);
-    setLoading(false);
-    if (res.ok) {
-      setMsg({ type: 'ok', text: 'Solicitud enviada ✅' });
-      setPartidaPpto('');
-      setBeneficiario('');
-      setEspecialidad('');
-      setCategoria('');
-      setMonto('');
-      setConstancia('');
-      setDescripcion('');
-      setCtaBancaria('');
-      setRucDni('');
-      setRazonSocial('');
-      setNumComprobante('');
-      router.refresh();
-    } else {
-      setMsg({ type: 'err', text: res.error ?? 'No se pudo enviar.' });
+    function limpiar() {
+      setPartidaPpto(''); setBeneficiario(''); setEspecialidad(''); setCategoria('');
+      setMonto(''); setConstancia(''); setDescripcion(''); setCtaBancaria('');
+      setRucDni(''); setRazonSocial(''); setNumComprobante('');
+    }
+
+    if (!isOnline()) {
+      enqueue('solicitud', payload);
+      setLoading(false);
+      setMsg({ type: 'ok', text: 'Sin conexión: guardada y se enviará al reconectar 📴' });
+      limpiar();
+      return;
+    }
+
+    try {
+      const res = await crearSolicitud(payload);
+      setLoading(false);
+      if (res.ok) {
+        setMsg({ type: 'ok', text: 'Solicitud enviada ✅' });
+        limpiar();
+        router.refresh();
+      } else {
+        setMsg({ type: 'err', text: res.error ?? 'No se pudo enviar.' });
+      }
+    } catch {
+      enqueue('solicitud', payload);
+      setLoading(false);
+      setMsg({ type: 'ok', text: 'Guardada offline, se enviará al reconectar 📴' });
+      limpiar();
     }
   }
 
