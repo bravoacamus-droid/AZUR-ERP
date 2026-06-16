@@ -37,6 +37,7 @@ export async function updateSession(request: NextRequest) {
     path === '/' ||
     path.startsWith('/_next') ||
     path.startsWith('/api/push') ||
+    path.startsWith('/api/cron') ||
     path.startsWith('/manifest') ||
     path.startsWith('/icons') ||
     path === '/logoazur.png' ||
