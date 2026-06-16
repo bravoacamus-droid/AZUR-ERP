@@ -13,7 +13,7 @@ import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs } from '@/components/ui/tabs';
 import { Modal } from '@/components/ui/dialog';
-import { Field, EmptyState } from '@/components/ui/misc';
+import { Field, EmptyState, Avatar } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { CurvaS } from '@/components/proyectos/curva-s';
@@ -34,8 +34,26 @@ import { createClient } from '@/lib/supabase/client';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, campo, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, campo, userId, userNombre, canManage } = props;
   const esMantenimiento = proy.tipo_proyecto === 'chico';
+  const router = useRouter();
+  const [presentes, setPresentes] = useState<string[]>([]);
+
+  // Realtime: presencia + sincronización en vivo del Last Planner (itemizado y valorizaciones)
+  useEffect(() => {
+    const supabase = createClient();
+    const ch = supabase.channel(`proy-${proy.id}`, { config: { presence: { key: userId } } });
+    const refrescar = () => router.refresh();
+    ch.on('presence', { event: 'sync' }, () => {
+      const state = ch.presenceState() as Record<string, { nombre: string }[]>;
+      setPresentes([...new Set(Object.values(state).flat().map((p) => p.nombre))]);
+    })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'proyecto_items', filter: `proyecto_id=eq.${proy.id}` }, refrescar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'valorizaciones', filter: `proyecto_id=eq.${proy.id}` }, refrescar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'valorizacion_items' }, refrescar)
+      .subscribe(async (status) => { if (status === 'SUBSCRIBED') await ch.track({ nombre: userNombre }); });
+    return () => { void supabase.removeChannel(ch); };
+  }, [proy.id, userId, userNombre, router]);
   const [tab, setTab] = useState('resumen');
   const est = ESTADO_PROYECTO[proy.estado] ?? { label: proy.estado, variant: 'muted' as const };
   const cajaSaldo = cajas?.[0]?.saldo_actual ?? 0;
@@ -54,6 +72,14 @@ export function ProyectoDetalle(props: any) {
               {proy.codigo} · {proy.cliente?.razon_social} · {proy.linea?.nombre}
             </p>
           </div>
+          {presentes.length > 0 && (
+            <div className="flex items-center -space-x-2">
+              {presentes.slice(0, 5).map((n) => (
+                <Avatar key={n} nombre={n} className="size-8 ring-2 ring-white" />
+              ))}
+              <span className="ml-3 text-xs text-muted-foreground">{presentes.length} en línea</span>
+            </div>
+          )}
         </CardContent>
       </Card>
 

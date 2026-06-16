@@ -77,6 +77,8 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         catalogo={catalogoConApu}
         apuProyecto={apuProy ?? []}
         servicios={servicios ?? []}
+        userId={session.id}
+        userNombre={session.nombre}
         campo={{
           asistencias: asistencias.data ?? [],
           partes: partesDiarios.data ?? [],
