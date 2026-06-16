@@ -9,23 +9,33 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { EmptyState } from '@/components/ui/misc';
 import { ESTADO_PROYECTO } from '@/lib/estados';
 import { fmtMoney, fmtDate } from '@/lib/format';
+import { SearchBox, Pagination } from '@/components/ui/list-tools';
 
 export const dynamic = 'force-dynamic';
+const PAGE_SIZE = 20;
 
-export default async function ProyectosPage() {
+export default async function ProyectosPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {
   await requireRol(['gerencia', 'jefe_proyectos', 'presupuestos']);
   const supabase = createClient();
 
-  const { data: proys } = await supabase
+  const q = (searchParams.q ?? '').trim();
+  const page = Math.max(1, Number(searchParams.page) || 1);
+  const desde = (page - 1) * PAGE_SIZE;
+
+  let query = supabase
     .from('proyectos')
-    .select('id, codigo, nombre, estado, tipo_proyecto, contrato_total, fecha_inicio, fecha_fin, cliente:clientes(razon_social), linea:lineas_negocio(codigo), jefe:profiles!proyectos_jefe_id_fkey(nombre)')
-    .order('created_at', { ascending: false });
+    .select('id, codigo, nombre, estado, tipo_proyecto, contrato_total, fecha_inicio, fecha_fin, cliente:clientes(razon_social), linea:lineas_negocio(codigo), jefe:profiles!proyectos_jefe_id_fkey(nombre)', { count: 'exact' });
+  if (q) query = query.or(`nombre.ilike.%${q}%,codigo.ilike.%${q}%`);
+  const { data: proys, count } = await query.order('created_at', { ascending: false }).range(desde, desde + PAGE_SIZE - 1);
 
   const proyectos = proys ?? [];
+  const total = count ?? 0;
 
   return (
     <div className="space-y-6">
       <PageHeader title="Proyectos" description="Gestión de obra — Last Planner, valorizaciones y control." />
+
+      <SearchBox placeholder="Buscar por nombre o código…" />
 
       <Card>
         <CardContent className="p-0">
@@ -68,6 +78,7 @@ export default async function ProyectosPage() {
               </TableBody>
             </Table>
           )}
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} />
         </CardContent>
       </Card>
     </div>

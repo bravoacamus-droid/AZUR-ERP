@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ClipboardList, Receipt, ShieldCheck, Package, Camera, HardHat } from 'lucide-react';
+import { ClipboardList, Receipt, ShieldCheck, Package, Camera, HardHat, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth';
 import { CheckIn } from './checkin';
@@ -8,6 +8,7 @@ export const dynamic = 'force-dynamic';
 
 const ACCIONES = [
   { href: '/campo/rdo', label: 'Parte diario', icon: ClipboardList, color: 'bg-sky-50 text-sky-600' },
+  { href: '/campo/tareo', label: 'Tareo de cuadrilla', icon: Users, color: 'bg-indigo-50 text-indigo-600' },
   { href: '/campo/solicitudes', label: 'Solicitud de pago', icon: Receipt, color: 'bg-emerald-50 text-emerald-600' },
   { href: '/campo/evidencias', label: 'Evidencias', icon: Camera, color: 'bg-violet-50 text-violet-600' },
   { href: '/campo/sst', label: 'Seguridad (SST)', icon: ShieldCheck, color: 'bg-amber-50 text-amber-600' },

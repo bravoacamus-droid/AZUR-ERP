@@ -11,19 +11,27 @@ import { EmptyState } from '@/components/ui/misc';
 import { ESTADO_COTIZACION } from '@/lib/estados';
 import { fmtDate } from '@/lib/format';
 import { CotizacionRowActions } from './row-actions';
+import { SearchBox, Pagination } from '@/components/ui/list-tools';
 
 export const dynamic = 'force-dynamic';
+const PAGE_SIZE = 20;
 
-export default async function ComercialPage() {
+export default async function ComercialPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {
   await requireRol(['gerencia', 'comercial', 'presupuestos']);
   const supabase = createClient();
 
-  const { data: cots } = await supabase
+  const q = (searchParams.q ?? '').trim();
+  const page = Math.max(1, Number(searchParams.page) || 1);
+  const desde = (page - 1) * PAGE_SIZE;
+
+  let query = supabase
     .from('cotizaciones')
-    .select('id, codigo, proyecto_nombre, estado, fecha, tipo_proyecto, cliente:clientes(razon_social), linea:lineas_negocio(codigo, nombre)')
-    .order('created_at', { ascending: false });
+    .select('id, codigo, proyecto_nombre, estado, fecha, tipo_proyecto, cliente:clientes(razon_social), linea:lineas_negocio(codigo, nombre)', { count: 'exact' });
+  if (q) query = query.or(`proyecto_nombre.ilike.%${q}%,codigo.ilike.%${q}%,asunto.ilike.%${q}%`);
+  const { data: cots, count } = await query.order('created_at', { ascending: false }).range(desde, desde + PAGE_SIZE - 1);
 
   const cotizaciones = cots ?? [];
+  const total = count ?? 0;
   const porEstado = (e: string) => cotizaciones.filter((c) => c.estado === e).length;
 
   return (
@@ -40,18 +48,7 @@ export default async function ComercialPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {(['borrador', 'enviada', 'en_negociacion', 'aceptada'] as const).map((e) => (
-          <Card key={e}>
-            <CardContent className="p-4">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                {ESTADO_COTIZACION[e].label}
-              </p>
-              <p className="mt-1 text-2xl font-bold">{porEstado(e)}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <SearchBox placeholder="Buscar por proyecto, código o asunto…" />
 
       <Card>
         <CardContent className="p-0">
@@ -113,6 +110,7 @@ export default async function ComercialPage() {
               </TableBody>
             </Table>
           )}
+          <Pagination page={page} total={total} pageSize={PAGE_SIZE} />
         </CardContent>
       </Card>
     </div>
