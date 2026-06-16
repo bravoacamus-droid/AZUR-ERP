@@ -104,7 +104,7 @@ export function CotizacionEditor({
   function addChild(parent: Row) {
     setAddTarget({ parent, nivel: Math.min(4, parent.nivel + 1) });
   }
-  async function confirmAdd(prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null }) {
+  async function confirmAdd(prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string }) {
     if (!addTarget) return;
     setBusy(true);
     await agregarItem(cot.id, addTarget.parent?.id ?? null, addTarget.nivel, prefill);
@@ -434,7 +434,7 @@ const NIVEL_LABEL = ['', 'partida', 'sub partida', 'actividad', 'sub actividad']
 
 function CatalogoPicker({ nivel, catalogo, busy, onClose, onPick }: {
   nivel: number; catalogo: any[]; busy: boolean;
-  onClose: () => void; onPick: (prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null }) => void;
+  onClose: () => void; onPick: (prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string }) => void;
 }) {
   const [q, setQ] = useState('');
   const filtrados = q.trim()
@@ -464,11 +464,11 @@ function CatalogoPicker({ nivel, catalogo, busy, onClose, onPick }: {
             <button
               key={c.id}
               disabled={busy}
-              onClick={() => onPick({ titulo: c.descripcion, unidad: c.unidad, costo_unitario: Number(c.costo_referencial ?? 0) })}
+              onClick={() => onPick({ titulo: c.descripcion, unidad: c.unidad, costo_unitario: Number(c.costo_referencial ?? 0), catalogoPartidaId: c.id })}
               className="flex w-full items-center justify-between gap-3 rounded-lg border bg-white px-3 py-2 text-left transition-colors hover:border-azur-300 hover:bg-azur-50 disabled:opacity-60"
             >
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium">{c.descripcion}</p>
+                <p className="truncate text-sm font-medium">{c.descripcion} {c.tiene_apu && <Badge variant="info" className="ml-1 align-middle">APU</Badge>}</p>
                 <p className="text-xs text-muted-foreground">{c.codigo ?? 's/código'} {c.unidad ? `· ${c.unidad}` : ''}</p>
               </div>
               <span className="shrink-0 text-sm font-medium tabular-nums text-azur-600">{fmtMoney(Number(c.costo_referencial ?? 0))}</span>

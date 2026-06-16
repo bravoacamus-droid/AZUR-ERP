@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus, Pencil, Trash2, Upload, Building2, HardHat, ListTree, Package, FileText, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -23,6 +24,7 @@ import {
   guardarPlantilla,
   guardarMedioPago,
   eliminarRegistro,
+  actualizarPreciosMasivo,
   type Res,
   type TablaCatalogo,
 } from './actions';
@@ -712,11 +714,52 @@ const TABS = [
   { value: 'medios', label: 'Medios de pago' },
 ];
 
+function PreciosMasivos() {
+  const router = useRouter();
+  const [open, setOpen] = React.useState(false);
+  const [destino, setDestino] = React.useState<'insumos' | 'partidas' | 'ambos'>('insumos');
+  const [factor, setFactor] = React.useState(5);
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState<string | null>(null);
+
+  async function aplicar() {
+    setBusy(true); setMsg(null);
+    const res = await actualizarPreciosMasivo({ destino, factorPct: Number(factor) });
+    setBusy(false);
+    if (!res.ok) { setMsg(res.error ?? 'Error'); return; }
+    setMsg(`Actualizados ${res.actualizados ?? 0} precios. ${res.borradores ? `Revisa ${res.borradores} cotización(es) enviada(s)/en negociación que podrían quedar desactualizadas.` : ''}`);
+    router.refresh();
+  }
+
+  return (
+    <>
+      <Button variant="outline" onClick={() => { setOpen(true); setMsg(null); }}>Actualizar precios</Button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Actualización masiva de precios"
+        description="Aplica un ajuste porcentual al catálogo. Las cotizaciones ya armadas conservan sus precios (el catálogo es referencial)."
+        footer={<><Button variant="outline" onClick={() => setOpen(false)}>Cerrar</Button><Button variant="gradient" disabled={busy} onClick={aplicar}>Aplicar</Button></>}>
+        <div className="space-y-3">
+          <Field label="Aplicar a">
+            <Select value={destino} onChange={(e) => setDestino(e.target.value as never)}>
+              <option value="insumos">Insumos</option>
+              <option value="partidas">Partidas</option>
+              <option value="ambos">Insumos y partidas</option>
+            </Select>
+          </Field>
+          <Field label="Ajuste % (ej. 5 sube 5%, -10 baja 10%)">
+            <Input type="number" value={factor} onChange={(e) => setFactor(Number(e.target.value))} />
+          </Field>
+          {msg && <p className="rounded-lg bg-secondary px-3 py-2 text-sm">{msg}</p>}
+        </div>
+      </Modal>
+    </>
+  );
+}
+
 export function CatalogosClient({ data }: { data: Data }) {
   const [tab, setTab] = React.useState('clientes');
   return (
     <div className="space-y-6">
-      <PageHeader title="Catálogos" description="Maestros de datos: clientes, contrapartes, partidas, insumos, plantillas y medios de pago." />
+      <PageHeader title="Catálogos" description="Maestros de datos: clientes, contrapartes, partidas, insumos, plantillas y medios de pago." action={<PreciosMasivos />} />
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
       <div>
         {tab === 'clientes' && <ClientesTab rows={data.clientes} />}

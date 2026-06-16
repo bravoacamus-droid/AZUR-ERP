@@ -27,6 +27,11 @@ export default async function CotizacionPage({ params }: { params: { id: string 
     supabase.from('catalogo_partidas').select('id, codigo, descripcion, unidad, costo_referencial').order('codigo'),
   ]);
 
+  // marca qué partidas del catálogo traen APU plantilla
+  const { data: apuTpl } = await supabase.from('catalogo_apu').select('catalogo_partida_id');
+  const conApu = new Set((apuTpl ?? []).map((a) => a.catalogo_partida_id));
+  const catalogoConApu = (catalogo ?? []).map((c) => ({ ...c, tiene_apu: conApu.has(c.id) }));
+
   return (
     <div className="space-y-4">
       <Link href="/comercial" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -39,7 +44,7 @@ export default async function CotizacionPage({ params }: { params: { id: string 
         versiones={versiones ?? []}
         medios={medios ?? []}
         apu={apu ?? []}
-        catalogo={catalogo ?? []}
+        catalogo={catalogoConApu}
         userNombre={session.nombre}
         userId={session.id}
       />

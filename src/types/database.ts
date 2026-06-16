@@ -391,6 +391,53 @@ export type Database = {
           },
         ]
       }
+      catalogo_apu: {
+        Row: {
+          cantidad: number
+          catalogo_partida_id: string
+          cuadrilla: number | null
+          descripcion: string
+          id: string
+          orden: number
+          precio: number
+          rendimiento: number | null
+          tipo: Database["public"]["Enums"]["apu_tipo"]
+          unidad: string | null
+        }
+        Insert: {
+          cantidad?: number
+          catalogo_partida_id: string
+          cuadrilla?: number | null
+          descripcion: string
+          id?: string
+          orden?: number
+          precio?: number
+          rendimiento?: number | null
+          tipo?: Database["public"]["Enums"]["apu_tipo"]
+          unidad?: string | null
+        }
+        Update: {
+          cantidad?: number
+          catalogo_partida_id?: string
+          cuadrilla?: number | null
+          descripcion?: string
+          id?: string
+          orden?: number
+          precio?: number
+          rendimiento?: number | null
+          tipo?: Database["public"]["Enums"]["apu_tipo"]
+          unidad?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "catalogo_apu_catalogo_partida_id_fkey"
+            columns: ["catalogo_partida_id"]
+            isOneToOne: false
+            referencedRelation: "catalogo_partidas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       catalogo_insumos: {
         Row: {
           codigo: string | null

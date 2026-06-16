@@ -261,3 +261,36 @@ export async function eliminarRegistro(tabla: TablaCatalogo, id: string): Promis
   revalidatePath('/catalogos');
   return { ok: true, id };
 }
+
+// ── Actualización masiva de precios (Sec. 3.5) ──────────────────────────
+// factorPct: +5 sube 5%, -10 baja 10%. destino: insumos | partidas | ambos.
+export async function actualizarPreciosMasivo(input: { destino: 'insumos' | 'partidas' | 'ambos'; factorPct: number; tipoInsumo?: string }): Promise<Res & { actualizados?: number; borradores?: number }> {
+  await guard();
+  const supabase = createClient();
+  const factor = 1 + Number(input.factorPct) / 100;
+  if (!isFinite(factor) || factor <= 0) return { ok: false, error: 'Factor inválido' };
+  let actualizados = 0;
+
+  if (input.destino === 'insumos' || input.destino === 'ambos') {
+    let q = supabase.from('catalogo_insumos').select('id, precio');
+    if (input.tipoInsumo) q = q.eq('tipo', input.tipoInsumo);
+    const { data: ins } = await q;
+    for (const r of ins ?? []) {
+      await supabase.from('catalogo_insumos').update({ precio: Math.round(Number(r.precio) * factor * 100) / 100 }).eq('id', r.id);
+      actualizados++;
+    }
+  }
+  if (input.destino === 'partidas' || input.destino === 'ambos') {
+    const { data: par } = await supabase.from('catalogo_partidas').select('id, costo_referencial');
+    for (const r of par ?? []) {
+      await supabase.from('catalogo_partidas').update({ costo_referencial: Math.round(Number(r.costo_referencial) * factor * 100) / 100 }).eq('id', r.id);
+      actualizados++;
+    }
+  }
+
+  // Aviso: cotizaciones enviadas que podrían quedar desactualizadas
+  const { data: enviadas } = await supabase.from('cotizaciones').select('id').in('estado', ['enviada', 'en_negociacion']);
+
+  revalidatePath('/catalogos');
+  return { ok: true, actualizados, borradores: enviadas?.length ?? 0 };
+}

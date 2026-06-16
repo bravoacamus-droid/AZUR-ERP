@@ -97,10 +97,11 @@ export async function agregarItem(
   cotizacionId: string,
   parentId: string | null,
   nivel: number,
-  prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null },
+  prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string },
 ): Promise<Res> {
   await guard();
   const supabase = createClient();
+  const admin = createAdminClient();
   // el padre deja de ser hoja
   if (parentId) await supabase.from('cotizacion_items').update({ es_hoja: false }).eq('id', parentId);
 
@@ -112,7 +113,7 @@ export async function agregarItem(
   const { count } = await q;
 
   const tituloDefault = nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad';
-  const { error } = await supabase.from('cotizacion_items').insert({
+  const { data: nuevo, error } = await supabase.from('cotizacion_items').insert({
     cotizacion_id: cotizacionId,
     parent_id: parentId,
     nivel,
@@ -123,8 +124,22 @@ export async function agregarItem(
     cantidad: prefill?.costo_unitario != null ? 1 : null,
     es_hoja: true,
     margen_pct: 0.3,
-  });
-  if (error) return { ok: false, error: error.message };
+  }).select('id').single();
+  if (error || !nuevo) return { ok: false, error: error?.message ?? 'Error' };
+
+  // Si la partida del catálogo tiene APU plantilla, copiarlo al nuevo ítem
+  if (prefill?.catalogoPartidaId) {
+    const { data: tpl } = await admin.from('catalogo_apu').select('*').eq('catalogo_partida_id', prefill.catalogoPartidaId).order('orden');
+    if (tpl && tpl.length) {
+      await admin.from('apu_componentes').insert(tpl.map((t) => ({
+        cotizacion_item_id: nuevo.id, tipo: t.tipo, descripcion: t.descripcion, unidad: t.unidad,
+        cuadrilla: t.cuadrilla, rendimiento: t.rendimiento, cantidad: t.cantidad, precio: t.precio, orden: t.orden,
+      })));
+      const cu = tpl.reduce((a, t) => a + Number(t.cantidad) * Number(t.precio), 0);
+      await admin.from('cotizacion_items').update({ costo_unitario: cu, tiene_apu: true }).eq('id', nuevo.id);
+    }
+  }
+
   revalidatePath(`/comercial/${cotizacionId}`);
   return { ok: true };
 }
