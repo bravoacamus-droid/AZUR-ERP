@@ -96,6 +96,11 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage }: an
           <KpiCard label="Caja chica" value={fmtMoney(Number(cajaSaldo))} icon={<Banknote />} />
         </div>
         <BarraTresTramos p={d} />
+        <div className="flex justify-end">
+          <a href={`/proyectos/${proy.id}/informe/pdf`} target="_blank" rel="noreferrer">
+            <Button variant="outline"><FileBarChart /> Informe de obra (PDF)</Button>
+          </a>
+        </div>
         {proy.tipo_proyecto === 'grande' && (
           <CurvaS contratoTotal={Number(proy.contrato_total)} fechaInicio={proy.fecha_inicio} fechaFin={proy.fecha_fin} valorizaciones={valorizaciones} />
         )}

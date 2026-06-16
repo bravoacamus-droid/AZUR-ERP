@@ -14,6 +14,13 @@ import { KpiCard } from '@/components/ui/page';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { fmtMoney, fmtDateTime } from '@/lib/format';
 import { movimientoCaja } from '../../actions';
+import { VoucherUpload } from '@/components/finanzas/voucher-upload';
+
+const METODOS = [
+  { v: 'transferencia', l: 'Transferencia' }, { v: 'efectivo', l: 'Efectivo' },
+  { v: 'yape', l: 'Yape' }, { v: 'plin', l: 'Plin' }, { v: 'deposito', l: 'Depósito' },
+  { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
+];
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -29,7 +36,7 @@ export function CajaDetalle({ caja, movimientos, canManage }: any) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ tipo: 'reposicion', monto: 0, concepto: '' });
+  const [form, setForm] = useState({ tipo: 'reposicion', monto: 0, concepto: '', metodo: 'transferencia', num_operacion: '', voucher_url: '' });
 
   const ingresos = movimientos.filter((m: any) => ['abono', 'reposicion'].includes(m.tipo)).reduce((a: number, m: any) => a + Number(m.monto), 0);
   const egresos = movimientos.filter((m: any) => m.tipo === 'egreso').reduce((a: number, m: any) => a + Number(m.monto), 0);
@@ -37,9 +44,9 @@ export function CajaDetalle({ caja, movimientos, canManage }: any) {
 
   async function registrar() {
     setBusy(true);
-    await movimientoCaja({ caja_id: caja.caja_id, proyecto_id: caja.proyecto_id, tipo: form.tipo, monto: Number(form.monto), concepto: form.concepto });
+    await movimientoCaja({ caja_id: caja.caja_id, proyecto_id: caja.proyecto_id, tipo: form.tipo, monto: Number(form.monto), concepto: form.concepto, metodo: form.metodo, num_operacion: form.num_operacion, voucher_url: form.voucher_url });
     setOpen(false);
-    setForm({ tipo: 'reposicion', monto: 0, concepto: '' });
+    setForm({ tipo: 'reposicion', monto: 0, concepto: '', metodo: 'transferencia', num_operacion: '', voucher_url: '' });
     router.refresh();
     setBusy(false);
   }
@@ -80,7 +87,7 @@ export function CajaDetalle({ caja, movimientos, canManage }: any) {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow><TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Concepto</TableHead><TableHead>Autor</TableHead><TableHead className="text-right">Monto</TableHead></TableRow>
+                <TableRow><TableHead>Fecha</TableHead><TableHead>Tipo</TableHead><TableHead>Concepto</TableHead><TableHead>Método</TableHead><TableHead>N° oper.</TableHead><TableHead>Voucher</TableHead><TableHead>Autor</TableHead><TableHead className="text-right">Monto</TableHead></TableRow>
               </TableHeader>
               <TableBody>
                 {movimientos.map((m: any) => {
@@ -90,6 +97,9 @@ export function CajaDetalle({ caja, movimientos, canManage }: any) {
                       <TableCell className="whitespace-nowrap text-muted-foreground">{fmtDateTime(m.created_at)}</TableCell>
                       <TableCell><Badge variant={t.variant}>{t.label}</Badge></TableCell>
                       <TableCell>{m.concepto ?? '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{m.metodo ? (METODOS.find((x) => x.v === m.metodo)?.l ?? m.metodo) : '—'}</TableCell>
+                      <TableCell className="text-muted-foreground">{m.num_operacion ?? '—'}</TableCell>
+                      <TableCell>{m.voucher_url ? <a href={m.voucher_url} target="_blank" rel="noreferrer" className="text-azur-600 hover:underline">Ver</a> : '—'}</TableCell>
                       <TableCell className="text-muted-foreground">{m.autor?.nombre ?? '—'}</TableCell>
                       <TableCell className={`text-right font-medium tabular-nums ${t.signo < 0 ? 'text-azur-600' : 'text-emerald-600'}`}>
                         {t.signo < 0 ? '−' : '+'} {fmtMoney(Number(m.monto))}
@@ -116,8 +126,13 @@ export function CajaDetalle({ caja, movimientos, canManage }: any) {
               <option value="ajuste">Ajuste</option>
             </Select>
           </Field>
-          <Field label="Monto"><Input type="number" value={form.monto} onChange={(e) => setForm((f) => ({ ...f, monto: Number(e.target.value) }))} /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Monto"><Input type="number" value={form.monto} onChange={(e) => setForm((f) => ({ ...f, monto: Number(e.target.value) }))} /></Field>
+            <Field label="Método de pago"><Select value={form.metodo} onChange={(e) => setForm((f) => ({ ...f, metodo: e.target.value }))}>{METODOS.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}</Select></Field>
+          </div>
+          <Field label="N° de operación"><Input value={form.num_operacion} onChange={(e) => setForm((f) => ({ ...f, num_operacion: e.target.value }))} placeholder="Ej. 00123456" /></Field>
           <Field label="Concepto"><Input value={form.concepto} onChange={(e) => setForm((f) => ({ ...f, concepto: e.target.value }))} /></Field>
+          <Field label="Voucher / comprobante"><VoucherUpload value={form.voucher_url} onChange={(url) => setForm((f) => ({ ...f, voucher_url: url }))} /></Field>
         </div>
       </Modal>
     </div>

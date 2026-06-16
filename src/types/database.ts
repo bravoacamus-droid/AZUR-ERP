@@ -1450,11 +1450,14 @@ export type Database = {
           created_by: string | null
           fecha: string
           id: string
+          metodo: Database["public"]["Enums"]["metodo_pago"] | null
           monto: number
+          num_operacion: string | null
           proyecto_id: string | null
           referencia_id: string | null
           referencia_tipo: string | null
           tipo: Database["public"]["Enums"]["tipo_mov_caja"]
+          voucher_url: string | null
         }
         Insert: {
           caja_id: string
@@ -1463,11 +1466,14 @@ export type Database = {
           created_by?: string | null
           fecha?: string
           id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"] | null
           monto: number
+          num_operacion?: string | null
           proyecto_id?: string | null
           referencia_id?: string | null
           referencia_tipo?: string | null
           tipo: Database["public"]["Enums"]["tipo_mov_caja"]
+          voucher_url?: string | null
         }
         Update: {
           caja_id?: string
@@ -1476,11 +1482,14 @@ export type Database = {
           created_by?: string | null
           fecha?: string
           id?: string
+          metodo?: Database["public"]["Enums"]["metodo_pago"] | null
           monto?: number
+          num_operacion?: string | null
           proyecto_id?: string | null
           referencia_id?: string | null
           referencia_tipo?: string | null
           tipo?: Database["public"]["Enums"]["tipo_mov_caja"]
+          voucher_url?: string | null
         }
         Relationships: [
           {
@@ -2091,9 +2100,11 @@ export type Database = {
           gestor_id: string | null
           id: string
           linea_id: string | null
+          metodo: Database["public"]["Enums"]["metodo_pago"] | null
           monto: number
           motivo_rechazo: string | null
           num_comprobante: string | null
+          num_operacion: string | null
           pagado_at: string | null
           pagado_por: string | null
           partida_ppto: string | null
@@ -2131,9 +2142,11 @@ export type Database = {
           gestor_id?: string | null
           id?: string
           linea_id?: string | null
+          metodo?: Database["public"]["Enums"]["metodo_pago"] | null
           monto?: number
           motivo_rechazo?: string | null
           num_comprobante?: string | null
+          num_operacion?: string | null
           pagado_at?: string | null
           pagado_por?: string | null
           partida_ppto?: string | null
@@ -2171,9 +2184,11 @@ export type Database = {
           gestor_id?: string | null
           id?: string
           linea_id?: string | null
+          metodo?: Database["public"]["Enums"]["metodo_pago"] | null
           monto?: number
           motivo_rechazo?: string | null
           num_comprobante?: string | null
+          num_operacion?: string | null
           pagado_at?: string | null
           pagado_por?: string | null
           partida_ppto?: string | null
@@ -2707,6 +2722,15 @@ export type Database = {
         | "pendiente"
         | "retrasado"
         | "cancelado"
+      metodo_pago:
+        | "transferencia"
+        | "efectivo"
+        | "yape"
+        | "plin"
+        | "deposito"
+        | "cheque"
+        | "tarjeta"
+        | "otro"
       modalidad_cobro: "contado" | "credito"
       moneda_enum: "PEN" | "USD"
       origen_lead: "directo" | "recomendacion" | "oficina" | "llamada"
@@ -2909,6 +2933,16 @@ export const Constants = {
         "pendiente",
         "retrasado",
         "cancelado",
+      ],
+      metodo_pago: [
+        "transferencia",
+        "efectivo",
+        "yape",
+        "plin",
+        "deposito",
+        "cheque",
+        "tarjeta",
+        "otro",
       ],
       modalidad_cobro: ["contado", "credito"],
       moneda_enum: ["PEN", "USD"],

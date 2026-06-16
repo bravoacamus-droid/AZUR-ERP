@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   CheckCircle2, XCircle, CalendarClock, Banknote, MessageCircle, FilePlus,
-  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight,
+  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -18,12 +18,19 @@ import { Field, EmptyState } from '@/components/ui/misc';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { fmtMoney, fmtDate, fmtDateInput } from '@/lib/format';
 import { STATUS_SOLICITUD, TIPO_SOLICITUD_LABEL } from '@/lib/estados';
+import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 import {
   aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
   emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja,
 } from './actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
+
+const METODOS = [
+  { v: 'transferencia', l: 'Transferencia' }, { v: 'efectivo', l: 'Efectivo' },
+  { v: 'yape', l: 'Yape' }, { v: 'plin', l: 'Plin' }, { v: 'deposito', l: 'Depósito' },
+  { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
+];
 
 export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, clientes, proyectos }: any) {
   const [tab, setTab] = useState('solicitudes');
@@ -52,7 +59,10 @@ function Solicitudes({ rol, solicitudes }: any) {
   const [fecha, setFecha] = useState(fmtDateInput(new Date()));
   const [voucher, setVoucher] = useState('');
   const [detr, setDetr] = useState(0);
+  const [metodoPago, setMetodoPago] = useState('transferencia');
+  const [numOp, setNumOp] = useState('');
   const [motivo, setMotivo] = useState('');
+  const [detalle, setDetalle] = useState<any>(null);
   const [busy, setBusy] = useState(false);
 
   const puedeAprobar = rol === 'jefe_proyectos' || rol === 'gerencia';
@@ -111,6 +121,7 @@ function Solicitudes({ rol, solicitudes }: any) {
                             <Button size="sm" variant="ghost"><MessageCircle className="text-emerald-600" /></Button>
                           </a>
                         )}
+                        <Button size="sm" variant="ghost" onClick={() => setDetalle(s)}><Eye /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -126,21 +137,32 @@ function Solicitudes({ rol, solicitudes }: any) {
         footer={<><Button variant="outline" onClick={() => setProg(null)}>Cancelar</Button>
           <Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await programarPago(prog.id, banco, fecha); setProg(null); router.refresh(); setBusy(false); }}>Programar</Button></>}>
         <div className="space-y-3">
-          <Field label="Cuenta bancaria de origen"><Input value={banco} onChange={(e) => setBanco(e.target.value)} placeholder="Caja central / Interbank…" /></Field>
+          {prog && <DetalleSolicitud s={prog} />}
+          <Field label="Cuenta bancaria de origen"><Input value={banco} onChange={(e) => setBanco(e.target.value)} placeholder="Caja central / Interbank / BBVA…" /></Field>
           <Field label="Fecha programada"><Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
         </div>
       </Modal>
 
       {/* Pagar */}
-      <Modal open={!!pago} onClose={() => setPago(null)} title={`Marcar como pagada · ${pago?.codigo ?? ''}`}
-        description="Sube la URL del voucher tras el desembolso."
+      <Modal open={!!pago} onClose={() => setPago(null)} title={`Registrar pago · ${pago?.codigo ?? ''}`}
+        description="Registra el desembolso: método, N° de operación y voucher."
         footer={<><Button variant="outline" onClick={() => setPago(null)}>Cancelar</Button>
-          <Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await marcarPagada(pago.id, voucher, detr); setPago(null); router.refresh(); setBusy(false); }}>Confirmar pago</Button></>}>
+          <Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await marcarPagada(pago.id, { voucherUrl: voucher, detraccion: detr, metodo: metodoPago, num_operacion: numOp }); setPago(null); router.refresh(); setBusy(false); }}>Confirmar pago</Button></>}>
         <div className="space-y-3">
-          <Field label="URL del voucher (PDF/foto)"><Input value={voucher} onChange={(e) => setVoucher(e.target.value)} placeholder="https://…" /></Field>
+          {pago && <DetalleSolicitud s={pago} />}
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Método de pago"><Select value={metodoPago} onChange={(e) => setMetodoPago(e.target.value)}>{METODOS.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}</Select></Field>
+            <Field label="N° de operación"><Input value={numOp} onChange={(e) => setNumOp(e.target.value)} placeholder="Ej. 00123456" /></Field>
+          </div>
           <Field label="Detracción (si aplica)"><Input type="number" value={detr} onChange={(e) => setDetr(Number(e.target.value))} /></Field>
-          {Number(pago?.monto) >= 20000 && rol !== 'gerencia' && <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">Este monto requerirá aprobación final de Gerencia.</p>}
+          <Field label="Voucher / comprobante"><VoucherUpload value={voucher} onChange={setVoucher} /></Field>
+          {Number(pago?.monto) >= 20000 && rol !== 'gerencia' && <p className="rounded bg-amber-50 px-3 py-2 text-xs text-amber-700">⚠ Este monto requerirá aprobación final de Gerencia.</p>}
         </div>
+      </Modal>
+
+      {/* Detalle completo de la solicitud */}
+      <Modal open={!!detalle} onClose={() => setDetalle(null)} title={`Solicitud ${detalle?.codigo ?? ''}`}>
+        {detalle && <DetalleSolicitud s={detalle} full />}
       </Modal>
 
       {/* Rechazar */}
@@ -150,6 +172,54 @@ function Solicitudes({ rol, solicitudes }: any) {
         <Field label="Motivo"><Input value={motivo} onChange={(e) => setMotivo(e.target.value)} /></Field>
       </Modal>
     </Card>
+  );
+}
+
+function DetalleSolicitud({ s, full }: { s: any; full?: boolean }) {
+  const st = STATUS_SOLICITUD[s.status] ?? { label: s.status, variant: 'muted' as const };
+  const filas: [string, any][] = [
+    ['Tipo', TIPO_SOLICITUD_LABEL[s.tipo] ?? s.tipo],
+    ['Proyecto', s.proyecto?.nombre],
+    ['Partida ppto.', s.partida_ppto],
+    ['Beneficiario', s.beneficiario_nombre ?? s.razon_social],
+    ['Monto', fmtMoney(Number(s.monto))],
+    ...(full
+      ? ([
+          ['Especialidad/etapa', s.especialidad],
+          ['Categoría/etapa', s.categoria_etapa],
+          ['Constancia', s.constancia],
+          ['N° comprobante', s.num_comprobante],
+          ['RUC/DNI', s.ruc_dni],
+          ['Razón social', s.razon_social],
+          ['Cuenta bancaria', s.cta_bancaria],
+          ['Descripción', s.descripcion],
+          ['Banco origen', s.banco_origen],
+          ['Método', s.metodo],
+          ['N° operación', s.num_operacion],
+          ['Detracción', s.detraccion_monto ? fmtMoney(Number(s.detraccion_monto)) : null],
+          ['Solicitante', s.solicitante?.nombre],
+        ] as [string, any][])
+      : []),
+  ];
+  return (
+    <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="font-medium">{s.codigo}</span>
+        <Badge variant={st.variant}>{st.label}</Badge>
+      </div>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-1 sm:grid-cols-2">
+        {filas.filter(([, v]) => v != null && v !== '').map(([k, v]) => (
+          <div key={k} className="flex justify-between gap-2">
+            <span className="text-muted-foreground">{k}</span>
+            <span className="text-right font-medium">{String(v)}</span>
+          </div>
+        ))}
+      </div>
+      {full && s.voucher_url && (
+        <a href={s.voucher_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-azur-600 hover:underline">Ver voucher / comprobante</a>
+      )}
+      {full && s.motivo_rechazo && <p className="mt-2 text-xs text-azur-700">Motivo: {s.motivo_rechazo}</p>}
+    </div>
   );
 }
 
@@ -281,7 +351,7 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
 function Cajas({ rol, cajas, proyectos }: any) {
   const router = useRouter();
   const [mov, setMov] = useState<any>(null);
-  const [form, setForm] = useState({ tipo: 'reposicion', monto: 0, concepto: '' });
+  const [form, setForm] = useState({ tipo: 'reposicion', monto: 0, concepto: '', metodo: 'transferencia', num_operacion: '', voucher_url: '' });
   const [busy, setBusy] = useState(false);
   const puede = rol === 'administrador' || rol === 'gerencia';
 
@@ -310,7 +380,7 @@ function Cajas({ rol, cajas, proyectos }: any) {
                 <Link href={`/finanzas/cajas/${c.caja_id}`} className="flex-1">
                   <Button size="sm" variant="outline" className="w-full"><ArrowLeftRight /> Abrir</Button>
                 </Link>
-                {puede && <Button size="sm" variant="gradient" onClick={() => { setMov(c); setForm({ tipo: 'reposicion', monto: 0, concepto: '' }); }}><Plus /></Button>}
+                {puede && <Button size="sm" variant="gradient" onClick={() => { setMov(c); setForm({ tipo: 'reposicion', monto: 0, concepto: '', metodo: 'transferencia', num_operacion: '', voucher_url: '' }); }}><Plus /></Button>}
               </div>
             </CardContent>
           </Card>
@@ -318,11 +388,16 @@ function Cajas({ rol, cajas, proyectos }: any) {
       })}
 
       <Modal open={!!mov} onClose={() => setMov(null)} title={`Movimiento · ${mov?.nombre ?? ''}`}
-        footer={<><Button variant="outline" onClick={() => setMov(null)}>Cancelar</Button><Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await movimientoCaja({ caja_id: mov.caja_id, proyecto_id: mov.proyecto_id, tipo: form.tipo, monto: Number(form.monto), concepto: form.concepto }); setMov(null); router.refresh(); setBusy(false); }}>Registrar</Button></>}>
+        footer={<><Button variant="outline" onClick={() => setMov(null)}>Cancelar</Button><Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await movimientoCaja({ caja_id: mov.caja_id, proyecto_id: mov.proyecto_id, tipo: form.tipo, monto: Number(form.monto), concepto: form.concepto, metodo: form.metodo, num_operacion: form.num_operacion, voucher_url: form.voucher_url }); setMov(null); router.refresh(); setBusy(false); }}>Registrar</Button></>}>
         <div className="space-y-2">
           <Field label="Tipo"><Select value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}><option value="reposicion">Reposición (+)</option><option value="abono">Abono (+)</option><option value="egreso">Egreso (−)</option><option value="traslado">Traslado</option><option value="ajuste">Ajuste</option></Select></Field>
-          <Field label="Monto"><Input type="number" value={form.monto} onChange={(e) => setForm((f) => ({ ...f, monto: Number(e.target.value) }))} /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Monto"><Input type="number" value={form.monto} onChange={(e) => setForm((f) => ({ ...f, monto: Number(e.target.value) }))} /></Field>
+            <Field label="Método"><Select value={form.metodo} onChange={(e) => setForm((f) => ({ ...f, metodo: e.target.value }))}>{METODOS.map((m) => <option key={m.v} value={m.v}>{m.l}</option>)}</Select></Field>
+          </div>
+          <Field label="N° de operación"><Input value={form.num_operacion} onChange={(e) => setForm((f) => ({ ...f, num_operacion: e.target.value }))} /></Field>
           <Field label="Concepto"><Input value={form.concepto} onChange={(e) => setForm((f) => ({ ...f, concepto: e.target.value }))} /></Field>
+          <Field label="Voucher"><VoucherUpload value={form.voucher_url} onChange={(url) => setForm((f) => ({ ...f, voucher_url: url }))} /></Field>
         </div>
       </Modal>
     </div>

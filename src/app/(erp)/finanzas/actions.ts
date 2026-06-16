@@ -66,7 +66,10 @@ export async function programarPago(id: string, banco: string, fecha: string): P
 }
 
 // ── N2: Administrador marca pagada (sube voucher) ───────────────────────
-export async function marcarPagada(id: string, voucherUrl: string, detraccion: number): Promise<Res> {
+export async function marcarPagada(
+  id: string,
+  pago: { voucherUrl: string; detraccion: number; metodo?: string; num_operacion?: string },
+): Promise<Res> {
   const session = await requireRol(['administrador', 'gerencia']);
   const supabase = createClient();
   const admin = createAdminClient();
@@ -79,7 +82,8 @@ export async function marcarPagada(id: string, voucherUrl: string, detraccion: n
   const { error } = await supabase
     .from('solicitudes_pago')
     .update({
-      status: 'pagada', voucher_url: voucherUrl || null, detraccion_monto: detraccion || 0,
+      status: 'pagada', voucher_url: pago.voucherUrl || null, detraccion_monto: pago.detraccion || 0,
+      metodo: (pago.metodo as never) || null, num_operacion: pago.num_operacion || null,
       pagado_por: session.id, pagado_at: new Date().toISOString(),
       requiere_gerencia: requiereGerencia,
     })
@@ -188,12 +192,13 @@ export async function registrarAbono(facturaId: string, monto: number): Promise<
 }
 
 // ── Cajas: movimiento manual (traslado / reposición / ajuste) ───────────
-export async function movimientoCaja(input: { caja_id: string; proyecto_id?: string; tipo: string; monto: number; concepto: string }): Promise<Res> {
+export async function movimientoCaja(input: { caja_id: string; proyecto_id?: string; tipo: string; monto: number; concepto: string; metodo?: string; num_operacion?: string; voucher_url?: string }): Promise<Res> {
   const session = await requireRol(['administrador', 'gerencia']);
   const supabase = createClient();
   const { error } = await supabase.from('movimientos_caja').insert({
     caja_id: input.caja_id, proyecto_id: input.proyecto_id || null, tipo: input.tipo as never,
     monto: input.monto, concepto: input.concepto, created_by: session.id,
+    metodo: (input.metodo as never) || null, num_operacion: input.num_operacion || null, voucher_url: input.voucher_url || null,
   });
   if (error) return { ok: false, error: error.message };
   revalidatePath('/finanzas');
