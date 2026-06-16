@@ -181,6 +181,8 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
 
   const valsSorted = [...valorizaciones].sort((a, b) => a.numero - b.numero);
   const activeVal = valsSorted[valsSorted.length - 1];
+  // orden de presentación N…→N1 (la más nueva a la izquierda) conservando el índice original
+  const valsDesc = valsSorted.map((v, idx) => ({ v, idx })).reverse();
 
   // avances por item: [valIndex] = pct (de valorizacion_items)
   const baseAvances = useMemo(() => {
@@ -284,6 +286,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   <th className="px-2 py-2">Und</th>
                   <th className="px-2 py-2">Cant</th>
                   <th className="px-2 py-2">C.Unit</th>
+                  <th className="px-2 py-2 text-right">Subtotal</th>
                   <th className="px-2 py-2 text-right">Total</th>
                   <th className="px-2 py-2 text-left">Contratista</th>
                   <th className="px-2 py-2">Inicio</th>
@@ -293,8 +296,8 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   <th className="px-2 py-2">Prioridad</th>
                   <th className="px-2 py-2">% Acum</th>
                   <th className="px-2 py-2 text-right">Saldo</th>
-                  {valsSorted.map((v, i) => (
-                    <th key={v.id} className={`px-2 py-2 text-center ${i === valsSorted.length - 1 ? 'bg-azur-50/60' : ''}`}>
+                  {valsDesc.map(({ v, idx }) => (
+                    <th key={v.id} className={`px-2 py-2 text-center ${idx === valsSorted.length - 1 ? 'bg-azur-50/60' : ''}`}>
                       Val N{v.numero}<br /><span className="font-normal normal-case">% sem</span>
                     </th>
                   ))}
@@ -317,7 +320,8 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                       <td className="px-1 py-1.5 text-center">{hoja ? (canManage ? <input className="w-12 rounded border bg-white px-1 text-center" defaultValue={row.unidad ?? ''} onBlur={(e) => save(row.id, { unidad: e.target.value })} /> : row.unidad) : ''}</td>
                       <td className="px-1 py-1.5 text-right">{hoja ? (canManage ? <Num v={row.cantidad} onSave={(x) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, cantidad: x, total_costo: x * Number(r.costo_unitario ?? 0) } : r)); save(row.id, { cantidad: x }); }} /> : fmtNumber(Number(row.cantidad ?? 0), 0)) : ''}</td>
                       <td className="px-1 py-1.5 text-right">{hoja ? (row.tiene_apu ? <span className="block w-16 rounded bg-azur-50 px-1 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span> : (canManage ? <Num v={row.costo_unitario} onSave={(x) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, costo_unitario: x, total_costo: Number(r.cantidad ?? 0) * x } : r)); save(row.id, { costo_unitario: x }); }} /> : fmtNumber(Number(row.costo_unitario ?? 0)))) : ''}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.total_partida ?? 0)}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{row.nivel > 1 ? fmtNumber(cv?.total_partida ?? 0) : ''}</td>
+                      <td className="px-2 py-1.5 text-right font-medium tabular-nums">{row.nivel === 1 ? fmtNumber(cv?.total_partida ?? 0) : ''}</td>
                       <td className="px-1 py-1.5">
                         {hoja && canManage ? (
                           <select className="w-[150px] max-w-[150px] truncate rounded border bg-white py-0.5 pl-1.5 pr-5" defaultValue={row.contratista_id ?? ''} onChange={(e) => save(row.id, { contratista_id: e.target.value || null })}>
@@ -333,7 +337,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                       <td className="px-2 py-1.5 text-center"><Badge variant={pr.variant}>{pr.label}</Badge></td>
                       <td className="px-2 py-1.5"><PctBar pct={cv?.pct_acumulado ?? 0} /></td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.saldo ?? 0)}</td>
-                      {valsSorted.map((v, i) => {
+                      {valsDesc.map(({ v, idx: i }) => {
                         const isActive = i === valsSorted.length - 1;
                         const pct = (avancesCalc.get(row.id)?.[i] ?? 0);
                         return (
