@@ -312,7 +312,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                       <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.total_partida ?? 0)}</td>
                       <td className="px-1 py-1.5">
                         {hoja && canManage ? (
-                          <select className="max-w-[140px] rounded border bg-white px-1 py-0.5" defaultValue={row.contratista_id ?? ''} onChange={(e) => save(row.id, { contratista_id: e.target.value || null })}>
+                          <select className="w-[150px] max-w-[150px] truncate rounded border bg-white py-0.5 pl-1.5 pr-5" defaultValue={row.contratista_id ?? ''} onChange={(e) => save(row.id, { contratista_id: e.target.value || null })}>
                             <option value="">—</option>
                             {contrapartes.map((c: any) => <option key={c.id} value={c.id}>{c.razon_social}</option>)}
                           </select>
