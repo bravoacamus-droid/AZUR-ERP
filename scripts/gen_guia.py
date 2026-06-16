@@ -101,6 +101,34 @@ def obs(filas=3):
         for c in col.cells: c.width = w
     doc.add_paragraph()
 
+def nota(text):
+    p = doc.add_paragraph(); p.paragraph_format.left_indent = Inches(0.2)
+    r = p.add_run("💡 "); r.font.size = Pt(9.5)
+    r2 = p.add_run(text); r2.font.size = Pt(9.5); r2.italic = True; r2.font.color.rgb = RGBColor(0x33,0x55,0x88)
+
+def regla(text):
+    p = doc.add_paragraph(); p.paragraph_format.left_indent = Inches(0.2)
+    r = p.add_run("⚠ Regla/validación: "); r.bold = True; r.font.size = Pt(9.5); r.font.color.rgb = AZUR
+    r2 = p.add_run(text); r2.font.size = Pt(9.5)
+
+def ejemplo(titulo, headers, rows):
+    p = doc.add_paragraph(); r = p.add_run("📐 Ejemplo: " + titulo); r.bold = True; r.font.size = Pt(9.5); r.font.color.rgb = VERDE
+    t = doc.add_table(rows=1, cols=len(headers)); t.style = "Table Grid"
+    for j, x in enumerate(headers):
+        c = t.rows[0].cells[j]; shade(c, "0A7D33"); cell_text(c, x, bold=True, white=True, size=8.5, align=WD_ALIGN_PARAGRAPH.CENTER)
+    for row in rows:
+        rc = t.add_row()
+        for j, val in enumerate(row): cell_text(rc.cells[j], val, size=9, align=(WD_ALIGN_PARAGRAPH.LEFT if j == 0 else WD_ALIGN_PARAGRAPH.RIGHT))
+    doc.add_paragraph()
+
+def casos(items):
+    p = doc.add_paragraph(); r = p.add_run("✅ Casos de prueba (hazlos y verifica el resultado):"); r.bold = True; r.font.size = Pt(10); r.font.color.rgb = AZUR2
+    for txt, esperado in items:
+        b = doc.add_paragraph(style="List Bullet"); rb = b.add_run(txt); rb.font.size = Pt(10)
+        sp = doc.add_paragraph(); sp.paragraph_format.left_indent = Inches(0.5)
+        rr = sp.add_run("→ Resultado esperado: "); rr.bold = True; rr.font.size = Pt(9); rr.font.color.rgb = VERDE
+        r2 = sp.add_run(esperado); r2.font.size = Pt(9); r2.font.color.rgb = GRIS
+
 def add_toc():
     p = doc.add_paragraph(); run = p.add_run()
     f1 = OxmlElement("w:fldChar"); f1.set(qn("w:fldCharType"), "begin")
@@ -253,118 +281,170 @@ pasos([
 obs(3)
 
 # ───────────────────── 6. COMERCIAL ─────────────────────
-h1("6. Comercial — Cotizaciones")
-proposito("Crear y negociar cotizaciones; al aprobarse se convierten en proyecto.")
+h1("6. Comercial — Cotizaciones (detallado)")
+proposito("Es el punto de entrada del sistema. Aquí se arma el presupuesto de venta; al aprobarse, la cotización se convierte automáticamente en un proyecto.")
+para("La cotización se construye como un ÁRBOL de hasta 4 niveles (Partida general → Sub-partida → Actividad → Sub-actividad). La pantalla tiene, lado a lado, el CUADRO DE COSTOS (lo que cuesta hacerlo) y el CUADRO DE MARGEN (el precio que ve el cliente). Regla de oro: solo el ÚLTIMO nivel de cada rama (la 'hoja') captura unidad, cantidad, costo unitario y % de margen; los niveles superiores se BLOQUEAN y se calculan sumando a sus hijos.")
 
 h2("6.1 Listado de cotizaciones")
+para("Tabla con código, proyecto, cliente, línea, estado (con color) y fecha.")
 botones([
-    ["Nueva cotización", "Abre el asistente para crear una cotización."],
-    ["Buscar", "Filtra por proyecto, código o asunto."],
-    ["Menú ⋮ de fila", "Abrir/Editar o Eliminar (solo si no fue aceptada)."],
-    ["Paginación", "Anterior/Siguiente cuando hay muchas cotizaciones."],
+    ["Nueva cotización", "Abre el asistente de creación (datos generales)."],
+    ["Buscar", "Filtra en el servidor por nombre de proyecto, código o asunto."],
+    ["Menú ⋮ de fila", "Abrir/Editar la cotización, o Eliminar (solo si NO fue aceptada)."],
+    ["Anterior / Siguiente", "Paginación (20 por página) cuando hay muchas."],
+])
+casos([
+    ("Escribe en el buscador parte del nombre de un proyecto.", "La lista se filtra y la paginación se reinicia."),
+    ("Abre el menú ⋮ de una cotización aceptada.", "La opción Eliminar NO aparece (ya generó proyecto)."),
 ])
 obs(2)
 
-h2("6.2 Nueva cotización (datos generales)")
+h2("6.2 Nueva cotización — datos generales (Paso 0 y 1)")
 campos([
-    ["Origen del lead", "Cómo llegó el contacto (directo, recomendación, oficina, llamada).", "Lista · obligatorio"],
-    ["Cliente", "Cliente de la cotización; con el botón + creas uno al vuelo.", "Lista · obligatorio"],
-    ["Línea de negocio", "Carga la plantilla y catálogo correspondientes.", "Lista · obligatorio"],
-    ["Tipo de cotización", "Única de obra (Grande) / Programada de mantenimiento / Recurrencia (Chico).", "Lista"],
-    ["Nombre del proyecto", "Nombre con el que se identificará.", "Texto · obligatorio"],
-    ["Asunto", "Breve descripción del trabajo.", "Texto"],
-    ["Ubicación + Mapa", "Busca la dirección o haz clic en el mapa para fijar el punto; rellena la ubicación.", "Texto + mapa"],
-    ["Vigencia (días)", "Cuántos días es válida la cotización.", "Número"],
-    ["Plantilla de condiciones", "Precarga condiciones/garantía editables (o página en blanco).", "Lista"],
+    ["Origen del lead", "Cómo llegó el contacto. Alimenta la reportería comercial.", "Lista (directo/recomendación/oficina/llamada) · obligatorio"],
+    ["Cliente", "Cliente al que se cotiza. Con el botón + creas uno sin salir.", "Lista · obligatorio"],
+    ["Línea de negocio", "Define plantilla, catálogo e identidad (Azur Construcción / Cocina Pro / Mantenimiento).", "Lista · obligatorio"],
+    ["Tipo de cotización", "Única de obra = proyecto Grande; Programada/Recurrencia = proyecto Chico (mantenimiento).", "Lista · obligatorio"],
+    ["Nombre del proyecto", "Cómo se identificará el trabajo.", "Texto · obligatorio"],
+    ["Asunto", "Breve descripción (ej. 'instalación de viniles').", "Texto"],
+    ["Ubicación + Mapa", "Busca la dirección (tipo Google) o haz clic en el mapa; guarda la coordenada y rellena la ubicación.", "Texto + mapa"],
+    ["Vigencia (días)", "Días que la cotización es válida (dispara el aviso de 'por vencer').", "Número"],
+    ["Plantilla de condiciones", "Precarga condiciones/servicios/garantía (editables) o 'página en blanco'.", "Lista"],
 ])
-pasos([
-    ("Llena los datos, ubica en el mapa y pulsa Crear y armar presupuesto.", "Se crea con código COT-#### y abre el editor."),
-    ("Si el cliente no existe, pulsa + junto al selector y créalo (razón social, RUC).", "Se agrega y queda seleccionado."),
+casos([
+    ("Llena los datos, ubica en el mapa y pulsa 'Crear y armar presupuesto'.", "Se crea con código correlativo COT-#### y abre el editor."),
+    ("Pulsa + junto a Cliente y crea uno nuevo (razón social + RUC de 11 dígitos).", "Queda creado y seleccionado; el RUC solo acepta números."),
 ])
 obs(2)
 
-h2("6.3 Editor de la cotización — Cuadro de costos y margen (árbol)")
-proposito("Armar el presupuesto en árbol de hasta 4 niveles, con costo y margen por partida.")
-h3("Columnas de la tabla")
-tabla(["Columna", "Qué es"], [
-    ["Ítem", "Numeración automática (1.0, 1.1, 1.1.1, 1.1.1.1)."],
-    ["Título", "Nombre de la partida/sub-partida/actividad."],
-    ["Und / Cant / C. Unit", "Unidad, cantidad y costo unitario (solo en el último nivel)."],
-    ["Subtotal", "Cantidad × costo unitario de la fila."],
-    ["% Marg", "Margen por partida (ej. 30%)."],
-    ["P. Unit", "Precio unitario = costo / (1 − margen)."],
-    ["Precio", "Subtotal con margen (lo que ve el cliente)."],
+h2("6.3 Editor — árbol de costos y margen (el corazón)")
+h3("Qué significa cada columna")
+tabla(["Columna", "Qué es y de dónde sale"], [
+    ["Ítem", "Numeración automática según el nivel: 1.0 (partida general), 1.1 (sub-partida), 1.1.1 (actividad), 1.1.1.1 (sub-actividad)."],
+    ["Título", "Nombre editable de la fila."],
+    ["Und / Cant / C. Unit", "Unidad, cantidad y costo unitario. SOLO se escriben en la hoja (último nivel)."],
+    ["Subtotal (costos)", "= Cantidad × Costo unitario. En niveles superiores = suma de hijos."],
+    ["% Marg", "Margen por partida (editable solo en la hoja). Mínimo sugerido 30%."],
+    ["P. Unit (con margen)", "Precio unitario = Costo unitario ÷ (1 − %margen)."],
+    ["Precio (subtotal c/margen)", "= P. Unit × Cantidad. Es lo único que ve el cliente."],
+])
+regla("Solo la hoja captura datos. Si una partida tiene hijos, sus celdas de unidad/cantidad/C.U./margen se BLOQUEAN y su valor es la suma de los hijos. El margen NUNCA es un costo: es la diferencia entre precio y costo.")
+para("Fórmulas exactas que usa el sistema:")
+tabla(["Concepto", "Fórmula"], [
+    ["Precio unitario", "C.U. ÷ (1 − %margen)"],
+    ["Margen (monto)", "(Precio unitario − C.U.) × Cantidad"],
+    ["Precio (subtotal con margen)", "Precio unitario × Cantidad"],
+    ["Total de un nivel superior", "Suma de los precios de sus hijos"],
+])
+ejemplo("Actividad de concreto con 10% de margen", ["Dato", "Valor"], [
+    ["Cantidad", "30 m³"], ["Costo unitario", "S/ 4,500.00"], ["Subtotal de costo (30×4500)", "S/ 135,000.00"],
+    ["% Margen", "10%"], ["Precio unitario (4500 ÷ 0.9)", "S/ 5,000.00"], ["Margen monto ((5000−4500)×30)", "S/ 15,000.00"],
+    ["Precio con margen (5000×30)", "S/ 150,000.00"],
 ])
 botones([
-    ["Agregar partida", "Abre el selector de catálogo (buscar o crear en blanco) para una partida de nivel 1."],
-    ["+ (en una fila)", "Agrega un hijo (sub-partida → actividad → sub-actividad), hasta 4 niveles."],
-    ["Capas (Detallar APU)", "Abre el desglose del costo unitario por componentes."],
-    ["Tacho", "Elimina la fila (y sus hijos)."],
-    ["Selector de catálogo", "Lista las partidas del catálogo con código y precio; las que dicen APU traen su desglose."],
+    ["Agregar partida", "Abre el selector de catálogo para crear una partida de nivel 1."],
+    ["+ (icono en la fila)", "Agrega un hijo del nivel siguiente (hasta el nivel 4)."],
+    ["Capas (Detallar APU)", "Abre el desglose del costo unitario (ver 6.4). Si la partida tiene APU, el C.U. queda en rojo y de solo lectura."],
+    ["Tacho", "Elimina la fila y todos sus hijos."],
+    ["Selector de catálogo", "Buscador por código/descripción; cada ítem muestra su precio y un distintivo 'APU' si trae desglose. También 'Crear en blanco'."],
 ])
-pasos([
-    ("Pulsa Agregar partida y elige una del catálogo (o crea en blanco).", "Se agrega; si tiene APU, el costo unitario se calcula solo."),
-    ("Con + crea sub-partidas y actividades; escribe unidad, cantidad, C. unitario y % de margen en las hojas.", "Subtotal, P. unitario y Precio se recalculan al instante; los niveles superiores suman a sus hijos."),
+casos([
+    ("Pulsa 'Agregar partida' y elige del catálogo una con distintivo APU (ej. Concreto f'c=210).", "Se agrega con su C.U. ya calculado desde el APU y el icono de capas queda en rojo."),
+    ("Con el + crea una sub-partida, luego una actividad y una sub-actividad.", "La numeración se arma sola: 1.1, 1.1.1, 1.1.1.1; no deja pasar del nivel 4."),
+    ("En una hoja escribe Cantidad 30, C.U. 4500 y % margen 10.", "Subtotal 135,000; P.Unit 5,000; Precio 150,000 al instante."),
+    ("Intenta escribir cantidad/C.U. en una partida que tiene hijos.", "No se puede: esos campos están bloqueados y muestran la suma de los hijos."),
 ])
-obs(2)
+obs(3)
 
-h2("6.4 Detallar APU (desglose del costo)")
+h2("6.4 Detallar APU (Análisis de Precios Unitarios)")
+proposito("Construir el costo unitario de una partida a partir de sus componentes (mano de obra, materiales, equipos, subcontratos, gastos generales). El C.U. de la partida pasa a ser la suma de los componentes.")
 campos([
-    ["Tipo", "Mano de obra / Materiales / Equipos / Subcontratos / Gastos generales.", "Lista"],
-    ["Descripción", "Insumo o recurso.", "Texto · obligatorio"],
-    ["Unidad", "Unidad del componente.", "Texto"],
-    ["Cantidad/und", "Cantidad por unidad de partida.", "Número"],
+    ["Tipo", "Categoría del componente.", "Lista (mano de obra/materiales/equipos/subcontratos/GG)"],
+    ["Descripción", "Insumo o recurso (ej. 'Cemento Portland').", "Texto · obligatorio"],
+    ["Unidad", "Unidad del componente (bls, m³, hh…).", "Texto"],
+    ["Cantidad/und", "Cuánto de ese insumo entra por UNA unidad de la partida.", "Número"],
     ["Precio", "Precio unitario del insumo.", "Número"],
-    ["Cuadrilla / Rendimiento", "Opcionales, para mano de obra.", "Número"],
+    ["Cuadrilla / Rendimiento", "Opcionales, de referencia para mano de obra.", "Número"],
+])
+ejemplo("APU de 1 m³ de concreto (C.U. resultante = suma de parciales)", ["Componente", "Cant × Precio = Parcial"], [
+    ["Cemento (materiales)", "9 bls × 32.5 = 292.50"], ["Arena gruesa", "0.5 m³ × 65 = 32.50"],
+    ["Piedra chancada", "0.55 m³ × 75 = 41.25"], ["Cuadrilla concreto (MO)", "2.5 hh × 20 = 50.00"],
+    ["Mezcladora (equipo)", "0.4 hm × 35 = 14.00"], ["C.U. de la partida", "= 430.25"],
 ])
 botones([
-    ["Agregar", "Añade el componente; el C. unitario de la partida se recalcula."],
-    ["Guardar como plantilla", "Crea una partida en el catálogo con este APU para reutilizarla."],
-    ["X (en un componente)", "Elimina ese componente."],
+    ["Agregar", "Suma el componente; el C.U. de la partida se recalcula automáticamente."],
+    ["Guardar como plantilla", "Crea una partida en el catálogo maestro con este APU para reutilizarla en otras cotizaciones/proyectos."],
+    ["X", "Elimina el componente."],
+])
+casos([
+    ("Agrega 3-4 componentes y observa el C.U.", "El C.U. de la partida es la suma de los parciales y queda de solo lectura."),
+    ("Pulsa 'Guardar como plantilla' y ponle un código.", "Aparece como nueva partida en Catálogos con el distintivo APU."),
 ])
 obs(2)
 
-h2("6.5 Bloque de totales y descuento")
-tabla(["Concepto", "Qué es"], [
-    ["Subtotal", "Suma de precios con margen."],
-    ["Gastos generales / administrativos / Utilidad", "Porcentajes configurables; se pueden ocultar al cliente."],
-    ["Costo directo", "Subtotal + GG + GA + utilidad."],
-    ["I.G.V. (18%)", "Impuesto; se puede ocultar."],
-    ["Total / Total con descuento", "Total final; si activas descuento comercial aparece el total rebajado."],
-    ["Vista interna", "Costo directo real y margen total (nunca lo ve el cliente)."],
+h2("6.5 Bloque de totales, márgenes y descuento")
+para("Debajo del árbol, el sistema arma la secuencia de totales. GG, GA, Utilidad e IGV son porcentajes configurables y se pueden OCULTAR al cliente con interruptores (algunos clientes no quieren ver utilidad/GG; igual se cobran dentro del precio).")
+ejemplo("Secuencia de totales (números del modelo real ADECCO)", ["Concepto", "Importe S/"], [
+    ["Subtotal (con margen)", "3,354,299.30"], ["Gastos generales (5%)", "167,714.96"],
+    ["Gastos administrativos (5%)", "167,714.96"], ["Utilidad (5%)", "167,714.96"],
+    ["Costo directo", "3,857,444.19"], ["I.G.V. (18%)", "694,339.95"],
+    ["TOTAL", "4,551,784.15"], ["Descuento comercial (5%)", "227,589.21"],
+    ["TOTAL CON DESCUENTO", "4,324,194.94"],
 ])
+regla("El descuento comercial NO está visible por defecto (estrategia). Se activa solo cuando el cliente pide rebaja, y se absorbe del MARGEN: el costo directo interno nunca cambia. La 'vista interna' muestra el costo directo real y el margen total, que el cliente jamás ve.")
 botones([
-    ["Interruptores Mostrar GG/GA/Utilidad/IGV", "Ocultan o muestran cada concepto en el PDF del cliente."],
-    ["Agregar descuento comercial", "Activa un % de descuento sobre el total."],
+    ["Mostrar GG / GA / Utilidad / IGV (interruptores)", "Incluyen u ocultan cada concepto en el PDF del cliente."],
+    ["Agregar descuento comercial", "Activa un % de descuento sobre el total (aparece TOTAL CON DESCUENTO)."],
+])
+casos([
+    ("Apaga el interruptor de Utilidad y de GG.", "Desaparecen de la lista y del PDF, pero el TOTAL no cambia."),
+    ("Activa un descuento de 5%.", "Aparece 'Total con descuento'; el costo directo real (vista interna) se mantiene igual."),
 ])
 obs(2)
 
-h2("6.6 Condiciones y pago")
+h2("6.6 Condiciones, forma de pago y medios de pago")
 campos([
-    ["Forma de pago (filas)", "Conceptos y % (ej. 20% adelanto + 80% valorizaciones).", "Texto + % · suma ≤ 100%"],
-    ["Plazo de ejecución + tipo", "Número de días y si son calendario o útiles.", "Número + lista"],
-    ["Condiciones / Servicios incluidos / omitidos / Garantía", "Textos editables precargados de la plantilla.", "Texto largo"],
-    ["Medios de pago", "Cuentas de la empresa que se mostrarán al cliente.", "Solo lectura"],
+    ["Forma de pago (filas)", "Concepto y % de cada pago (ej. 20% adelanto + 80% valorizaciones; o 4 armadas de 25%).", "Texto + % · la suma no puede pasar de 100%"],
+    ["Plazo de ejecución + tipo", "N° de días y si son calendario o útiles.", "Número + lista"],
+    ["Condiciones generales", "Texto precargado de la plantilla, editable.", "Texto largo"],
+    ["Servicios incluidos / omitidos", "Qué cubre y qué no el servicio.", "Texto largo"],
+    ["Garantía", "Texto de garantía con interruptor para incluirla o no en el PDF.", "Texto + sí/no"],
+    ["Medios de pago", "Cuentas de la empresa (Interbank, BBVA, detracción del Banco de la Nación).", "Solo lectura"],
 ])
-pasos([
-    ("Arma la forma de pago y verifica que la suma no pase de 100%.", "Si pasa, el sistema lo advierte y no deja guardar."),
-    ("Edita las condiciones y activa/desactiva la garantía.", "Se guardan solas; la garantía solo sale en el PDF si está incluida."),
+regla("La suma de los % de la forma de pago se valida: si pasa de 100% no deja guardar.")
+casos([
+    ("Agrega pagos que sumen 110% e intenta guardar.", "El sistema advierte que supera el 100% y no guarda."),
+    ("Edita 'Servicios incluidos' y apaga la garantía.", "Se guarda solo (autosave); la garantía no saldrá en el PDF."),
 ])
 obs(2)
 
-h2("6.7 Acciones, edición colaborativa e historial")
-botones([
-    ["Generar PDF (cliente)", "Descarga el PDF brandeado (sin costos ni margen)."],
-    ["Descargar Excel (interno)", "Excel con costos y márgenes, con logo."],
-    ["Enviar por WhatsApp", "Abre WhatsApp con un mensaje y enlace listos."],
-    ["Guardar versión", "Guarda una versión de la negociación (v1, v2…)."],
-    ["Marcar como enviada / Pasar a negociación", "Cambian el estado de la cotización."],
-    ["Aprobar → crear proyecto", "Convierte la cotización en proyecto (sin margen) + cronograma + caja."],
-    ["Rechazar / Eliminar", "Rechaza (con motivo) o elimina (si no fue aceptada)."],
+h2("6.7 Estados de la cotización")
+tabla(["Estado", "Qué significa / qué lo activa"], [
+    ["Borrador", "Edición libre, sin alertas."],
+    ["Enviada", "Se mandó el PDF al cliente; corre el cronómetro de vigencia."],
+    ["En negociación", "El cliente pide ajustes; aquí se activa el descuento y se guardan versiones."],
+    ["Aceptada", "Se convierte en proyecto (sin margen) + cronograma de cobros + caja chica."],
+    ["Vencida", "Pasó la vigencia sin respuesta (lo marca el proceso diario automático)."],
+    ["Rechazada", "El cliente declinó; se registra el motivo."],
 ])
-pasos([
-    ("Abre la misma cotización en otra ventana con otro usuario y edita una fila.", "Verás los avatares de quién está conectado y los cambios aparecen en segundos."),
-    ("Entra a la pestaña Historial de modificaciones, filtra por usuario y prueba Revertir un cambio.", "Muestra quién cambió qué (colores por usuario); revertir restaura el valor anterior."),
+botones([
+    ["Generar PDF (cliente)", "PDF brandeado con SOLO las columnas del cliente (ítem, descripción, unidad, cantidad, P.U., subtotal y totales). Nunca muestra costo ni margen."],
+    ["Descargar Excel (interno)", "Excel brandeado con la matriz completa: costos, % margen y márgenes."],
+    ["Enviar por WhatsApp", "Abre WhatsApp con un mensaje pre-formateado y el enlace."],
+    ["Guardar versión", "Guarda una foto de la negociación (v1, v2, v3…) con justificación."],
+    ["Marcar como enviada / Pasar a negociación", "Cambian el estado."],
+    ["Aprobar → crear proyecto", "Crea el proyecto con el itemizado a COSTO (sin margen), el cronograma de cobros (armadas) y la caja chica; avisa a Jefe de Proyectos y Presupuestos."],
+    ["Rechazar / Eliminar cotización", "Rechaza con motivo / elimina (solo si no fue aceptada)."],
+])
+h3("Edición colaborativa en tiempo real")
+para("Varios miembros del equipo (Comercial/Presupuestos/Gerencia) pueden abrir la MISMA cotización a la vez. Arriba se ven los avatares de quién está conectado y los cambios de uno aparecen en las pantallas de los demás en segundos, sin recargar (autosave).")
+h3("Historial de modificaciones")
+para("Pestaña aparte que registra, por cada cambio: usuario, fecha/hora, la partida afectada y el campo con su valor anterior → nuevo. Cada usuario tiene un color. Permite FILTRAR por usuario y REVERTIR un cambio (restaura el valor anterior; queda auditado).")
+casos([
+    ("Abre la cotización en dos ventanas con usuarios distintos y edita una fila en una.", "En la otra ventana ves el avatar del otro usuario y el cambio aparece en segundos."),
+    ("Cambia la cantidad de una partida, ve a Historial, filtra por tu usuario y pulsa Revertir.", "El historial muestra 'Partida X · Cantidad: 1 → 2' y al revertir vuelve al valor anterior."),
+    ("Genera el PDF (cliente) y ábrelo.", "NO aparece ninguna columna de costo ni de margen; solo precios al cliente y el logo de AZUR."),
+    ("Pulsa 'Aprobar → crear proyecto' y revisa el proyecto creado.", "El itemizado llegó a COSTO (sin margen), con cronograma de cobros y caja chica; llegó notificación al Jefe."),
 ])
 obs(3)
 
@@ -396,28 +476,90 @@ botones([
 ])
 obs(2)
 
-h2("7.4 Last Planner (los 4 cuadrantes)")
+h2("7.4 Last Planner — los 4 cuadrantes (detallado)")
+para("Es una matriz horizontal con 4 bloques que se leen de izquierda a derecha. Mismo árbol de 4 niveles que la cotización, pero a COSTO (sin margen). La jefatura llena los cuadrantes 1 y 2; el residente/jefe registra el 3; el 4 es automático.")
+h3("Cuadrante 1 — Presupuesto / itemizado")
 tabla(["Columna", "Qué es"], [
-    ["Ítem / Título / Und / Cant / C.Unit", "Itemizado del proyecto (a costo)."],
-    ["Subtotal / Total", "Subtotal en sub-partidas; Total en las partidas generales."],
-    ["Contratista", "Responsable de la partida (lista de contratistas)."],
-    ["Inicio / Entrega / Dur", "Fechas y duración de la partida."],
-    ["Estado", "Automático: Completado/En progreso/Detenido/En espera/Pendiente/Retrasado."],
-    ["Prioridad", "Automática (Muy alta…Muy baja) comparando avance real vs. proyectado."],
-    ["% Acum", "Avance acumulado (barra verde) y Saldo por valorizar."],
-    ["Val N1, N2… (% sem)", "Valorización por semana; se ingresa el % de avance en la última."],
+    ["Ítem / Título", "Numeración automática (1.0/1.1/1.1.1/1.1.1.1) y nombre."],
+    ["Und / Cant / C. Unit", "Unidad, cantidad y costo (solo en la hoja; editable)."],
+    ["Subtotal", "Monto de la fila (en sub-partidas/actividades)."],
+    ["Total", "Se llena solo en las PARTIDAS GENERALES (suma de toda su rama)."],
 ])
+regla("Puedes traer partidas del catálogo (con APU) o crearlas; el itemizado del proyecto puede diferir del comercial (Proyectos arma su propia estructura). También se puede detallar APU por partida con el icono de capas.")
+h3("Cuadrante 2 — Programación")
+tabla(["Columna", "Qué es"], [
+    ["Contratista responsable", "Se elige de la lista de contratistas/proveedores registrados."],
+    ["Fecha de inicio / entrega", "Definen el periodo de la partida."],
+    ["Duración (Dur)", "Días de la partida; junto con el inicio define el avance proyectado por semana."],
+])
+h3("Cuadrante 3 — Valorizaciones semanales acumulables")
+para("Cada semana se agrega una valorización (dos columnas: % avance y Total). Solo se ingresa el % de avance de la semana en la HOJA; el sistema arrastra (suma) hacia arriba.")
+tabla(["Cálculo", "Fórmula"], [
+    ["Total de la semana (por hoja)", "% de la semana × TOTAL de la partida"],
+    ["% acumulado de la partida", "Suma de los % de todas sus semanas"],
+    ["Valorizado acumulado", "% acumulado × TOTAL de la partida"],
+    ["Saldo", "TOTAL × (1 − % acumulado)"],
+    ["Rollup a niveles superiores", "Ponderado por monto: %acum(padre)= Σ(Total_hijo×%acum_hijo) ÷ Σ(Total_hijo)"],
+])
+ejemplo("Sub-partida de S/ 240,000 valorizada en 3 semanas (25% / 25% / 50%)", ["Semana", "% / Total / %acum / Saldo"], [
+    ["Semana 1 (25%)", "S/ 60,000 · acum 25% · saldo 180,000"],
+    ["Semana 2 (25%)", "S/ 60,000 · acum 50% · saldo 120,000"],
+    ["Semana 3 (50%)", "S/ 120,000 · acum 100% · saldo 0"],
+])
+regla("El % acumulado de una partida nunca puede pasar de 100%: si la suma de semanas lo supera, el sistema lo bloquea. El saldo nunca es negativo.")
+h3("Cuadrante 4 — Estado y Prioridad (AUTOMÁTICOS)")
+para("No se escriben a mano: el sistema los calcula comparando el avance REAL con el PROYECTADO. El proyectado se reparte proporcional entre las semanas de duración (ej. 5 semanas → 20% por semana: 20/40/60/80/100% acumulado).")
+tabla(["Estado", "Cuándo se asigna"], [
+    ["Completado", "% acumulado = 100%."],
+    ["En progreso", "Avanzó algún % entre una valorización y la siguiente."],
+    ["Detenido", "El % no avanzó respecto a la valorización anterior."],
+    ["En espera", "La fecha de inicio aún no llega."],
+    ["Pendiente", "No tiene fecha de inicio."],
+    ["Retrasado", "Venció el plazo y no llegó al 100%."],
+    ["Cancelado", "Override manual."],
+])
+tabla(["Prioridad (real ÷ proyectado de la semana)", "Resultado"], [
+    ["Menos del 50% de lo proyectado", "Muy alta"],
+    ["Entre 50% y por debajo del objetivo", "Alta"],
+    ["Justo en lo proyectado (≈100%)", "Media"],
+    ["Por encima del objetivo", "Baja"],
+    ["Muy por encima (≥120%)", "Muy baja"],
+    ["Sin fechas / proyectado 0", "Media (por defecto)"],
+])
+ejemplo("Caso del modelo (proyectado 20/40/60/80/100; real 0.3/0.4/0.4/0.4/0.9/1.0)", ["Semana", "Prioridad → Estado"], [
+    ["S1 real 30% vs 20%", "Muy baja → En progreso"],
+    ["S2 real 40% vs 40%", "Media → En progreso"],
+    ["S3 real 40% vs 60%", "Alta → Detenido (no avanzó)"],
+    ["S4 real 40% vs 80%", "Muy alta → Detenido"],
+    ["S5 real 90% vs 100%", "Alta → Retrasado"],
+    ["S6 real 100%", "Media → Completado"],
+])
+h3("% Acumulado y Saldo")
+para("La columna % Acum muestra una barra verde proporcional al avance (como en el Excel) y el Saldo es lo que falta por valorizar.")
+h3("Botones")
 botones([
-    ["Partida / + / Capas / Tacho", "Agregar partida (catálogo), hijo, detallar APU del proyecto, o eliminar."],
-    ["Nueva valorización", "Crea la columna de la semana para registrar avance."],
-    ["Guardar avances", "Guarda el % de la semana y recalcula estado/prioridad/saldo."],
-    ["Resumen PDF", "PDF de la valorización para el cliente."],
-    ["Registrar cobro", "Lleva el cobro neto (valorizado − amortización del adelanto) a la caja del proyecto."],
+    ["Partida", "Agrega una partida general desde el catálogo (o en blanco)."],
+    ["+ (en fila)", "Agrega un hijo (hasta nivel 4)."],
+    ["Capas (APU)", "Detalla el APU de esa partida del proyecto."],
+    ["Tacho", "Elimina la fila."],
+    ["Nueva valorización", "Crea las columnas (% y Total) de la siguiente semana."],
+    ["Guardar avances", "Guarda los % de la semana; recalcula %acum, saldo, estado y prioridad, y genera alertas de salud si corresponde."],
+    ["Resumen PDF", "Genera el PDF/resumen ejecutivo de la valorización para el cliente."],
+    ["Registrar cobro", "Lleva el cobro neto de la valorización a la caja del proyecto."],
 ])
-pasos([
-    ("Asigna contratista y fechas a una partida.", "Estado/Prioridad se ajustan."),
-    ("Pulsa Nueva valorización, pon el % de avance en las hojas y Guardar avances.", "Sube el % acumulado (barra verde) y baja el saldo; estado/prioridad se recalculan solos."),
-    ("Revisa el panel de dilución del adelanto y pulsa Registrar cobro.", "El cobro neto entra a la caja; el saldo del adelanto disminuye."),
+h3("Dilución del adelanto (al registrar la valorización)")
+para("Si hubo adelanto, cada valorización lo amortiza con el mismo % de adelanto. El cobro neto al cliente es la valorización menos esa amortización.")
+ejemplo("Valorización de S/ 821,250 con 20% de adelanto", ["Concepto", "Importe S/"], [
+    ["Valorización de la semana", "821,250.00"],
+    ["Amortización (20% × 821,250)", "164,250.00"],
+    ["Cobro neto al cliente", "657,000.00"],
+])
+casos([
+    ("Asigna contratista, fecha de inicio/entrega y duración a una partida hoja.", "El Estado pasa a 'En espera' si la fecha es futura, o se recalcula según el avance."),
+    ("Pulsa 'Nueva valorización', escribe 25% de avance en una hoja y 'Guardar avances'.", "El % acumulado sube a 25% (barra verde), el saldo baja, y Estado/Prioridad se recalculan."),
+    ("Intenta ingresar un avance que haga pasar el acumulado de 100%.", "El sistema lo bloquea y avisa."),
+    ("Mira el panel de dilución y pulsa 'Registrar cobro'.", "El cobro neto (valorización − amortización) entra a la caja del proyecto y el saldo del adelanto baja."),
+    ("Pulsa 'Resumen PDF'.", "Se genera el PDF de la valorización con el logo de AZUR."),
 ])
 obs(3)
 
