@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, ChevronRight, Send, Handshake, CheckCircle2, FileDown,
-  MessageCircle, History, Loader2, Percent, Save, Layers, X,
+  MessageCircle, History, Loader2, Percent, Save, Layers, X, Undo2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ import {
 import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
   cambiarEstado, guardarVersion, aprobarCotizacion, guardarCabecera,
-  guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla,
+  guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -357,7 +357,7 @@ export function CotizacionEditor({
         <CondicionesPago cot={cot} formas={formas} medios={medios} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
       )}
 
-      {tab === 'historial' && <HistorialCambios historial={historial} perfilesMap={perfilesMap} />}
+      {tab === 'historial' && <HistorialCambios historial={historial} perfilesMap={perfilesMap} cotizacionId={cot.id} editable={editable} />}
 
       {tab === 'versiones' && (
         <Card>
@@ -762,39 +762,67 @@ const CAMPO_LABEL: Record<string, string> = {
 };
 const IGNORAR = new Set(['updated_at', 'created_at', 'id', 'cotizacion_id', 'parent_id', 'correlativo', 'orden', 'codigo']);
 
-function HistorialCambios({ historial, perfilesMap }: { historial: any[]; perfilesMap: Record<string, string> }) {
+const REVERSIBLES: Record<string, Set<string>> = {
+  cotizaciones: new Set(['proyecto_nombre', 'asunto', 'ubicacion', 'descripcion', 'condiciones', 'servicios_incluidos', 'servicios_omitidos', 'garantia', 'garantia_activa', 'gg_pct', 'ga_pct', 'utilidad_pct', 'igv_pct', 'descuento_pct', 'descuento_activo', 'vigencia_dias', 'plazo_valor', 'plazo_tipo']),
+  cotizacion_items: new Set(['titulo', 'unidad', 'cantidad', 'costo_unitario', 'margen_pct']),
+};
+
+function HistorialCambios({ historial, perfilesMap, cotizacionId, editable }: { historial: any[]; perfilesMap: Record<string, string>; cotizacionId: string; editable: boolean }) {
+  const router = useRouter();
+  const [filtro, setFiltro] = useState('todos');
+  const [revirtiendo, setRevirtiendo] = useState<string | null>(null);
+
   const colorDe = (uid: string | null) => {
     if (!uid) return '#94a3b8';
-    const keys = Object.keys(perfilesMap);
-    const idx = keys.indexOf(uid);
+    const idx = Object.keys(perfilesMap).indexOf(uid);
     return USER_COLORS[(idx >= 0 ? idx : 0) % USER_COLORS.length];
   };
   const fmtVal = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v));
 
-  function cambios(e: any): { campo: string; antes: any; despues: any }[] {
-    if (e.accion === 'INSERT') return [{ campo: '➕ creado', antes: null, despues: e.new_data?.titulo ?? e.new_data?.proyecto_nombre ?? '' }];
-    if (e.accion === 'DELETE') return [{ campo: '🗑️ eliminado', antes: e.old_data?.titulo ?? '', despues: null }];
-    const out: { campo: string; antes: any; despues: any }[] = [];
+  function cambios(e: any): { campo: string; key: string; antes: any; despues: any }[] {
+    if (e.accion === 'INSERT') return [{ campo: '➕ creado', key: '', antes: null, despues: e.new_data?.titulo ?? e.new_data?.proyecto_nombre ?? '' }];
+    if (e.accion === 'DELETE') return [{ campo: '🗑️ eliminado', key: '', antes: e.old_data?.titulo ?? '', despues: null }];
+    const out: { campo: string; key: string; antes: any; despues: any }[] = [];
     const o = e.old_data ?? {}, n = e.new_data ?? {};
     for (const k of Object.keys(n)) {
       if (IGNORAR.has(k)) continue;
-      if (JSON.stringify(o[k]) !== JSON.stringify(n[k])) out.push({ campo: CAMPO_LABEL[k] ?? k, antes: o[k], despues: n[k] });
+      if (JSON.stringify(o[k]) !== JSON.stringify(n[k])) out.push({ campo: CAMPO_LABEL[k] ?? k, key: k, antes: o[k], despues: n[k] });
     }
     return out;
   }
 
+  async function revertir(e: any, c: { key: string; antes: any }, idx: string) {
+    if (!REVERSIBLES[e.tabla]?.has(c.key)) return;
+    setRevirtiendo(idx);
+    const res = await revertirCambio(cotizacionId, { tabla: e.tabla, registroId: e.registro_id, campo: c.key, valor: c.antes });
+    setRevirtiendo(null);
+    if (!res.ok) alert(res.error);
+    else router.refresh();
+  }
+
+  const usuarios = Array.from(new Set(historial.map((e) => e.usuario_id).filter(Boolean)));
+  const lista = filtro === 'todos' ? historial : historial.filter((e) => e.usuario_id === filtro);
+
   return (
     <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base">Historial de modificaciones</CardTitle>
-        <p className="text-xs text-muted-foreground">Quién cambió qué, cuándo. Color por usuario · valor anterior → nuevo.</p>
+      <CardHeader className="flex-row items-center justify-between pb-2">
+        <div>
+          <CardTitle className="text-base">Historial de modificaciones</CardTitle>
+          <p className="text-xs text-muted-foreground">Quién cambió qué y cuándo · color por usuario · valor anterior → nuevo.</p>
+        </div>
+        <div className="w-48">
+          <Select value={filtro} onChange={(e) => setFiltro(e.target.value)}>
+            <option value="todos">Todos los usuarios</option>
+            {usuarios.map((u) => <option key={u} value={u}>{perfilesMap[u] ?? 'Usuario'}</option>)}
+          </Select>
+        </div>
       </CardHeader>
       <CardContent className="p-0">
-        {historial.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Sin modificaciones registradas todavía.</p>
+        {lista.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Sin modificaciones registradas.</p>
         ) : (
           <ul className="divide-y">
-            {historial.map((e) => {
+            {lista.map((e) => {
               const cs = cambios(e);
               if (cs.length === 0) return null;
               const color = colorDe(e.usuario_id);
@@ -808,14 +836,26 @@ function HistorialCambios({ historial, perfilesMap }: { historial: any[]; perfil
                       <span className="text-[11px] text-muted-foreground">{fmtDateTime(e.created_at)}</span>
                     </div>
                     <div className="mt-0.5 space-y-0.5">
-                      {cs.map((c, i) => (
-                        <p key={i} className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{c.campo}</span>
-                          {c.antes !== null || c.despues !== null ? (
-                            <> : <span className="line-through">{fmtVal(c.antes)}</span> → <span className="text-foreground">{fmtVal(c.despues)}</span></>
-                          ) : null}
-                        </p>
-                      ))}
+                      {cs.map((c, i) => {
+                        const puedeRevertir = editable && e.accion === 'UPDATE' && REVERSIBLES[e.tabla]?.has(c.key);
+                        const rid = `${e.id}-${i}`;
+                        return (
+                          <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
+                            <p className="flex-1">
+                              <span className="font-medium text-foreground">{c.campo}</span>
+                              {c.antes !== null || c.despues !== null ? (
+                                <> : <span className="line-through">{fmtVal(c.antes)}</span> → <span className="text-foreground">{fmtVal(c.despues)}</span></>
+                              ) : null}
+                            </p>
+                            {puedeRevertir && (
+                              <button onClick={() => revertir(e, c, rid)} disabled={revirtiendo === rid}
+                                className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-azur-600 hover:bg-azur-50 disabled:opacity-50">
+                                {revirtiendo === rid ? <Loader2 className="size-3 animate-spin" /> : <Undo2 className="size-3" />} Revertir
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </li>

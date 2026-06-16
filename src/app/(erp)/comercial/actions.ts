@@ -275,6 +275,29 @@ export async function guardarFormasPago(
   return { ok: true };
 }
 
+// ── Revertir un campo a un valor anterior (desde el historial) ──────────
+const CAMPOS_REVERSIBLES: Record<string, Set<string>> = {
+  cotizaciones: new Set(['proyecto_nombre', 'asunto', 'ubicacion', 'descripcion', 'condiciones', 'servicios_incluidos', 'servicios_omitidos', 'garantia', 'garantia_activa', 'gg_pct', 'ga_pct', 'utilidad_pct', 'igv_pct', 'descuento_pct', 'descuento_activo', 'vigencia_dias', 'plazo_valor', 'plazo_tipo']),
+  cotizacion_items: new Set(['titulo', 'unidad', 'cantidad', 'costo_unitario', 'margen_pct']),
+};
+
+export async function revertirCambio(
+  cotizacionId: string,
+  input: { tabla: string; registroId: string; campo: string; valor: unknown },
+): Promise<Res> {
+  await guard();
+  const permitido = CAMPOS_REVERSIBLES[input.tabla];
+  if (!permitido || !permitido.has(input.campo)) return { ok: false, error: 'Campo no reversible' };
+  const supabase = createClient();
+  const { error } = await supabase
+    .from(input.tabla as 'cotizaciones')
+    .update({ [input.campo]: input.valor } as never)
+    .eq('id', input.registroId);
+  if (error) return { ok: false, error: 'No se pudo revertir (¿el registro fue eliminado?)' };
+  revalidatePath(`/comercial/${cotizacionId}`);
+  return { ok: true };
+}
+
 // ── Estados ─────────────────────────────────────────────────────────────
 export async function cambiarEstado(
   id: string,
