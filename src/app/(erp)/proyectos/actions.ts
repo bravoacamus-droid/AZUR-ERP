@@ -27,19 +27,90 @@ export async function actualizarProyecto(id: string, patch: Record<string, unkno
 }
 
 // ── Itemizado (cuadrantes 1 y 2) ────────────────────────────────────────
-export async function agregarItemProyecto(proyectoId: string, parentId: string | null, nivel: number): Promise<Res> {
+export async function agregarItemProyecto(
+  proyectoId: string,
+  parentId: string | null,
+  nivel: number,
+  prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string },
+): Promise<Res> {
   await guard();
   const supabase = createClient();
+  const admin = createAdminClient();
   if (parentId) await supabase.from('proyecto_items').update({ es_hoja: false }).eq('id', parentId);
   let q = supabase.from('proyecto_items').select('id', { count: 'exact', head: true }).eq('proyecto_id', proyectoId);
   q = parentId ? q.eq('parent_id', parentId) : q.is('parent_id', null);
   const { count } = await q;
-  const { error } = await supabase.from('proyecto_items').insert({
+  const tituloDefault = nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad';
+  const cu = prefill?.costo_unitario ?? null;
+  const { data: nuevo, error } = await supabase.from('proyecto_items').insert({
     proyecto_id: proyectoId, parent_id: parentId, nivel, orden: (count ?? 0) + 1,
-    titulo: nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad',
+    titulo: prefill?.titulo || tituloDefault,
+    unidad: prefill?.unidad ?? null,
+    costo_unitario: cu,
+    cantidad: cu != null ? 1 : null,
+    total_costo: cu != null ? cu : 0,
     es_hoja: true, estado_tarea: 'pendiente', prioridad: 'media',
-  });
-  if (error) return { ok: false, error: error.message };
+  }).select('id').single();
+  if (error || !nuevo) return { ok: false, error: error?.message ?? 'Error' };
+
+  // copiar APU plantilla del catálogo si corresponde
+  if (prefill?.catalogoPartidaId) {
+    const { data: tpl } = await admin.from('catalogo_apu').select('*').eq('catalogo_partida_id', prefill.catalogoPartidaId).order('orden');
+    if (tpl && tpl.length) {
+      await admin.from('apu_proyecto').insert(tpl.map((t) => ({
+        proyecto_item_id: nuevo.id, tipo: t.tipo, descripcion: t.descripcion, unidad: t.unidad,
+        cuadrilla: t.cuadrilla, rendimiento: t.rendimiento, cantidad: t.cantidad, precio: t.precio, orden: t.orden,
+      })));
+      await recalcularApuProyecto(nuevo.id);
+    }
+  }
+
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+async function recalcularApuProyecto(itemId: string) {
+  const admin = createAdminClient();
+  const { data: comps } = await admin.from('apu_proyecto').select('cantidad, precio').eq('proyecto_item_id', itemId);
+  const cu = (comps ?? []).reduce((a, c) => a + Number(c.cantidad) * Number(c.precio), 0);
+  const tiene = (comps ?? []).length > 0;
+  const { data: it } = await admin.from('proyecto_items').select('cantidad').eq('id', itemId).single();
+  const cant = Number(it?.cantidad ?? 1) || 1;
+  await admin.from('proyecto_items').update({
+    costo_unitario: tiene ? cu : undefined,
+    total_costo: tiene ? cu * cant : undefined,
+    tiene_apu: tiene,
+  }).eq('id', itemId);
+}
+
+export async function guardarComponenteApuProyecto(
+  proyectoId: string, itemId: string,
+  comp: { id?: string; tipo: string; descripcion: string; unidad?: string; cuadrilla?: number; rendimiento?: number; cantidad: number; precio: number },
+): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const payload = {
+    proyecto_item_id: itemId, tipo: comp.tipo as never, descripcion: comp.descripcion,
+    unidad: comp.unidad || null, cuadrilla: comp.cuadrilla ?? null, rendimiento: comp.rendimiento ?? null,
+    cantidad: comp.cantidad, precio: comp.precio,
+  };
+  if (comp.id) {
+    const { error } = await supabase.from('apu_proyecto').update(payload).eq('id', comp.id);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from('apu_proyecto').insert(payload);
+    if (error) return { ok: false, error: error.message };
+  }
+  await recalcularApuProyecto(itemId);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function eliminarComponenteApuProyecto(proyectoId: string, itemId: string, compId: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  await supabase.from('apu_proyecto').delete().eq('id', compId);
+  await recalcularApuProyecto(itemId);
   revalidatePath(`/proyectos/${proyectoId}`);
   return { ok: true };
 }

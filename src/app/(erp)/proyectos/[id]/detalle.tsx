@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, Save, Loader2, CheckCircle2, Calendar, Users, Layers,
-  TrendingUp, FileBarChart, Banknote, ListChecks,
+  TrendingUp, FileBarChart, Banknote, ListChecks, X, ChevronRight,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs } from '@/components/ui/tabs';
+import { Modal } from '@/components/ui/dialog';
 import { Field, EmptyState } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
@@ -24,13 +25,14 @@ import {
   agregarItemProyecto, actualizarItemProyecto, eliminarItemProyecto, crearValorizacion,
   guardarAvances, registrarCobroValorizacion, asignarEquipo, quitarEquipo, guardarArmadas,
   registrarAdicional, resolverAdicional, actualizarProyecto, guardarHito, subirDocumento,
+  guardarComponenteApuProyecto, eliminarComponenteApuProyecto,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, canManage } = props;
   const [tab, setTab] = useState('resumen');
   const est = ESTADO_PROYECTO[proy.estado] ?? { label: proy.estado, variant: 'muted' as const };
   const cajaSaldo = cajas?.[0]?.saldo_actual ?? 0;
@@ -66,7 +68,7 @@ export function ProyectoDetalle(props: any) {
       />
 
       {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} />}
-      {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} canManage={canManage} />}
+      {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} />}
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
@@ -162,10 +164,12 @@ function Dato({ k, v }: { k: string; v: any }) {
 }
 
 // ───────────────────────── LAST PLANNER ───────────────────────────────
-function LastPlanner({ proy, items, valorizaciones, contrapartes, canManage }: any) {
+function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuProyecto, canManage }: any) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<any[]>(items);
+  const [addTarget, setAddTarget] = useState<{ parent: any | null; nivel: number } | null>(null);
+  const [apuItem, setApuItem] = useState<any | null>(null);
   useEffect(() => setRows(items), [items]);
 
   const valsSorted = [...valorizaciones].sort((a, b) => a.numero - b.numero);
@@ -213,9 +217,14 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, canManage }: a
     return out;
   }, [arbol]);
 
-  async function add(parent: any | null) {
+  function add(parent: any | null) {
+    setAddTarget({ parent, nivel: parent ? Math.min(4, parent.nivel + 1) : 1 });
+  }
+  async function confirmAdd(prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string }) {
+    if (!addTarget) return;
     setBusy(true);
-    await agregarItemProyecto(proy.id, parent?.id ?? null, parent ? Math.min(4, parent.nivel + 1) : 1);
+    await agregarItemProyecto(proy.id, addTarget.parent?.id ?? null, addTarget.nivel, prefill);
+    setAddTarget(null);
     router.refresh(); setBusy(false);
   }
   async function del(id: string) { setBusy(true); await eliminarItemProyecto(proy.id, id); router.refresh(); setBusy(false); }
@@ -299,7 +308,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, canManage }: a
                       </td>
                       <td className="px-1 py-1.5 text-center">{hoja ? (canManage ? <input className="w-12 rounded border bg-white px-1 text-center" defaultValue={row.unidad ?? ''} onBlur={(e) => save(row.id, { unidad: e.target.value })} /> : row.unidad) : ''}</td>
                       <td className="px-1 py-1.5 text-right">{hoja ? (canManage ? <Num v={row.cantidad} onSave={(x) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, cantidad: x, total_costo: x * Number(r.costo_unitario ?? 0) } : r)); save(row.id, { cantidad: x }); }} /> : fmtNumber(Number(row.cantidad ?? 0), 0)) : ''}</td>
-                      <td className="px-1 py-1.5 text-right">{hoja ? (canManage ? <Num v={row.costo_unitario} onSave={(x) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, costo_unitario: x, total_costo: Number(r.cantidad ?? 0) * x } : r)); save(row.id, { costo_unitario: x }); }} /> : fmtNumber(Number(row.costo_unitario ?? 0))) : ''}</td>
+                      <td className="px-1 py-1.5 text-right">{hoja ? (row.tiene_apu ? <span className="block w-16 rounded bg-azur-50 px-1 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span> : (canManage ? <Num v={row.costo_unitario} onSave={(x) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, costo_unitario: x, total_costo: Number(r.cantidad ?? 0) * x } : r)); save(row.id, { costo_unitario: x }); }} /> : fmtNumber(Number(row.costo_unitario ?? 0)))) : ''}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.total_partida ?? 0)}</td>
                       <td className="px-1 py-1.5">
                         {hoja && canManage ? (
@@ -332,6 +341,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, canManage }: a
                       {canManage && (
                         <td className="px-1 py-1.5">
                           <div className="flex gap-0.5">
+                            {hoja && <button title="Detallar APU" onClick={() => setApuItem(row)} className={`rounded p-1 hover:bg-secondary ${row.tiene_apu ? 'text-azur-600' : 'text-muted-foreground'}`}><Layers className="size-3.5" /></button>}
                             {row.nivel < 4 && <button onClick={() => add(row)} className="rounded p-1 hover:bg-secondary"><Plus className="size-3.5 text-muted-foreground" /></button>}
                             <button onClick={() => del(row.id)} className="rounded p-1 hover:bg-azur-50"><Trash2 className="size-3.5 text-azur-600" /></button>
                           </div>
@@ -362,7 +372,100 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, canManage }: a
           </CardContent>
         </Card>
       )}
+
+      {addTarget && (
+        <CatalogoPickerProy nivel={addTarget.nivel} catalogo={catalogo} busy={busy} onClose={() => setAddTarget(null)} onPick={confirmAdd} />
+      )}
+      {apuItem && (
+        <ApuModalProy proyectoId={proy.id} item={apuItem} componentes={apuProyecto.filter((c: any) => c.proyecto_item_id === apuItem.id)} editable={canManage} onClose={() => setApuItem(null)} onChanged={() => router.refresh()} />
+      )}
     </div>
+  );
+}
+
+const NIVEL_LABEL_P = ['', 'partida', 'sub partida', 'actividad', 'sub actividad'];
+function CatalogoPickerProy({ nivel, catalogo, busy, onClose, onPick }: any) {
+  const [q, setQ] = useState('');
+  const filtrados = q.trim() ? catalogo.filter((c: any) => `${c.codigo ?? ''} ${c.descripcion}`.toLowerCase().includes(q.toLowerCase().trim())) : catalogo;
+  return (
+    <Modal open onClose={onClose} className="sm:max-w-2xl" title={`Agregar ${NIVEL_LABEL_P[nivel]}`} description="Elige una partida del catálogo (precio referencial, editable) o créala en blanco.">
+      <div className="space-y-3">
+        <Button variant="outline" className="w-full" disabled={busy} onClick={() => onPick(undefined)}><Plus /> Crear en blanco</Button>
+        <Input placeholder="Buscar en catálogo por código o descripción…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <div className="max-h-72 space-y-1 overflow-y-auto">
+          {filtrados.length === 0 && <p className="py-6 text-center text-sm text-muted-foreground">Sin coincidencias.</p>}
+          {filtrados.map((c: any) => (
+            <button key={c.id} disabled={busy} onClick={() => onPick({ titulo: c.descripcion, unidad: c.unidad, costo_unitario: Number(c.costo_referencial ?? 0), catalogoPartidaId: c.id })}
+              className="flex w-full items-center justify-between gap-3 rounded-lg border bg-white px-3 py-2 text-left hover:border-azur-300 hover:bg-azur-50 disabled:opacity-60">
+              <div className="min-w-0"><p className="truncate text-sm font-medium">{c.descripcion} {c.tiene_apu && <Badge variant="info" className="ml-1 align-middle">APU</Badge>}</p><p className="text-xs text-muted-foreground">{c.codigo ?? 's/código'} {c.unidad ? `· ${c.unidad}` : ''}</p></div>
+              <span className="shrink-0 text-sm font-medium tabular-nums text-azur-600">{fmtMoney(Number(c.costo_referencial ?? 0))}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+const APU_TIPOS_P = [
+  { v: 'mano_obra', l: 'Mano de obra' }, { v: 'materiales', l: 'Materiales' },
+  { v: 'equipos', l: 'Equipos / herramientas' }, { v: 'subcontratos', l: 'Subcontratos' }, { v: 'gastos_generales', l: 'Gastos generales' },
+];
+function ApuModalProy({ proyectoId, item, componentes, editable, onClose, onChanged }: any) {
+  const [busy, setBusy] = useState(false);
+  const [nuevo, setNuevo] = useState({ tipo: 'materiales', descripcion: '', unidad: '', cantidad: '', precio: '' });
+  const cu = componentes.reduce((a: number, c: any) => a + Number(c.cantidad) * Number(c.precio), 0);
+
+  async function agregar() {
+    if (!nuevo.descripcion) return;
+    setBusy(true);
+    await guardarComponenteApuProyecto(proyectoId, item.id, { tipo: nuevo.tipo, descripcion: nuevo.descripcion, unidad: nuevo.unidad, cantidad: Number(nuevo.cantidad || 0), precio: Number(nuevo.precio || 0) });
+    setNuevo({ tipo: nuevo.tipo, descripcion: '', unidad: '', cantidad: '', precio: '' });
+    setBusy(false); onChanged();
+  }
+  async function eliminar(id: string) { setBusy(true); await eliminarComponenteApuProyecto(proyectoId, item.id, id); setBusy(false); onChanged(); }
+  const porTipo = (t: string) => componentes.filter((c: any) => c.tipo === t);
+
+  return (
+    <Modal open onClose={onClose} className="sm:max-w-3xl" title={`APU · ${item.titulo}`}
+      description="Desglose del costo unitario. El C.U. y el total de la partida se recalculan automáticamente."
+      footer={<Button variant="gradient" onClick={onClose}>Listo · C.U. = {fmtNumber(cu)}</Button>}>
+      <div className="space-y-4">
+        {APU_TIPOS_P.map((t) => {
+          const comps = porTipo(t.v); if (comps.length === 0) return null;
+          const sub = comps.reduce((a: number, c: any) => a + Number(c.cantidad) * Number(c.precio), 0);
+          return (
+            <div key={t.v}>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-azur-600">{t.l} · {fmtNumber(sub)}</p>
+              <div className="space-y-1">
+                {comps.map((c: any) => (
+                  <div key={c.id} className="flex items-center gap-2 rounded-lg border px-2 py-1.5 text-sm">
+                    <span className="flex-1">{c.descripcion} {c.unidad && <span className="text-muted-foreground">({c.unidad})</span>}</span>
+                    <span className="tabular-nums text-muted-foreground">{fmtNumber(Number(c.cantidad), 2)} × {fmtNumber(Number(c.precio))}</span>
+                    <span className="w-20 text-right font-medium tabular-nums">{fmtNumber(Number(c.cantidad) * Number(c.precio))}</span>
+                    {editable && <button onClick={() => eliminar(c.id)} className="text-azur-600"><X className="size-4" /></button>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        {componentes.length === 0 && <p className="text-sm text-muted-foreground">Aún no hay componentes. Agrega el primero abajo.</p>}
+        {editable && (
+          <div className="rounded-xl border bg-muted/30 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agregar componente</p>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="col-span-2 sm:col-span-1"><Select value={nuevo.tipo} onChange={(e) => setNuevo((n) => ({ ...n, tipo: e.target.value }))}>{APU_TIPOS_P.map((t) => <option key={t.v} value={t.v}>{t.l}</option>)}</Select></div>
+              <Input className="col-span-2" placeholder="Descripción" value={nuevo.descripcion} onChange={(e) => setNuevo((n) => ({ ...n, descripcion: e.target.value }))} />
+              <Input placeholder="Unidad" value={nuevo.unidad} onChange={(e) => setNuevo((n) => ({ ...n, unidad: e.target.value }))} />
+              <Input type="number" placeholder="Cantidad/und" value={nuevo.cantidad} onChange={(e) => setNuevo((n) => ({ ...n, cantidad: e.target.value }))} />
+              <Input type="number" placeholder="Precio" value={nuevo.precio} onChange={(e) => setNuevo((n) => ({ ...n, precio: e.target.value }))} />
+              <Button variant="gradient" disabled={busy || !nuevo.descripcion} onClick={agregar}><Plus /> Agregar</Button>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 

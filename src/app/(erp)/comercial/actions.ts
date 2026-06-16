@@ -220,6 +220,42 @@ export async function eliminarComponenteApu(cotizacionId: string, itemId: string
   return { ok: true };
 }
 
+// Guarda el APU de un ítem de cotización como plantilla reutilizable del catálogo.
+export async function guardarApuComoPlantilla(
+  cotizacionId: string,
+  itemId: string,
+  meta: { codigo?: string },
+): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const admin = createAdminClient();
+
+  const { data: item } = await supabase.from('cotizacion_items').select('titulo, unidad, costo_unitario, cotizacion_id').eq('id', itemId).single();
+  if (!item) return { ok: false, error: 'Ítem no encontrado' };
+  const { data: comps } = await supabase.from('apu_componentes').select('*').eq('cotizacion_item_id', itemId).order('orden');
+  if (!comps || comps.length === 0) return { ok: false, error: 'Este ítem no tiene componentes APU' };
+
+  const { data: cot } = await supabase.from('cotizaciones').select('linea_id').eq('id', item.cotizacion_id).single();
+  const cu = comps.reduce((a, c) => a + Number(c.cantidad) * Number(c.precio), 0);
+
+  const { data: part, error } = await admin.from('catalogo_partidas').insert({
+    linea_id: cot?.linea_id ?? null,
+    codigo: meta.codigo || null,
+    descripcion: item.titulo,
+    unidad: item.unidad,
+    costo_referencial: cu,
+  }).select('id').single();
+  if (error || !part) return { ok: false, error: error?.message ?? 'Error al crear partida' };
+
+  await admin.from('catalogo_apu').insert(comps.map((c, i) => ({
+    catalogo_partida_id: part.id, tipo: c.tipo, descripcion: c.descripcion, unidad: c.unidad,
+    cuadrilla: c.cuadrilla, rendimiento: c.rendimiento, cantidad: c.cantidad, precio: c.precio, orden: i + 1,
+  })));
+
+  revalidatePath('/catalogos');
+  return { ok: true, id: part.id };
+}
+
 // ── Formas de pago ──────────────────────────────────────────────────────
 export async function guardarFormasPago(
   cotizacionId: string,

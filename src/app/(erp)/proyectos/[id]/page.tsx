@@ -32,6 +32,14 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     supabase.from('documentos').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }),
   ]);
 
+  const [{ data: catalogo }, { data: apuTpl }, { data: apuProy }] = await Promise.all([
+    supabase.from('catalogo_partidas').select('id, codigo, descripcion, unidad, costo_referencial').order('codigo'),
+    supabase.from('catalogo_apu').select('catalogo_partida_id'),
+    supabase.from('apu_proyecto').select('*, item:proyecto_items!inner(proyecto_id)').eq('item.proyecto_id', params.id).order('orden'),
+  ]);
+  const conApu = new Set((apuTpl ?? []).map((a) => a.catalogo_partida_id));
+  const catalogoConApu = (catalogo ?? []).map((c) => ({ ...c, tiene_apu: conApu.has(c.id) }));
+
   return (
     <div className="space-y-4">
       <Link href="/proyectos" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -50,6 +58,8 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         perfiles={perfiles.data ?? []}
         hitos={hitos.data ?? []}
         documentos={documentos.data ?? []}
+        catalogo={catalogoConApu}
+        apuProyecto={apuProy ?? []}
         canManage={['gerencia', 'jefe_proyectos', 'presupuestos'].includes(session.rol)}
       />
     </div>

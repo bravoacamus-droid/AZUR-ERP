@@ -25,7 +25,7 @@ import {
 import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
   cambiarEstado, guardarVersion, aprobarCotizacion, guardarCabecera,
-  guardarComponenteApu, eliminarComponenteApu,
+  guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -517,11 +517,23 @@ function ApuModal({ cotizacionId, item, componentes, editable, onClose, onChange
 
   const porTipo = (t: string) => componentes.filter((c) => c.tipo === t);
 
+  async function guardarPlantilla() {
+    if (componentes.length === 0) return;
+    const codigo = window.prompt('Código para la partida del catálogo (opcional):', '') ?? '';
+    setBusy(true);
+    const res = await guardarApuComoPlantilla(cotizacionId, item.id, { codigo });
+    setBusy(false);
+    alert(res.ok ? 'Guardada como plantilla en el catálogo ✅' : (res.error ?? 'Error'));
+  }
+
   return (
     <Modal open onClose={onClose} className="sm:max-w-3xl"
       title={`APU · ${item.titulo}`}
       description="Desglose del costo unitario por componentes. El C.U. de la partida se calcula automáticamente."
-      footer={<Button variant="gradient" onClick={onClose}>Listo · C.U. = {fmtNumber(cu)}</Button>}>
+      footer={<>
+        {editable && componentes.length > 0 && <Button variant="outline" onClick={guardarPlantilla} disabled={busy}>Guardar como plantilla</Button>}
+        <Button variant="gradient" onClick={onClose}>Listo · C.U. = {fmtNumber(cu)}</Button>
+      </>}>
       <div className="space-y-4">
         {APU_TIPOS.map((t) => {
           const comps = porTipo(t.v);

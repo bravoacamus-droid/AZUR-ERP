@@ -255,6 +255,56 @@ export type Database = {
           },
         ]
       }
+      apu_proyecto: {
+        Row: {
+          cantidad: number
+          created_at: string
+          cuadrilla: number | null
+          descripcion: string
+          id: string
+          orden: number
+          precio: number
+          proyecto_item_id: string
+          rendimiento: number | null
+          tipo: Database["public"]["Enums"]["apu_tipo"]
+          unidad: string | null
+        }
+        Insert: {
+          cantidad?: number
+          created_at?: string
+          cuadrilla?: number | null
+          descripcion: string
+          id?: string
+          orden?: number
+          precio?: number
+          proyecto_item_id: string
+          rendimiento?: number | null
+          tipo?: Database["public"]["Enums"]["apu_tipo"]
+          unidad?: string | null
+        }
+        Update: {
+          cantidad?: number
+          created_at?: string
+          cuadrilla?: number | null
+          descripcion?: string
+          id?: string
+          orden?: number
+          precio?: number
+          proyecto_item_id?: string
+          rendimiento?: number | null
+          tipo?: Database["public"]["Enums"]["apu_tipo"]
+          unidad?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "apu_proyecto_proyecto_item_id_fkey"
+            columns: ["proyecto_item_id"]
+            isOneToOne: false
+            referencedRelation: "proyecto_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       asistencias: {
         Row: {
           id: string
@@ -1708,6 +1758,7 @@ export type Database = {
           parent_id: string | null
           prioridad: Database["public"]["Enums"]["prioridad_enum"]
           proyecto_id: string
+          tiene_apu: boolean
           titulo: string
           total_costo: number | null
           unidad: string | null
@@ -1730,6 +1781,7 @@ export type Database = {
           parent_id?: string | null
           prioridad?: Database["public"]["Enums"]["prioridad_enum"]
           proyecto_id: string
+          tiene_apu?: boolean
           titulo: string
           total_costo?: number | null
           unidad?: string | null
@@ -1752,6 +1804,7 @@ export type Database = {
           parent_id?: string | null
           prioridad?: Database["public"]["Enums"]["prioridad_enum"]
           proyecto_id?: string
+          tiene_apu?: boolean
           titulo?: string
           total_costo?: number | null
           unidad?: string | null
