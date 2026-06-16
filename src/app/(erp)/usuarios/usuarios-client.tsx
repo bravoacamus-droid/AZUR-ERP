@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, UserCog } from 'lucide-react';
+import { Plus, UserCog, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Modal } from '@/components/ui/dialog';
@@ -12,7 +12,7 @@ import { Field, Avatar, EmptyState } from '@/components/ui/misc';
 import { PageHeader } from '@/components/ui/page';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { ROLES, ROL_META, rolLabel, type Rol } from '@/lib/roles';
-import { crearUsuario, cambiarRol, cambiarActivo } from './actions';
+import { crearUsuario, cambiarRol, cambiarActivo, cambiarPassword } from './actions';
 
 export type Profile = {
   id: string;
@@ -77,6 +77,17 @@ function NuevoUsuarioModal({ onClose }: { onClose: () => void }) {
 function FilaUsuario({ u, esYo }: { u: Profile; esYo: boolean }) {
   const [pending, setPending] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [passOpen, setPassOpen] = React.useState(false);
+  const [pass, setPass] = React.useState('');
+  const [passMsg, setPassMsg] = React.useState<string | null>(null);
+
+  const onPass = async () => {
+    setPending(true); setPassMsg(null);
+    const res = await cambiarPassword({ id: u.id, password: pass });
+    setPending(false);
+    if (!res.ok) { setPassMsg(res.error ?? 'Error'); return; }
+    setPass(''); setPassOpen(false);
+  };
 
   const onRol = async (rol: Rol) => {
     if (rol === u.rol) return;
@@ -93,6 +104,7 @@ function FilaUsuario({ u, esYo }: { u: Profile; esYo: boolean }) {
   };
 
   return (
+    <>
     <TableRow className={pending ? 'opacity-60' : undefined}>
       <TableCell>
         <div className="flex items-center gap-3">
@@ -118,17 +130,36 @@ function FilaUsuario({ u, esYo }: { u: Profile; esYo: boolean }) {
         {u.activo ? <Badge variant="success">Activo</Badge> : <Badge variant="danger">Inactivo</Badge>}
       </TableCell>
       <TableCell className="text-right">
-        <Button
-          variant={u.activo ? 'outline' : 'gradient'}
-          size="sm"
-          disabled={pending || esYo}
-          onClick={onActivo}
-          title={esYo ? 'No puedes cambiar tu propio estado' : undefined}
-        >
-          {u.activo ? 'Desactivar' : 'Activar'}
-        </Button>
+        <div className="flex justify-end gap-1.5">
+          <Button variant="outline" size="sm" disabled={pending} onClick={() => { setPassOpen(true); setPassMsg(null); setPass(''); }}>
+            <KeyRound className="size-3.5" /> Contraseña
+          </Button>
+          <Button
+            variant={u.activo ? 'outline' : 'gradient'}
+            size="sm"
+            disabled={pending || esYo}
+            onClick={onActivo}
+            title={esYo ? 'No puedes cambiar tu propio estado' : undefined}
+          >
+            {u.activo ? 'Desactivar' : 'Activar'}
+          </Button>
+        </div>
       </TableCell>
     </TableRow>
+    {passOpen && (
+      <Modal open={passOpen} onClose={() => setPassOpen(false)} title={`Cambiar contraseña · ${u.nombre}`}
+        description="Define una nueva contraseña (mínimo 6 caracteres)."
+        footer={<>
+          <Button variant="outline" onClick={() => setPassOpen(false)}>Cancelar</Button>
+          <Button variant="gradient" disabled={pending || pass.length < 6} onClick={onPass}>Guardar contraseña</Button>
+        </>}>
+        <Field label="Nueva contraseña">
+          <Input type="text" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Nueva contraseña" />
+        </Field>
+        {passMsg && <p className="mt-2 text-sm text-azur-700">{passMsg}</p>}
+      </Modal>
+    )}
+    </>
   );
 }
 

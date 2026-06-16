@@ -47,8 +47,14 @@ export function NotificationBell({ userId }: { userId: string }) {
   const unread = items.filter((i) => !i.leida).length;
 
   async function markAll() {
+    setItems((prev) => prev.map((i) => ({ ...i, leida: true }))); // optimista
     await supabase.from('notificaciones').update({ leida: true }).eq('leida', false);
     void load();
+  }
+
+  async function markOne(id: string) {
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, leida: true } : i))); // optimista
+    await supabase.from('notificaciones').update({ leida: true }).eq('id', id);
   }
 
   return (
@@ -83,6 +89,7 @@ export function NotificationBell({ userId }: { userId: string }) {
               <a
                 key={n.id}
                 href={n.url ?? '#'}
+                onClick={() => void markOne(n.id)}
                 className={`block border-b px-3 py-2.5 last:border-0 hover:bg-secondary ${!n.leida ? 'bg-azur-50/40' : ''}`}
               >
                 <p className="text-sm font-medium leading-tight">{n.titulo}</p>

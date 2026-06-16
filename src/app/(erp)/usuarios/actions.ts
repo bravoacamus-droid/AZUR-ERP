@@ -40,6 +40,18 @@ export async function crearUsuario(input: z.input<typeof crearSchema>): Promise<
   return { ok: true, id: data.user?.id };
 }
 
+const passSchema = z.object({ id: z.string().uuid(), password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres') });
+
+export async function cambiarPassword(input: z.input<typeof passSchema>): Promise<Res> {
+  await guard();
+  const parsed = passSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
+  const admin = createAdminClient();
+  const { error } = await admin.auth.admin.updateUserById(parsed.data.id, { password: parsed.data.password });
+  if (error) return { ok: false, error: error.message };
+  return { ok: true, id: parsed.data.id };
+}
+
 const rolSchema = z.object({ id: z.string().uuid(), rol: z.enum(ROLES) });
 
 export async function cambiarRol(input: z.input<typeof rolSchema>): Promise<Res> {
