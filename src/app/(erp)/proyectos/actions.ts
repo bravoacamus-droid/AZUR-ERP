@@ -401,6 +401,56 @@ export async function liquidarProyecto(proyectoId: string): Promise<Res> {
   return { ok: true };
 }
 
+// ── Mantenimiento programado (Sec. 3.6 / 7.2) ───────────────────────────
+const PASO_DIAS: Record<string, number> = { semanal: 7, quincenal: 15, mensual: 30, trimestral: 90, semestral: 180 };
+
+function sumarDias(iso: string, n: number) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
+export async function generarServiciosMantenimiento(
+  proyectoId: string,
+  input: { categoria: string; descripcion?: string; monto: number; recurrencia: string; inicio: string; repeticiones: number; dias_aviso: number },
+): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const reps = input.recurrencia === 'unica' ? 1 : Math.max(1, Math.min(60, input.repeticiones || 1));
+  const paso = PASO_DIAS[input.recurrencia] ?? 0;
+  const filas = Array.from({ length: reps }, (_, i) => ({
+    proyecto_id: proyectoId,
+    categoria: input.categoria,
+    descripcion: input.descripcion || null,
+    fecha_planificada: paso ? sumarDias(input.inicio, paso * i) : input.inicio,
+    monto: input.monto || 0,
+    recurrencia: input.recurrencia as never,
+    dias_aviso: input.dias_aviso || 7,
+    estado: 'programado',
+  }));
+  const { error } = await supabase.from('servicios_mantenimiento').insert(filas);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function actualizarServicio(proyectoId: string, id: string, patch: Record<string, unknown>): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('servicios_mantenimiento').update(patch as never).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function eliminarServicio(proyectoId: string, id: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  await supabase.from('servicios_mantenimiento').delete().eq('id', id);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
 // ── Hitos ───────────────────────────────────────────────────────────────
 export async function guardarHito(proyectoId: string, nombre: string, fecha: string): Promise<Res> {
   await guard();

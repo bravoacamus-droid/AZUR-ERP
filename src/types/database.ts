@@ -2084,6 +2084,70 @@ export type Database = {
           },
         ]
       }
+      servicios_mantenimiento: {
+        Row: {
+          categoria: string
+          created_at: string
+          created_by: string | null
+          descripcion: string | null
+          dias_aviso: number
+          estado: string
+          fecha_planificada: string
+          id: string
+          monto: number | null
+          proyecto_id: string
+          recurrencia: Database["public"]["Enums"]["recurrencia_enum"]
+        }
+        Insert: {
+          categoria: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          dias_aviso?: number
+          estado?: string
+          fecha_planificada: string
+          id?: string
+          monto?: number | null
+          proyecto_id: string
+          recurrencia?: Database["public"]["Enums"]["recurrencia_enum"]
+        }
+        Update: {
+          categoria?: string
+          created_at?: string
+          created_by?: string | null
+          descripcion?: string | null
+          dias_aviso?: number
+          estado?: string
+          fecha_planificada?: string
+          id?: string
+          monto?: number | null
+          proyecto_id?: string
+          recurrencia?: Database["public"]["Enums"]["recurrencia_enum"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servicios_mantenimiento_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicios_mantenimiento_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicios_mantenimiento_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_proyecto"
+            referencedColumns: ["proyecto_id"]
+          },
+        ]
+      }
       solicitudes_pago: {
         Row: {
           aprobado_at: string | null
@@ -2742,6 +2806,13 @@ export type Database = {
       origen_lead: "directo" | "recomendacion" | "oficina" | "llamada"
       plazo_tipo: "calendario" | "util"
       prioridad_enum: "muy_baja" | "baja" | "media" | "alta" | "muy_alta"
+      recurrencia_enum:
+        | "unica"
+        | "semanal"
+        | "quincenal"
+        | "mensual"
+        | "trimestral"
+        | "semestral"
       rol_enum:
         | "gerencia"
         | "jefe_proyectos"
@@ -2955,6 +3026,14 @@ export const Constants = {
       origen_lead: ["directo", "recomendacion", "oficina", "llamada"],
       plazo_tipo: ["calendario", "util"],
       prioridad_enum: ["muy_baja", "baja", "media", "alta", "muy_alta"],
+      recurrencia_enum: [
+        "unica",
+        "semanal",
+        "quincenal",
+        "mensual",
+        "trimestral",
+        "semestral",
+      ],
       rol_enum: [
         "gerencia",
         "jefe_proyectos",

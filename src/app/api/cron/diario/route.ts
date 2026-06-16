@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Tipos de alerta generados automáticamente (se limpian y regeneran cada corrida).
-const AUTO_TIPOS = ['cotizacion_por_vencer', 'cotizacion_vencida', 'hito_riesgo', 'armada_vencer', 'sobretiempo', 'caja_inactiva', 'salud_caja', 'sobrecosto_avance'];
+const AUTO_TIPOS = ['cotizacion_por_vencer', 'cotizacion_vencida', 'hito_riesgo', 'armada_vencer', 'sobretiempo', 'caja_inactiva', 'salud_caja', 'sobrecosto_avance', 'mantenimiento'];
 
 const DIAS_AVISO = 3;       // avisar N días antes de un vencimiento
 const DIAS_CAJA_INACTIVA = 15;
@@ -118,6 +118,22 @@ export async function GET(req: Request) {
       alertas.push({ tipo: 'caja_inactiva', severidad: 'info', proyecto_id: c.proyecto_id, titulo: `Caja sin movimientos: ${c.nombre}`, detalle: `Sin movimientos desde ${ultimo}.` });
     }
   }
+
+  // 6b) Servicios de mantenimiento próximos (alerta categoría + fecha)
+  const { data: servs } = await admin
+    .from('servicios_mantenimiento')
+    .select('id, categoria, descripcion, fecha_planificada, monto, dias_aviso, proyecto_id, estado, proyecto:proyectos(nombre)')
+    .eq('estado', 'programado');
+  let mant = 0;
+  for (const sv of servs ?? []) {
+    const aviso = addDays(sv.fecha_planificada as string, -(Number(sv.dias_aviso ?? 7)));
+    if (hoy >= aviso) {
+      const vencido = (sv.fecha_planificada as string) < hoy;
+      alertas.push({ tipo: 'mantenimiento', severidad: vencido ? 'advertencia' : 'info', proyecto_id: sv.proyecto_id, titulo: `Mantenimiento ${vencido ? 'pendiente' : 'próximo'}: ${sv.categoria}`, detalle: `${(sv.proyecto as { nombre?: string } | null)?.nombre ?? ''} · ${sv.fecha_planificada} · ${fmtMoney(Number(sv.monto))}` });
+      mant++;
+    }
+  }
+  if (mant) resumen.push(`${mant} servicio(s) de mantenimiento por atender`);
 
   // Inserta todas las alertas
   if (alertas.length) await admin.from('alertas').insert(alertas);

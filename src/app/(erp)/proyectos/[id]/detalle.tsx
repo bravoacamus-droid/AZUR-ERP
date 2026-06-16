@@ -27,13 +27,15 @@ import {
   guardarAvances, registrarCobroValorizacion, asignarEquipo, quitarEquipo, guardarArmadas,
   registrarAdicional, resolverAdicional, actualizarProyecto, guardarHito, subirDocumento,
   guardarComponenteApuProyecto, eliminarComponenteApuProyecto, liquidarProyecto,
+  generarServiciosMantenimiento, actualizarServicio, eliminarServicio,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, campo, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, campo, canManage } = props;
+  const esMantenimiento = proy.tipo_proyecto === 'chico';
   const [tab, setTab] = useState('resumen');
   const est = ESTADO_PROYECTO[proy.estado] ?? { label: proy.estado, variant: 'muted' as const };
   const cajaSaldo = cajas?.[0]?.saldo_actual ?? 0;
@@ -64,6 +66,7 @@ export function ProyectoDetalle(props: any) {
           { value: 'cobros', label: 'Cronograma de cobros' },
           { value: 'adicionales', label: 'Adicionales' },
           { value: 'equipo', label: 'Equipo' },
+          ...(esMantenimiento ? [{ value: 'mantenimiento', label: 'Mantenimiento' }] : []),
           { value: 'campo', label: 'Campo' },
           { value: 'liquidacion', label: 'Liquidación' },
           { value: 'expediente', label: 'Expediente' },
@@ -76,6 +79,7 @@ export function ProyectoDetalle(props: any) {
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
       {tab === 'campo' && <CampoTab campo={campo} />}
+      {tab === 'mantenimiento' && <Mantenimiento proy={proy} servicios={servicios} canManage={canManage} />}
       {tab === 'liquidacion' && <Liquidacion proy={proy} items={items} valorizaciones={valorizaciones} adicionales={adicionales} dash={dash} canManage={canManage} />}
       {tab === 'expediente' && <Expediente proy={proy} documentos={documentos} canManage={canManage} />}
     </div>
@@ -480,6 +484,91 @@ function ApuModalProy({ proyectoId, item, componentes, editable, onClose, onChan
         )}
       </div>
     </Modal>
+  );
+}
+
+// ─────────────────────────── MANTENIMIENTO ────────────────────────────
+const RECURRENCIAS = [
+  { v: 'unica', l: 'Única' }, { v: 'semanal', l: 'Semanal' }, { v: 'quincenal', l: 'Quincenal' },
+  { v: 'mensual', l: 'Mensual' }, { v: 'trimestral', l: 'Trimestral' }, { v: 'semestral', l: 'Semestral' },
+];
+const ESTADO_SERV: Record<string, any> = { programado: 'info', ejecutado: 'success', facturado: 'muted', cancelado: 'danger' };
+
+function Mantenimiento({ proy, servicios, canManage }: any) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [f, setF] = useState({ categoria: '', descripcion: '', monto: 0, recurrencia: 'mensual', inicio: fmtDateInput(new Date()), repeticiones: 6, dias_aviso: 7 });
+
+  async function generar() {
+    if (!f.categoria || !f.inicio) return;
+    setBusy(true);
+    await generarServiciosMantenimiento(proy.id, { ...f, monto: Number(f.monto), repeticiones: Number(f.repeticiones), dias_aviso: Number(f.dias_aviso) });
+    setF({ ...f, categoria: '', descripcion: '', monto: 0 });
+    router.refresh(); setBusy(false);
+  }
+  async function setEstado(id: string, estado: string) { await actualizarServicio(proy.id, id, { estado }); router.refresh(); }
+  async function borrar(id: string) { await eliminarServicio(proy.id, id); router.refresh(); }
+
+  const total = servicios.reduce((a: number, s: any) => a + Number(s.monto), 0);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-3">
+      {canManage && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Calendar className="size-4 text-azur-600" /> Programar servicios</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            <Field label="Categoría"><Input value={f.categoria} onChange={(e) => setF({ ...f, categoria: e.target.value })} placeholder="Ej. Limpieza, luminarias…" /></Field>
+            <Field label="Descripción"><Input value={f.descripcion} onChange={(e) => setF({ ...f, descripcion: e.target.value })} /></Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Monto por visita"><Input type="number" value={f.monto} onChange={(e) => setF({ ...f, monto: Number(e.target.value) })} /></Field>
+              <Field label="Recurrencia"><Select value={f.recurrencia} onChange={(e) => setF({ ...f, recurrencia: e.target.value })}>{RECURRENCIAS.map((r) => <option key={r.v} value={r.v}>{r.l}</option>)}</Select></Field>
+              <Field label="Inicio"><Input type="date" value={f.inicio} onChange={(e) => setF({ ...f, inicio: e.target.value })} /></Field>
+              <Field label="N° de visitas"><Input type="number" value={f.repeticiones} onChange={(e) => setF({ ...f, repeticiones: Number(e.target.value) })} disabled={f.recurrencia === 'unica'} /></Field>
+            </div>
+            <Field label="Avisar (días antes)"><Select value={String(f.dias_aviso)} onChange={(e) => setF({ ...f, dias_aviso: Number(e.target.value) })}><option value="7">7 días</option><option value="15">15 días</option><option value="30">30 días</option></Select></Field>
+            <Button variant="gradient" className="w-full" disabled={busy || !f.categoria} onClick={generar}><Plus /> Generar cronograma</Button>
+            <p className="text-xs text-muted-foreground">Genera N visitas según la recurrencia. Las alertas saltan según los días configurados.</p>
+          </CardContent>
+        </Card>
+      )}
+      <Card className="lg:col-span-2">
+        <CardHeader className="flex-row items-center justify-between pb-2">
+          <CardTitle className="text-base">Cronograma de servicios</CardTitle>
+          <span className="text-sm text-muted-foreground">Total: <b className="text-foreground">{fmtMoney(total)}</b></span>
+        </CardHeader>
+        <CardContent className="p-0">
+          {servicios.length === 0 ? <div className="p-6"><EmptyState titulo="Sin servicios programados" descripcion="Genera el cronograma de mantenimiento." /></div> : (
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                <tr><th className="px-3 py-2 text-left">Fecha</th><th className="px-3 py-2 text-left">Categoría</th><th className="px-3 py-2 text-right">Monto</th><th className="px-3 py-2">Estado</th><th className="px-3 py-2"></th></tr>
+              </thead>
+              <tbody>
+                {servicios.map((sv: any) => {
+                  const vencido = sv.estado === 'programado' && sv.fecha_planificada < fmtDateInput(new Date());
+                  return (
+                    <tr key={sv.id} className="border-b">
+                      <td className="px-3 py-2">{fmtDate(sv.fecha_planificada)}{vencido && <span className="ml-1 text-azur-600">●</span>}</td>
+                      <td className="px-3 py-2">{sv.categoria}{sv.descripcion && <span className="block text-xs text-muted-foreground">{sv.descripcion}</span>}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{fmtMoney(Number(sv.monto))}</td>
+                      <td className="px-3 py-2 text-center"><Badge variant={ESTADO_SERV[sv.estado] ?? 'muted'}>{sv.estado}</Badge></td>
+                      <td className="px-3 py-2">
+                        {canManage && (
+                          <div className="flex justify-end gap-1">
+                            {sv.estado === 'programado' && <Button size="sm" variant="outline" onClick={() => setEstado(sv.id, 'ejecutado')}>Ejecutado</Button>}
+                            {sv.estado === 'ejecutado' && <Button size="sm" variant="outline" onClick={() => setEstado(sv.id, 'facturado')}>Facturado</Button>}
+                            <Button size="icon" variant="ghost" onClick={() => borrar(sv.id)}><Trash2 className="size-3.5 text-azur-600" /></Button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
   );
 }
 

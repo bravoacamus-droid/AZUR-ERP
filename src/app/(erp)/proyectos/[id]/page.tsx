@@ -40,6 +40,12 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
   const conApu = new Set((apuTpl ?? []).map((a) => a.catalogo_partida_id));
   const catalogoConApu = (catalogo ?? []).map((c) => ({ ...c, tiene_apu: conApu.has(c.id) }));
 
+  const { data: servicios } = await supabase
+    .from('servicios_mantenimiento')
+    .select('*')
+    .eq('proyecto_id', params.id)
+    .order('fecha_planificada');
+
   // Datos de campo (capturados desde la PWA) para supervisión del Jefe
   const [asistencias, partesDiarios, evidencias, sstCharlas, sstObs, sstInc] = await Promise.all([
     supabase.from('asistencias').select('*, persona:profiles(nombre)').eq('proyecto_id', params.id).order('registrado_at', { ascending: false }).limit(50),
@@ -70,6 +76,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         documentos={documentos.data ?? []}
         catalogo={catalogoConApu}
         apuProyecto={apuProy ?? []}
+        servicios={servicios ?? []}
         campo={{
           asistencias: asistencias.data ?? [],
           partes: partesDiarios.data ?? [],
