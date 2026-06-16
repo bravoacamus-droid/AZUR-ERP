@@ -8,6 +8,7 @@ import { requireRol } from '@/lib/auth';
 import { notifyRoles } from '@/lib/push/notify';
 import { calcEstado, calcPrioridad, proyectadoSemana, semanasEntre } from '@/lib/lastplanner';
 import { saludRegla1, saludRegla2 } from '@/lib/salud';
+import { nowLima } from '@/lib/format';
 
 type Res = { ok: boolean; error?: string; id?: string };
 const ROLES_PROY = ['gerencia', 'jefe_proyectos', 'presupuestos'] as const;
@@ -243,6 +244,7 @@ export async function guardarAvances(
       fechaInicio: it.fecha_inicio,
       fechaEntrega: it.fecha_entrega,
       override: (it.estado_override as never) ?? null,
+      hoy: nowLima(),
     });
     const prioridad = calcPrioridad(acum, proyAcum);
     await supabase.from('proyecto_items').update({ estado_tarea: estado, prioridad }).eq('id', it.id);

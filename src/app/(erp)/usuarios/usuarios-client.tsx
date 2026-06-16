@@ -12,6 +12,7 @@ import { Field, Avatar, EmptyState } from '@/components/ui/misc';
 import { PageHeader } from '@/components/ui/page';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { ROLES, ROL_META, rolLabel, type Rol } from '@/lib/roles';
+import { soloDigitos } from '@/lib/utils';
 import { crearUsuario, cambiarRol, cambiarActivo, cambiarPassword } from './actions';
 
 export type Profile = {
@@ -54,7 +55,7 @@ function NuevoUsuarioModal({ onClose }: { onClose: () => void }) {
         <Field label="Nombre completo" required><Input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} required /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Email" required><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /></Field>
-          <Field label="Teléfono"><Input value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} /></Field>
+          <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={f.telefono} onChange={(e) => setF({ ...f, telefono: soloDigitos(e.target.value) })} /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Rol" required>

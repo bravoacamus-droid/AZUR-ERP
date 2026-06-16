@@ -31,6 +31,8 @@ const crearSchema = z.object({
   origen: z.enum(['directo', 'recomendacion', 'oficina', 'llamada']).optional(),
   vigencia_dias: z.coerce.number().optional(),
   plantilla_id: z.string().uuid().optional().or(z.literal('')),
+  lat: z.coerce.number().optional().nullable(),
+  lng: z.coerce.number().optional().nullable(),
 });
 
 export async function crearCotizacion(input: z.input<typeof crearSchema>): Promise<Res> {
@@ -65,6 +67,8 @@ export async function crearCotizacion(input: z.input<typeof crearSchema>): Promi
       origen: d.origen,
       vigencia_dias: d.vigencia_dias ?? 7,
       plantilla_id: d.plantilla_id || null,
+      lat: d.lat ?? null,
+      lng: d.lng ?? null,
       responsable_id: session.id,
       ...cond,
     })

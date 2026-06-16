@@ -12,7 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/dialog';
 import { Field, EmptyState } from '@/components/ui/misc';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { MapPicker } from '@/components/maps/map-picker';
+import { soloDigitos } from '@/lib/utils';
 import { guardarCliente, importarClientes } from '../catalogos/actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -98,18 +98,14 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="Razón social" required className="sm:col-span-2"><Input value={edit.razon_social} onChange={(e) => setEdit({ ...edit, razon_social: e.target.value })} /></Field>
             <Field label="Tipo doc"><Select value={edit.tipo_doc} onChange={(e) => setEdit({ ...edit, tipo_doc: e.target.value })}><option>RUC</option><option>DNI</option><option>CE</option></Select></Field>
-            <Field label="RUC / DNI"><Input value={edit.ruc_dni} onChange={(e) => setEdit({ ...edit, ruc_dni: e.target.value })} /></Field>
-            <Field label="Contacto"><Input value={edit.contacto_nombre} onChange={(e) => setEdit({ ...edit, contacto_nombre: e.target.value })} /></Field>
-            <Field label="Teléfono"><Input value={edit.contacto_telefono} onChange={(e) => setEdit({ ...edit, contacto_telefono: e.target.value })} /></Field>
-            <Field label="Email"><Input value={edit.contacto_email} onChange={(e) => setEdit({ ...edit, contacto_email: e.target.value })} /></Field>
-            <Field label="Origen"><Select value={edit.origen} onChange={(e) => setEdit({ ...edit, origen: e.target.value })}><option value="">—</option><option value="directo">Contacto directo</option><option value="recomendacion">Recomendación</option><option value="oficina">Visita a oficina</option><option value="llamada">Llamada/reunión</option></Select></Field>
-            <Field label="Ubicación" className="sm:col-span-2"><Input value={edit.ubicacion} onChange={(e) => setEdit({ ...edit, ubicacion: e.target.value })} /></Field>
-            <Field label="Ubicación en el mapa" hint="Busca la dirección o haz click en el mapa para fijar la coordenada." className="sm:col-span-2">
-              <MapPicker
-                value={{ lat: edit.lat, lng: edit.lng }}
-                onChange={(lat, lng, direccion) => setEdit((prev) => prev ? { ...prev, lat, lng, ubicacion: direccion ?? prev.ubicacion } : prev)}
-              />
+            <Field label="RUC / DNI" hint={edit.tipo_doc === 'RUC' ? '11 dígitos' : edit.tipo_doc === 'DNI' ? '8 dígitos' : ''}>
+              <Input inputMode="numeric" maxLength={edit.tipo_doc === 'DNI' ? 8 : 11} value={edit.ruc_dni} onChange={(e) => setEdit({ ...edit, ruc_dni: soloDigitos(e.target.value) })} />
             </Field>
+            <Field label="Contacto"><Input value={edit.contacto_nombre} onChange={(e) => setEdit({ ...edit, contacto_nombre: e.target.value })} /></Field>
+            <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={edit.contacto_telefono} onChange={(e) => setEdit({ ...edit, contacto_telefono: soloDigitos(e.target.value) })} /></Field>
+            <Field label="Email"><Input type="email" value={edit.contacto_email} onChange={(e) => setEdit({ ...edit, contacto_email: e.target.value })} /></Field>
+            <Field label="Origen"><Select value={edit.origen} onChange={(e) => setEdit({ ...edit, origen: e.target.value })}><option value="">—</option><option value="directo">Contacto directo</option><option value="recomendacion">Recomendación</option><option value="oficina">Visita a oficina</option><option value="llamada">Llamada/reunión</option></Select></Field>
+            <Field label="Ubicación (referencial)" hint="Dirección o referencia en texto libre." className="sm:col-span-2"><Input value={edit.ubicacion} onChange={(e) => setEdit({ ...edit, ubicacion: e.target.value })} /></Field>
             {error && <p className="text-sm text-azur-700 sm:col-span-2">{error}</p>}
           </div>
         )}

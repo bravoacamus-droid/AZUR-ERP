@@ -15,6 +15,7 @@ import { Field, EmptyState } from '@/components/ui/misc';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader } from '@/components/ui/page';
 import { fmtMoney } from '@/lib/format';
+import { soloDigitos } from '@/lib/utils';
 import {
   guardarCliente,
   importarClientes,
@@ -196,12 +197,12 @@ function ClienteForm({ cliente, onClose }: { cliente: Cliente | null; onClose: (
             </Select>
           </Field>
           <Field label="N° documento" className="col-span-2">
-            <Input value={f.ruc_dni} onChange={(e) => setF({ ...f, ruc_dni: e.target.value })} />
+            <Input inputMode="numeric" maxLength={11} value={f.ruc_dni} onChange={(e) => setF({ ...f, ruc_dni: soloDigitos(e.target.value) })} />
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Contacto"><Input value={f.contacto_nombre} onChange={(e) => setF({ ...f, contacto_nombre: e.target.value })} /></Field>
-          <Field label="Teléfono"><Input value={f.contacto_telefono} onChange={(e) => setF({ ...f, contacto_telefono: e.target.value })} /></Field>
+          <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={f.contacto_telefono} onChange={(e) => setF({ ...f, contacto_telefono: soloDigitos(e.target.value) })} /></Field>
         </div>
         <Field label="Email"><Input type="email" value={f.contacto_email} onChange={(e) => setF({ ...f, contacto_email: e.target.value })} /></Field>
         <div className="grid grid-cols-2 gap-3">
@@ -338,10 +339,10 @@ function ContraparteForm({ contraparte, onClose }: { contraparte: Contraparte | 
               <option value="ambos">Ambos</option>
             </Select>
           </Field>
-          <Field label="RUC/DNI"><Input value={f.ruc_dni} onChange={(e) => setF({ ...f, ruc_dni: e.target.value })} /></Field>
+          <Field label="RUC/DNI"><Input inputMode="numeric" maxLength={11} value={f.ruc_dni} onChange={(e) => setF({ ...f, ruc_dni: soloDigitos(e.target.value) })} /></Field>
           <Field label="Especialidad" className="col-span-2"><Input value={f.especialidad} onChange={(e) => setF({ ...f, especialidad: e.target.value })} /></Field>
           <Field label="Contacto"><Input value={f.contacto} onChange={(e) => setF({ ...f, contacto: e.target.value })} /></Field>
-          <Field label="Teléfono"><Input value={f.telefono} onChange={(e) => setF({ ...f, telefono: e.target.value })} /></Field>
+          <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={f.telefono} onChange={(e) => setF({ ...f, telefono: soloDigitos(e.target.value) })} /></Field>
         </div>
         <div className="grid grid-cols-3 gap-3">
           <Field label="Banco"><Input value={f.banco} onChange={(e) => setF({ ...f, banco: e.target.value })} /></Field>

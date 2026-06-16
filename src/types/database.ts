@@ -814,7 +814,9 @@ export type Database = {
           gg_pct: number | null
           id: string
           igv_pct: number | null
+          lat: number | null
           linea_id: string | null
+          lng: number | null
           margen_min_pct: number | null
           moneda: Database["public"]["Enums"]["moneda_enum"]
           mostrar_ga: boolean
@@ -859,7 +861,9 @@ export type Database = {
           gg_pct?: number | null
           id?: string
           igv_pct?: number | null
+          lat?: number | null
           linea_id?: string | null
+          lng?: number | null
           margen_min_pct?: number | null
           moneda?: Database["public"]["Enums"]["moneda_enum"]
           mostrar_ga?: boolean
@@ -904,7 +908,9 @@ export type Database = {
           gg_pct?: number | null
           id?: string
           igv_pct?: number | null
+          lat?: number | null
           linea_id?: string | null
+          lng?: number | null
           margen_min_pct?: number | null
           moneda?: Database["public"]["Enums"]["moneda_enum"]
           mostrar_ga?: boolean

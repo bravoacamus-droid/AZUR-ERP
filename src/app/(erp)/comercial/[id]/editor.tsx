@@ -386,7 +386,7 @@ export function CotizacionEditor({
                       <p className="font-medium">Versión {v.version}</p>
                       <p className="text-xs text-muted-foreground">{v.justificacion || 'Sin justificación'}</p>
                     </div>
-                    <span className="text-xs text-muted-foreground">{new Date(v.created_at).toLocaleString('es-PE')}</span>
+                    <span className="text-xs text-muted-foreground">{fmtDateTime(v.created_at)}</span>
                   </li>
                 ))}
               </ul>

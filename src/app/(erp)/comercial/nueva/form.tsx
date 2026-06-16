@@ -9,6 +9,8 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
 import { Modal } from '@/components/ui/dialog';
+import { soloDigitos } from '@/lib/utils';
+import { MapPicker } from '@/components/maps/map-picker';
 import { crearCotizacion } from '../actions';
 import { guardarCliente } from '../../catalogos/actions';
 
@@ -45,6 +47,8 @@ export function NuevaCotizacionForm({
     ubicacion: '',
     vigencia_dias: 7,
     plantilla_id: '',
+    lat: null as number | null,
+    lng: null as number | null,
   });
 
   const set = (k: string, v: string | number) => setForm((f) => ({ ...f, [k]: v }));
@@ -166,6 +170,13 @@ export function NuevaCotizacionForm({
           </Field>
         </div>
 
+        <Field label="Ubicación en el mapa" hint="Busca la dirección o haz click en el mapa; rellena la ubicación automáticamente.">
+          <MapPicker
+            value={{ lat: form.lat, lng: form.lng }}
+            onChange={(lat, lng, direccion) => setForm((f) => ({ ...f, lat, lng, ubicacion: direccion ?? f.ubicacion }))}
+          />
+        </Field>
+
         {error && <p className="rounded-lg bg-azur-50 px-3 py-2 text-sm text-azur-700">{error}</p>}
 
         <div className="flex justify-end">
@@ -181,7 +192,7 @@ export function NuevaCotizacionForm({
           <div className="space-y-3">
             <Field label="Razón social" required><Input value={nuevoCli.razon_social} onChange={(e) => setNuevoCli({ ...nuevoCli, razon_social: e.target.value })} /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="RUC / DNI"><Input value={nuevoCli.ruc_dni} onChange={(e) => setNuevoCli({ ...nuevoCli, ruc_dni: e.target.value })} /></Field>
+              <Field label="RUC / DNI"><Input inputMode="numeric" maxLength={11} value={nuevoCli.ruc_dni} onChange={(e) => setNuevoCli({ ...nuevoCli, ruc_dni: soloDigitos(e.target.value) })} /></Field>
               <Field label="Contacto"><Input value={nuevoCli.contacto_nombre} onChange={(e) => setNuevoCli({ ...nuevoCli, contacto_nombre: e.target.value })} /></Field>
             </div>
           </div>

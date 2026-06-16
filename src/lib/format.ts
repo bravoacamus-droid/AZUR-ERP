@@ -4,6 +4,14 @@
 
 export const TZ = 'America/Lima';
 
+// "Ahora" en hora de Perú (para lógica de fechas en servidor — Vercel corre en UTC).
+export const nowLima = (): Date => new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
+export const todayLimaISO = (): string => {
+  const p = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+  const g = (t: string) => p.find((x) => x.type === t)?.value;
+  return `${g('year')}-${g('month')}-${g('day')}`;
+};
+
 export const fmtDate = (d: Date | string | null | undefined) => {
   if (!d) return '—';
   return new Date(d).toLocaleDateString('es-PE', {
