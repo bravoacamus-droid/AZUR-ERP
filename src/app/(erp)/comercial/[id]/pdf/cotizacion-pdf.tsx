@@ -1,5 +1,6 @@
-import { Document, Page, View, Text, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { fmtMoney, fmtNumber } from '@/lib/format';
+import { LOGO_DATA_URI } from '@/lib/brand-logo';
 
 const AZUR = '#E20627';
 const AZUR2 = '#BE1723';
@@ -8,6 +9,9 @@ const AZUR2 = '#BE1723';
 const s = StyleSheet.create({
   page: { padding: 32, fontSize: 9, fontFamily: 'Helvetica', color: '#1a1a1a' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, borderBottomWidth: 2, borderBottomColor: AZUR, paddingBottom: 10 },
+  logoBox: { width: 54, height: 54, backgroundColor: '#fff', borderRadius: 8, padding: 3, borderWidth: 1, borderColor: '#eee' },
+  logo: { width: 48, height: 48, objectFit: 'contain' },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brand: { fontSize: 22, fontFamily: 'Helvetica-Bold', color: AZUR },
   brandSub: { fontSize: 7, color: '#666', letterSpacing: 2 },
   codigo: { fontSize: 12, fontFamily: 'Helvetica-Bold', color: AZUR2, textAlign: 'right' },
@@ -50,11 +54,14 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
     <Document title={`COTIZACIÓN ${d.codigo}`}>
       <Page size="A4" style={s.page}>
         <View style={s.header}>
-          <View>
-            <Text style={s.brand}>AZUR</Text>
-            <Text style={s.brandSub}>CONSTRUCTORA E INMOBILIARIA</Text>
-            <Text style={{ fontSize: 8, marginTop: 4 }}>{d.empresa}</Text>
-            {d.rucEmpresa ? <Text style={{ fontSize: 8, color: '#666' }}>{d.rucEmpresa}</Text> : null}
+          <View style={s.brandRow}>
+            <View style={s.logoBox}><Image src={LOGO_DATA_URI} style={s.logo} /></View>
+            <View>
+              <Text style={s.brand}>AZUR</Text>
+              <Text style={s.brandSub}>CONSTRUCTORA E INMOBILIARIA</Text>
+              <Text style={{ fontSize: 8, marginTop: 4 }}>{d.empresa}</Text>
+              {d.rucEmpresa ? <Text style={{ fontSize: 8, color: '#666' }}>{d.rucEmpresa}</Text> : null}
+            </View>
           </View>
           <View>
             <Text style={s.codigo}>COTIZACIÓN {d.codigo}</Text>

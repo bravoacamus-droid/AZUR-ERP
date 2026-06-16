@@ -32,6 +32,18 @@ export default async function CotizacionPage({ params }: { params: { id: string 
   const conApu = new Set((apuTpl ?? []).map((a) => a.catalogo_partida_id));
   const catalogoConApu = (catalogo ?? []).map((c) => ({ ...c, tiene_apu: conApu.has(c.id) }));
 
+  // historial de modificaciones (audit log de la cotización y sus ítems)
+  const [{ data: aCot }, { data: aItems }, { data: perfiles }] = await Promise.all([
+    supabase.from('audit_log').select('*').eq('tabla', 'cotizaciones').eq('registro_id', params.id),
+    supabase.from('audit_log').select('*').eq('tabla', 'cotizacion_items').or(`new_data->>cotizacion_id.eq.${params.id},old_data->>cotizacion_id.eq.${params.id}`),
+    supabase.from('profiles').select('id, nombre'),
+  ]);
+  const historial = [...(aCot ?? []), ...(aItems ?? [])]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, 200);
+  const perfilesMap: Record<string, string> = {};
+  (perfiles ?? []).forEach((p) => { perfilesMap[p.id] = p.nombre; });
+
   return (
     <div className="space-y-4">
       <Link href="/comercial" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
@@ -45,6 +57,8 @@ export default async function CotizacionPage({ params }: { params: { id: string 
         medios={medios ?? []}
         apu={apu ?? []}
         catalogo={catalogoConApu}
+        historial={historial}
+        perfilesMap={perfilesMap}
         userNombre={session.nombre}
         userId={session.id}
       />

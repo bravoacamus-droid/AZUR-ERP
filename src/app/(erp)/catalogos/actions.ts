@@ -28,6 +28,8 @@ const clienteSchema = z.object({
   contacto_telefono: opt(),
   ubicacion: opt(),
   origen: z.enum(['directo', 'recomendacion', 'oficina', 'llamada']).optional().or(z.literal('')).transform((v) => (v ? v : null)),
+  lat: z.union([z.coerce.number(), z.literal(''), z.null()]).optional().transform((v) => (v === '' || v == null ? null : Number(v))),
+  lng: z.union([z.coerce.number(), z.literal(''), z.null()]).optional().transform((v) => (v === '' || v == null ? null : Number(v))),
 });
 
 export async function guardarCliente(input: z.input<typeof clienteSchema>): Promise<Res> {

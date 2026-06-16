@@ -563,6 +563,8 @@ export type Database = {
           contacto_telefono: string | null
           created_at: string
           id: string
+          lat: number | null
+          lng: number | null
           origen: Database["public"]["Enums"]["origen_lead"] | null
           razon_social: string
           recomendado_por: string | null
@@ -576,6 +578,8 @@ export type Database = {
           contacto_telefono?: string | null
           created_at?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           origen?: Database["public"]["Enums"]["origen_lead"] | null
           razon_social: string
           recomendado_por?: string | null
@@ -589,6 +593,8 @@ export type Database = {
           contacto_telefono?: string | null
           created_at?: string
           id?: string
+          lat?: number | null
+          lng?: number | null
           origen?: Database["public"]["Enums"]["origen_lead"] | null
           razon_social?: string
           recomendado_por?: string | null

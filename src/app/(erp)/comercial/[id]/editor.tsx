@@ -9,6 +9,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
 import { Avatar, Field } from '@/components/ui/misc';
@@ -16,7 +17,7 @@ import { Dropdown, DropdownItem } from '@/components/ui/dropdown';
 import { Modal } from '@/components/ui/dialog';
 import { Tabs } from '@/components/ui/tabs';
 import { createClient } from '@/lib/supabase/client';
-import { fmtMoney, fmtNumber } from '@/lib/format';
+import { fmtMoney, fmtNumber, fmtDateTime } from '@/lib/format';
 import { ESTADO_COTIZACION } from '@/lib/estados';
 import {
   armarArbol, renumerar, calcularCostosMargen, calcularTotales,
@@ -32,9 +33,10 @@ import {
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot, items, formas, versiones, medios, apu, catalogo, userNombre, userId,
+  cot, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId,
 }: {
   cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
+  historial: any[]; perfilesMap: Record<string, string>;
   userNombre: string; userId: string;
 }) {
   const router = useRouter();
@@ -225,6 +227,7 @@ export function CotizacionEditor({
         tabs={[
           { value: 'presupuesto', label: 'Presupuesto (APU)' },
           { value: 'pago', label: 'Condiciones y pago' },
+          { value: 'historial', label: 'Historial de modificaciones' },
           { value: 'versiones', label: `Versiones (${versiones.length})` },
         ]}
       />
@@ -353,6 +356,8 @@ export function CotizacionEditor({
       {tab === 'pago' && (
         <CondicionesPago cot={cot} formas={formas} medios={medios} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
       )}
+
+      {tab === 'historial' && <HistorialCambios historial={historial} perfilesMap={perfilesMap} />}
 
       {tab === 'versiones' && (
         <Card>
@@ -689,6 +694,7 @@ function CondicionesPago({ cot, formas, medios, onSave, onCab, editable }: any) 
   );
   const suma = items.reduce((a, f) => a + f.porcentaje, 0);
   return (
+   <div className="space-y-4">
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">Forma de pago y adelanto</CardTitle></CardHeader>
@@ -739,5 +745,121 @@ function CondicionesPago({ cot, formas, medios, onSave, onCab, editable }: any) 
         </CardContent>
       </Card>
     </div>
+
+    <CondicionesEditor cot={cot} onCab={onCab} editable={editable} />
+   </div>
+  );
+}
+
+// Paleta de colores por usuario para el changelog
+const USER_COLORS = ['#E20627', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316'];
+const CAMPO_LABEL: Record<string, string> = {
+  titulo: 'Título', unidad: 'Unidad', cantidad: 'Cantidad', costo_unitario: 'Costo unitario',
+  margen_pct: '% Margen', es_hoja: 'Es hoja', descuento_pct: '% Descuento', descuento_activo: 'Descuento activo',
+  gg_pct: '% GG', ga_pct: '% GA', utilidad_pct: '% Utilidad', igv_pct: '% IGV', estado: 'Estado',
+  proyecto_nombre: 'Nombre proyecto', condiciones: 'Condiciones', servicios_incluidos: 'Servicios incluidos',
+  servicios_omitidos: 'Servicios omitidos', garantia: 'Garantía', garantia_activa: 'Garantía activa', version: 'Versión',
+};
+const IGNORAR = new Set(['updated_at', 'created_at', 'id', 'cotizacion_id', 'parent_id', 'correlativo', 'orden', 'codigo']);
+
+function HistorialCambios({ historial, perfilesMap }: { historial: any[]; perfilesMap: Record<string, string> }) {
+  const colorDe = (uid: string | null) => {
+    if (!uid) return '#94a3b8';
+    const keys = Object.keys(perfilesMap);
+    const idx = keys.indexOf(uid);
+    return USER_COLORS[(idx >= 0 ? idx : 0) % USER_COLORS.length];
+  };
+  const fmtVal = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v));
+
+  function cambios(e: any): { campo: string; antes: any; despues: any }[] {
+    if (e.accion === 'INSERT') return [{ campo: '➕ creado', antes: null, despues: e.new_data?.titulo ?? e.new_data?.proyecto_nombre ?? '' }];
+    if (e.accion === 'DELETE') return [{ campo: '🗑️ eliminado', antes: e.old_data?.titulo ?? '', despues: null }];
+    const out: { campo: string; antes: any; despues: any }[] = [];
+    const o = e.old_data ?? {}, n = e.new_data ?? {};
+    for (const k of Object.keys(n)) {
+      if (IGNORAR.has(k)) continue;
+      if (JSON.stringify(o[k]) !== JSON.stringify(n[k])) out.push({ campo: CAMPO_LABEL[k] ?? k, antes: o[k], despues: n[k] });
+    }
+    return out;
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Historial de modificaciones</CardTitle>
+        <p className="text-xs text-muted-foreground">Quién cambió qué, cuándo. Color por usuario · valor anterior → nuevo.</p>
+      </CardHeader>
+      <CardContent className="p-0">
+        {historial.length === 0 ? (
+          <p className="py-10 text-center text-sm text-muted-foreground">Sin modificaciones registradas todavía.</p>
+        ) : (
+          <ul className="divide-y">
+            {historial.map((e) => {
+              const cs = cambios(e);
+              if (cs.length === 0) return null;
+              const color = colorDe(e.usuario_id);
+              const nombre = e.usuario_id ? (perfilesMap[e.usuario_id] ?? 'Usuario') : 'Sistema';
+              return (
+                <li key={e.id} className="flex gap-3 px-4 py-2.5">
+                  <span className="mt-1 size-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium" style={{ color }}>{nombre}</span>
+                      <span className="text-[11px] text-muted-foreground">{fmtDateTime(e.created_at)}</span>
+                    </div>
+                    <div className="mt-0.5 space-y-0.5">
+                      {cs.map((c, i) => (
+                        <p key={i} className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{c.campo}</span>
+                          {c.antes !== null || c.despues !== null ? (
+                            <> : <span className="line-through">{fmtVal(c.antes)}</span> → <span className="text-foreground">{fmtVal(c.despues)}</span></>
+                          ) : null}
+                        </p>
+                      ))}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function CondicionesEditor({ cot, onCab, editable }: any) {
+  const campos = [
+    { k: 'condiciones', label: 'Condiciones generales' },
+    { k: 'servicios_incluidos', label: 'Servicios incluidos' },
+    { k: 'servicios_omitidos', label: 'Servicios omitidos' },
+  ];
+  return (
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="text-base">Condiciones, servicios y garantía</CardTitle></CardHeader>
+      <CardContent className="grid gap-4 lg:grid-cols-2">
+        {campos.map((c) => (
+          <Field key={c.k} label={c.label} className={c.k === 'condiciones' ? 'lg:col-span-2' : ''}>
+            <Textarea rows={4} defaultValue={cot[c.k] ?? ''} disabled={!editable}
+              onBlur={(e) => e.target.value !== (cot[c.k] ?? '') && onCab({ [c.k]: e.target.value })}
+              placeholder={`Texto de ${c.label.toLowerCase()} (editable, se precarga desde la plantilla)`} />
+          </Field>
+        ))}
+        <div className="lg:col-span-2">
+          <div className="mb-1.5 flex items-center justify-between">
+            <label className="text-sm font-medium text-foreground/90">Garantía</label>
+            {editable && (
+              <button onClick={() => onCab({ garantia_activa: !cot.garantia_activa })}
+                className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${cot.garantia_activa ? 'bg-emerald-100 text-emerald-700' : 'bg-muted text-muted-foreground'}`}>
+                {cot.garantia_activa ? 'Incluida ✓' : 'Oculta'}
+              </button>
+            )}
+          </div>
+          <Textarea rows={3} defaultValue={cot.garantia ?? ''} disabled={!editable}
+            onBlur={(e) => e.target.value !== (cot.garantia ?? '') && onCab({ garantia: e.target.value })} />
+        </div>
+        <p className="text-xs text-muted-foreground lg:col-span-2">Los cambios se guardan automáticamente al salir de cada campo. Se reflejan en el PDF (la garantía solo si está incluida).</p>
+      </CardContent>
+    </Card>
   );
 }
