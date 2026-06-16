@@ -97,9 +97,7 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage }: an
         </div>
         <BarraTresTramos p={d} />
         <div className="flex justify-end">
-          <a href={`/proyectos/${proy.id}/informe/pdf`} target="_blank" rel="noreferrer">
-            <Button variant="outline"><FileBarChart /> Informe de obra (PDF)</Button>
-          </a>
+          <InformeBtn proyectoId={proy.id} />
         </div>
         {proy.tipo_proyecto === 'grande' && (
           <CurvaS contratoTotal={Number(proy.contrato_total)} fechaInicio={proy.fecha_inicio} fechaFin={proy.fecha_fin} valorizaciones={valorizaciones} />
@@ -594,6 +592,42 @@ function CampoTab({ campo }: any) {
         </div>
       )}
     </div>
+  );
+}
+
+// Botón + modal para elegir qué secciones lleva el informe al cliente.
+function InformeBtn({ proyectoId }: { proyectoId: string }) {
+  const [open, setOpen] = useState(false);
+  const [secs, setSecs] = useState({ economico: true, avance: true, evidencias: true, observaciones: true });
+  const OPCIONES = [
+    { k: 'economico' as const, label: 'Resumen económico (contrato, valorizado, por cobrar)' },
+    { k: 'avance' as const, label: 'Avance por partida (valorizaciones / saldos)' },
+    { k: 'evidencias' as const, label: 'Registro fotográfico (evidencias)' },
+    { k: 'observaciones' as const, label: 'Observaciones del residente' },
+  ];
+  function generar() {
+    const sp = new URLSearchParams();
+    OPCIONES.forEach((o) => { if (!secs[o.k]) sp.set(o.k, '0'); });
+    window.open(`/proyectos/${proyectoId}/informe/pdf?${sp.toString()}`, '_blank');
+    setOpen(false);
+  }
+  return (
+    <>
+      <Button variant="outline" onClick={() => setOpen(true)}><FileBarChart /> Informe de obra (PDF)</Button>
+      <Modal open={open} onClose={() => setOpen(false)} title="Generar informe para el cliente"
+        description="Marca las secciones que quieres incluir. Desmarca las que prefieras omitir."
+        footer={<><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
+          <Button variant="gradient" onClick={generar}><FileBarChart /> Generar PDF</Button></>}>
+        <div className="space-y-2">
+          {OPCIONES.map((o) => (
+            <label key={o.k} className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 hover:bg-secondary">
+              <input type="checkbox" checked={secs[o.k]} onChange={(e) => setSecs((s) => ({ ...s, [o.k]: e.target.checked }))} className="size-4 accent-azur-600" />
+              <span className="text-sm">{o.label}</span>
+            </label>
+          ))}
+        </div>
+      </Modal>
+    </>
   );
 }
 

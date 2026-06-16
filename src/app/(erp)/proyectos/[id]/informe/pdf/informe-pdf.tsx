@@ -94,6 +94,7 @@ export interface InformePdfData {
   deductivos: number;
   galeria: InformeGaleria[];
   notas: InformeNota[];
+  opciones?: { economico?: boolean; avance?: boolean; evidencias?: boolean; observaciones?: boolean };
 }
 
 // Image segura: si la url falla, @react-pdf omite el render del nodo y no rompe
@@ -111,6 +112,8 @@ function SafeImage({ url }: { url: string }) {
 }
 
 export function InformePDF({ d }: { d: InformePdfData }) {
+  const op = d.opciones ?? {};
+  const show = (k: keyof NonNullable<InformePdfData['opciones']>) => op[k] !== false;
   return (
     <Document title={`Informe de obra — ${d.codigo}`}>
       <Page size="A4" style={s.page}>
@@ -142,6 +145,7 @@ export function InformePDF({ d }: { d: InformePdfData }) {
         </View>
 
         {/* Resumen económico */}
+        {show('economico') && <>
         <Text style={s.sectionTitle}>Resumen económico</Text>
         <View style={s.box}>
           <View style={s.rowB}><Text style={s.k}>Monto del contrato</Text><Text style={s.vb}>{fmtMoney(d.contrato)}</Text></View>
@@ -150,8 +154,10 @@ export function InformePDF({ d }: { d: InformePdfData }) {
           <View style={[s.rowB, { borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 4, marginTop: 2 }]}><Text style={s.k}>Adicionales aprobados</Text><Text style={[s.vb, s.pos]}>+ {fmtMoney(d.adicionales)}</Text></View>
           <View style={s.rowB}><Text style={s.k}>Deductivos aprobados</Text><Text style={[s.vb, s.hi]}>- {fmtMoney(d.deductivos)}</Text></View>
         </View>
+        </>}
 
-        {/* Resumen de avance por partida */}
+        {/* Resumen de avance por partida (incluye valorizado/saldo) */}
+        {show('avance') && <>
         <Text style={s.sectionTitle}>Resumen de avance por partida</Text>
         <View style={s.thead}>
           <Text style={[s.th, s.cTit]}>PARTIDA</Text>
@@ -169,8 +175,10 @@ export function InformePDF({ d }: { d: InformePdfData }) {
             <Text style={[s.cSal, ...(r.esGeneral ? [s.bold] : [])]}>{fmtMoney(r.saldo)}</Text>
           </View>
         ))}
+        </>}
 
         {/* Galería de evidencias */}
+        {show('evidencias') && <>
         <Text style={[s.sectionTitle, { marginTop: 12 }]}>Registro fotográfico de obra</Text>
         {d.galeria.length === 0 ? (
           <Text style={s.empty}>Sin evidencias registradas.</Text>
@@ -188,9 +196,10 @@ export function InformePDF({ d }: { d: InformePdfData }) {
             </View>
           </View>
         ))}
+        </>}
 
         {/* Notas / observaciones del residente */}
-        {d.notas.length > 0 && (
+        {show('observaciones') && d.notas.length > 0 && (
           <View wrap={false}>
             <Text style={[s.sectionTitle, { marginTop: 12 }]}>Observaciones del residente</Text>
             {d.notas.map((n, i) => (

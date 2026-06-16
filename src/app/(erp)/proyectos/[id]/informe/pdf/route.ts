@@ -7,8 +7,16 @@ import { InformePDF, type InformePdfData, type InformeRow, type InformeGaleria }
 
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string } }) {
   const supabase = createClient();
+  const sp = new URL(req.url).searchParams;
+  // cada sección se incluye salvo que venga "=0"
+  const opciones = {
+    economico: sp.get('economico') !== '0',
+    avance: sp.get('avance') !== '0',
+    evidencias: sp.get('evidencias') !== '0',
+    observaciones: sp.get('observaciones') !== '0',
+  };
 
   const { data: proy } = await supabase
     .from('proyectos')
@@ -103,6 +111,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     deductivos: deductivosAprob,
     galeria,
     notas,
+    opciones,
   };
 
   const buffer = await renderToBuffer(createElement(InformePDF as any, { d }) as any);

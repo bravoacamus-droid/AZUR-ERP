@@ -155,9 +155,15 @@ export function EvidenciaForm({
         <MapPin className="size-3.5" /> Se intentará capturar la ubicación GPS.
       </p>
 
-      <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>
-        {loading && <Loader2 className="animate-spin" />} Subir evidencia
-      </Button>
+      {!file ? (
+        <Button variant="gradient" size="lg" className="w-full" type="button" onClick={() => fileRef.current?.click()}>
+          <Camera /> Tomar / elegir foto
+        </Button>
+      ) : (
+        <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>
+          {loading && <Loader2 className="animate-spin" />} Subir evidencia
+        </Button>
+      )}
 
       {msg && (
         <p className={`text-center text-sm ${msg.type === 'ok' ? 'text-emerald-600' : 'text-azur-600'}`}>
