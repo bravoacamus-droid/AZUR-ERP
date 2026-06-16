@@ -288,6 +288,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   <th className="px-2 py-2 text-left">Contratista</th>
                   <th className="px-2 py-2">Inicio</th>
                   <th className="px-2 py-2">Entrega</th>
+                  <th className="px-2 py-2">Dur</th>
                   <th className="px-2 py-2">Estado</th>
                   <th className="px-2 py-2">Prioridad</th>
                   <th className="px-2 py-2">% Acum</th>
@@ -327,9 +328,10 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                       </td>
                       <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" defaultValue={fmtDateInput(row.fecha_inicio)} onBlur={(e) => save(row.id, { fecha_inicio: e.target.value || null })} /> : (hoja ? fmtDate(row.fecha_inicio) : '')}</td>
                       <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" defaultValue={fmtDateInput(row.fecha_entrega)} onBlur={(e) => save(row.id, { fecha_entrega: e.target.value || null })} /> : (hoja ? fmtDate(row.fecha_entrega) : '')}</td>
+                      <td className="px-1 py-1.5 text-center">{hoja && canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" defaultValue={row.duracion_dias ?? ''} onBlur={(e) => save(row.id, { duracion_dias: e.target.value === '' ? null : Number(e.target.value) })} /> : (hoja && row.duracion_dias != null ? row.duracion_dias : '')}</td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={et.variant}>{et.label}</Badge></td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={pr.variant}>{pr.label}</Badge></td>
-                      <td className="px-2 py-1.5 text-center tabular-nums">{fmtPct(cv?.pct_acumulado ?? 0, 0)}</td>
+                      <td className="px-2 py-1.5"><PctBar pct={cv?.pct_acumulado ?? 0} /></td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.saldo ?? 0)}</td>
                       {valsSorted.map((v, i) => {
                         const isActive = i === valsSorted.length - 1;
@@ -587,6 +589,20 @@ function CampoTab({ campo }: any) {
             </CardContent></Card>
         </div>
       )}
+    </div>
+  );
+}
+
+// Barra de % acumulado (data bar verde, como el Excel del cliente).
+function PctBar({ pct }: { pct: number }) {
+  const p = Math.max(0, Math.min(1, pct));
+  const completo = p >= 0.999;
+  return (
+    <div className="flex items-center gap-1.5" title={`${Math.round(p * 100)}%`}>
+      <div className="h-3 w-14 overflow-hidden rounded-sm bg-secondary">
+        <div className={`h-full ${completo ? 'bg-emerald-600' : 'bg-emerald-400'}`} style={{ width: `${p * 100}%` }} />
+      </div>
+      <span className="w-9 text-right text-xs tabular-nums">{Math.round(p * 100)}%</span>
     </div>
   );
 }
