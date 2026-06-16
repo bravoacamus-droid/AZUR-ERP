@@ -10,6 +10,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { EmptyState } from '@/components/ui/misc';
 import { ESTADO_COTIZACION } from '@/lib/estados';
 import { fmtDate } from '@/lib/format';
+import { CotizacionRowActions } from './row-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -79,6 +80,7 @@ export default async function ComercialPage() {
                   <TableHead>Línea</TableHead>
                   <TableHead>Estado</TableHead>
                   <TableHead>Fecha</TableHead>
+                  <TableHead></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -104,6 +106,7 @@ export default async function ComercialPage() {
                         <Badge variant={est.variant}>{est.label}</Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{fmtDate(c.fecha)}</TableCell>
+                      <TableCell><CotizacionRowActions id={c.id} estado={c.estado} /></TableCell>
                     </TableRow>
                   );
                 })}

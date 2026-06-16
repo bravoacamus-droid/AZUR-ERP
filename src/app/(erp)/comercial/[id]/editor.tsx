@@ -27,6 +27,7 @@ import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
   cambiarEstado, guardarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
+  eliminarCotizacion,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -215,6 +216,19 @@ export function CotizacionEditor({
                     <Trash2 /> Rechazar
                   </DropdownItem>
                 </>
+              )}
+              {cot.estado !== 'aceptada' && (
+                <DropdownItem
+                  onClick={async () => {
+                    if (!confirm('¿Eliminar esta cotización? Esta acción no se puede deshacer.')) return;
+                    const res = await eliminarCotizacion(cot.id);
+                    if (res.ok) router.push('/comercial');
+                    else alert(res.error);
+                  }}
+                  className="text-azur-700 hover:bg-azur-50"
+                >
+                  <Trash2 /> Eliminar cotización
+                </DropdownItem>
               )}
             </Dropdown>
           </div>
@@ -779,6 +793,14 @@ function HistorialCambios({ historial, perfilesMap, cotizacionId, editable }: { 
   };
   const fmtVal = (v: any) => (v === null || v === undefined || v === '' ? '—' : String(v));
 
+  // Indica en qué elemento ocurrió el cambio (partida/sub-partida o cabecera).
+  function contexto(e: any): string {
+    if (e.tabla === 'cotizaciones') return 'Datos de la cotización';
+    const d = e.new_data ?? e.old_data ?? {};
+    const cod = d.item_codigo ? `${d.item_codigo} · ` : '';
+    return `Partida: ${cod}${d.titulo ?? 'sin título'}`;
+  }
+
   function cambios(e: any): { campo: string; key: string; antes: any; despues: any }[] {
     if (e.accion === 'INSERT') return [{ campo: '➕ creado', key: '', antes: null, despues: e.new_data?.titulo ?? e.new_data?.proyecto_nombre ?? '' }];
     if (e.accion === 'DELETE') return [{ campo: '🗑️ eliminado', key: '', antes: e.old_data?.titulo ?? '', despues: null }];
@@ -835,6 +857,7 @@ function HistorialCambios({ historial, perfilesMap, cotizacionId, editable }: { 
                       <span className="text-sm font-medium" style={{ color }}>{nombre}</span>
                       <span className="text-[11px] text-muted-foreground">{fmtDateTime(e.created_at)}</span>
                     </div>
+                    <p className="mt-0.5 text-[11px] font-medium text-azur-600/90">{contexto(e)}</p>
                     <div className="mt-0.5 space-y-0.5">
                       {cs.map((c, i) => {
                         const puedeRevertir = editable && e.accion === 'UPDATE' && REVERSIBLES[e.tabla]?.has(c.key);
