@@ -26,10 +26,16 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   // acumulado del proyecto hasta esta valorización
   const { data: vals } = await supabase
     .from('valorizaciones')
-    .select('monto_valorizado, numero')
+    .select('monto_valorizado, numero, fecha_corte')
     .eq('proyecto_id', params.id)
-    .lte('numero', val.numero);
+    .lte('numero', val.numero)
+    .order('numero');
   const valorizadoAcum = (vals ?? []).reduce((a, v) => a + Number(v.monto_valorizado), 0);
+  const historial = (vals ?? []).map((v) => ({
+    numero: v.numero as number,
+    fecha: v.fecha_corte ? fmtDate(v.fecha_corte as string) : '—',
+    monto: Number(v.monto_valorizado),
+  }));
 
   const contrato = Number(proy.contrato_total);
   const periodo = Number(val.monto_valorizado);
@@ -55,6 +61,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     valorizadoAcum,
     saldoContrato: contrato - valorizadoAcum,
     rows,
+    historial,
   };
 
   const buffer = await renderToBuffer(createElement(ValorizacionPDF as any, { d }) as any);

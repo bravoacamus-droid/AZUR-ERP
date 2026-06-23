@@ -31,6 +31,7 @@ export interface ValPdfData {
   contrato: number; valorizadoPeriodo: number; amortizacion: number; cobroNeto: number;
   adelantoPct: number; valorizadoAcum: number; saldoContrato: number;
   rows: { titulo: string; pct: number; monto: number }[];
+  historial: { numero: number; fecha: string; monto: number }[];
 }
 
 export function ValorizacionPDF({ d }: { d: ValPdfData }) {
@@ -61,6 +62,23 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
           <View style={[s.rowB, { borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 4, marginTop: 2 }]}><Text style={s.k}>Valorizado acumulado</Text><Text style={s.vb}>{fmtMoney(d.valorizadoAcum)}</Text></View>
           <View style={s.rowB}><Text style={s.k}>Saldo por valorizar</Text><Text style={s.vb}>{fmtMoney(d.saldoContrato)}</Text></View>
         </View>
+
+        {d.historial.length > 1 && (
+          <>
+            <Text style={s.sectionTitle}>Valorizaciones acumuladas</Text>
+            <View style={[s.box, { paddingVertical: 6 }]}>
+              {d.historial.map((h) => (
+                <View key={h.numero} style={s.rowB}>
+                  <Text style={s.k}>Valorización N° {h.numero} {h.numero === d.numero ? '(actual)' : ''} · {h.fecha}</Text>
+                  <Text style={s.vb}>{fmtMoney(h.monto)}</Text>
+                </View>
+              ))}
+              <View style={[s.rowB, { borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 4, marginTop: 2 }]}>
+                <Text style={[s.k, s.vb]}>Total acumulado</Text><Text style={[s.vb, s.hi]}>{fmtMoney(d.valorizadoAcum)}</Text>
+              </View>
+            </View>
+          </>
+        )}
 
         <Text style={s.sectionTitle}>Detalle por partida</Text>
         <View style={s.thead}>
