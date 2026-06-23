@@ -2157,6 +2157,89 @@ export type Database = {
           },
         ]
       }
+      solicitudes_cambio: {
+        Row: {
+          created_at: string
+          descripcion: string
+          estado: string
+          id: string
+          motivo: string | null
+          payload: Json
+          proyecto_id: string
+          referencia_id: string | null
+          resuelto_at: string | null
+          resuelto_nombre: string | null
+          resuelto_por: string | null
+          rol_aprobador: string
+          solicitado_nombre: string | null
+          solicitado_por: string | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          descripcion: string
+          estado?: string
+          id?: string
+          motivo?: string | null
+          payload?: Json
+          proyecto_id: string
+          referencia_id?: string | null
+          resuelto_at?: string | null
+          resuelto_nombre?: string | null
+          resuelto_por?: string | null
+          rol_aprobador: string
+          solicitado_nombre?: string | null
+          solicitado_por?: string | null
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          descripcion?: string
+          estado?: string
+          id?: string
+          motivo?: string | null
+          payload?: Json
+          proyecto_id?: string
+          referencia_id?: string | null
+          resuelto_at?: string | null
+          resuelto_nombre?: string | null
+          resuelto_por?: string | null
+          rol_aprobador?: string
+          solicitado_nombre?: string | null
+          solicitado_por?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "solicitudes_cambio_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_cambio_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_proyecto"
+            referencedColumns: ["proyecto_id"]
+          },
+          {
+            foreignKeyName: "solicitudes_cambio_resuelto_por_fkey"
+            columns: ["resuelto_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "solicitudes_cambio_solicitado_por_fkey"
+            columns: ["solicitado_por"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       solicitudes_pago: {
         Row: {
           aprobado_at: string | null
@@ -2627,6 +2710,7 @@ export type Database = {
           notas: string | null
           numero: number
           proyecto_id: string
+          reabierta: boolean
           semana: number
         }
         Insert: {
@@ -2641,6 +2725,7 @@ export type Database = {
           notas?: string | null
           numero: number
           proyecto_id: string
+          reabierta?: boolean
           semana: number
         }
         Update: {
@@ -2655,6 +2740,7 @@ export type Database = {
           notas?: string | null
           numero?: number
           proyecto_id?: string
+          reabierta?: boolean
           semana?: number
         }
         Relationships: [

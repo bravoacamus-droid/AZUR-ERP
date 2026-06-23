@@ -46,6 +46,13 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     .eq('proyecto_id', params.id)
     .order('fecha_planificada');
 
+  const { data: solicitudes } = await supabase
+    .from('solicitudes_cambio')
+    .select('*')
+    .eq('proyecto_id', params.id)
+    .order('created_at', { ascending: false })
+    .limit(50);
+
   // Datos de campo (capturados desde la PWA) para supervisión del Jefe
   const [asistencias, partesDiarios, evidencias, sstCharlas, sstObs, sstInc] = await Promise.all([
     supabase.from('asistencias').select('*, persona:profiles(nombre)').eq('proyecto_id', params.id).order('registrado_at', { ascending: false }).limit(50),
@@ -77,8 +84,10 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         catalogo={catalogoConApu}
         apuProyecto={apuProy ?? []}
         servicios={servicios ?? []}
+        solicitudes={solicitudes ?? []}
         userId={session.id}
         userNombre={session.nombre}
+        userRol={session.rol}
         campo={{
           asistencias: asistencias.data ?? [],
           partes: partesDiarios.data ?? [],

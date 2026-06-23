@@ -30,13 +30,15 @@ import {
   registrarAdicional, resolverAdicional, actualizarProyecto, guardarHito, subirDocumento,
   guardarComponenteApuProyecto, eliminarComponenteApuProyecto, liquidarProyecto,
   generarServiciosMantenimiento, actualizarServicio, eliminarServicio,
+  solicitarCambioMonto, solicitarReaperturaValorizacion, cerrarReaperturaValorizacion,
+  aprobarSolicitud, rechazarSolicitud,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, campo, userId, userNombre, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, campo, userId, userNombre, userRol, canManage } = props;
   const esMantenimiento = proy.tipo_proyecto === 'chico';
   const router = useRouter();
   const [presentes, setPresentes] = useState<string[]>([]);
@@ -53,6 +55,7 @@ export function ProyectoDetalle(props: any) {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'proyecto_items', filter: `proyecto_id=eq.${proy.id}` }, refrescar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'valorizaciones', filter: `proyecto_id=eq.${proy.id}` }, refrescar)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'valorizacion_items' }, refrescar)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'solicitudes_cambio', filter: `proyecto_id=eq.${proy.id}` }, refrescar)
       .subscribe(async (status) => { if (status === 'SUBSCRIBED') await ch.track({ nombre: userNombre }); });
     return () => { void supabase.removeChannel(ch); };
   }, [proy.id, userId, userNombre, router]);
@@ -101,8 +104,8 @@ export function ProyectoDetalle(props: any) {
         ]}
       />
 
-      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} />}
-      {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} />}
+      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} />}
+      {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} />}
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
@@ -115,13 +118,44 @@ export function ProyectoDetalle(props: any) {
 }
 
 // ───────────────────────────── RESUMEN ────────────────────────────────
-function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage }: any) {
+function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol }: any) {
   const router = useRouter();
+  const [busyS, setBusyS] = useState<string | null>(null);
+  const pendientes = (solicitudes ?? []).filter((s: any) => s.estado === 'pendiente');
+  const puedeAprobar = (s: any) => userRol === 'gerencia' || userRol === s.rol_aprobador;
+  async function aprobar(s: any) { setBusyS(s.id); await aprobarSolicitud(proy.id, s.id); router.refresh(); setBusyS(null); }
+  async function rechazar(s: any) { const m = window.prompt('Motivo del rechazo (opcional):') ?? ''; setBusyS(s.id); await rechazarSolicitud(proy.id, s.id, m); router.refresh(); setBusyS(null); }
   const d: DashboardProyecto = dash ?? { proyecto_id: proy.id, codigo: proy.codigo, nombre: proy.nombre, linea_id: proy.linea_id, estado: proy.estado, tipo_proyecto: proy.tipo_proyecto, proyectado: Number(proy.contrato_total), pagos: 0, gasto: 0, valorizado: 0 };
   const adelanto = Number(proy.contrato_total) * Number(proy.adelanto_pct);
   const [hitoForm, setHitoForm] = useState({ nombre: '', fecha: '' });
 
   return (
+    <div className="space-y-4">
+    {canManage && pendientes.length > 0 && (
+      <Card className="border-amber-300">
+        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><ListChecks className="size-4 text-amber-600" /> Solicitudes de cambio pendientes ({pendientes.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {pendientes.map((s: any) => (
+            <div key={s.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2.5">
+              <div className="min-w-0">
+                <p className="text-sm font-medium">{s.descripcion}</p>
+                <p className="text-xs text-muted-foreground">
+                  {s.tipo === 'item_monto' ? 'Cambio de monto · aprueba Presupuestos' : 'Reapertura de valorización · aprueba Gerencia'}
+                  {s.solicitado_nombre ? ` · solicitó ${s.solicitado_nombre}` : ''}
+                  {s.payload?.motivo ? ` · "${s.payload.motivo}"` : ''}
+                </p>
+              </div>
+              {puedeAprobar(s) ? (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => rechazar(s)} disabled={busyS === s.id}>Rechazar</Button>
+                  <Button size="sm" variant="gradient" onClick={() => aprobar(s)} disabled={busyS === s.id}>{busyS === s.id ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Aprobar</Button>
+                </div>
+              ) : <Badge variant="warning">Esperando {s.rol_aprobador}</Badge>}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )}
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -202,6 +236,7 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage }: an
         )}
       </div>
     </div>
+    </div>
   );
 }
 
@@ -210,7 +245,7 @@ function Dato({ k, v }: { k: string; v: any }) {
 }
 
 // ───────────────────────── LAST PLANNER ───────────────────────────────
-function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuProyecto, canManage }: any) {
+function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuProyecto, canManage, userRol }: any) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<any[]>(items);
@@ -219,7 +254,11 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   useEffect(() => setRows(items), [items]);
 
   const valsSorted = [...valorizaciones].sort((a, b) => a.numero - b.numero);
-  const activeVal = valsSorted[valsSorted.length - 1];
+  // La valorización editable es la última, salvo que Gerencia haya reabierto una anterior.
+  const reabiertaIdx = valsSorted.findIndex((v) => v.reabierta);
+  const editIdx = reabiertaIdx >= 0 ? reabiertaIdx : valsSorted.length - 1;
+  const activeVal = valsSorted[editIdx];
+  const requiereAprobacionMonto = userRol === 'jefe_proyectos'; // Presupuestos/Gerencia editan directo
   // orden de presentación N…→N1 (la más nueva a la izquierda) conservando el índice original
   const valsDesc = valsSorted.map((v, idx) => ({ v, idx })).reverse();
 
@@ -249,7 +288,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     const m = new Map<string, number[]>();
     baseAvances.forEach((arr, id) => {
       const copy = [...arr];
-      if (activeVal) copy[valsSorted.length - 1] = activeAvances.get(id) ?? 0;
+      if (activeVal) copy[editIdx] = activeAvances.get(id) ?? 0;
       m.set(id, copy);
     });
     return m;
@@ -278,6 +317,19 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   }
   async function del(id: string) { setBusy(true); await eliminarItemProyecto(proy.id, id); router.refresh(); setBusy(false); }
   async function save(id: string, patch: any) { await actualizarItemProyecto(proy.id, id, patch); }
+  const [aviso, setAviso] = useState<string | null>(null);
+  // Cambios de cantidad/monto: directo (Presupuestos/Gerencia) o a aprobación (Jefe de proyectos).
+  function aplicarMonto(row: any, patch: any, descripcion: string, optimistic: any) {
+    if (requiereAprobacionMonto) {
+      solicitarCambioMonto(proy.id, row.id, descripcion, patch).then(() => {
+        setAviso('Cambio enviado a aprobación de Presupuestos. Se aplicará cuando lo aprueben.');
+        router.refresh();
+      });
+    } else {
+      setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, ...optimistic } : r));
+      save(row.id, patch);
+    }
+  }
   const patron: PatronDias = (proy.dias_laborables ?? 'lun_sab') as PatronDias;
   // Plazos amarrados: al cambiar inicio/entrega/duración recalcula el campo dependiente.
   function saveFechas(row: any, patch: any) {
@@ -302,6 +354,16 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     const avances = Array.from(activeAvances.entries()).map(([itemId, pct]) => ({ itemId, pct }));
     const res = await guardarAvances(proy.id, activeVal.id, avances);
     if (!res.ok) alert(res.error);
+    // si era una valorización reabierta por Gerencia, se vuelve a bloquear al guardar
+    if (activeVal.reabierta) await cerrarReaperturaValorizacion(proy.id, activeVal.id);
+    router.refresh(); setBusy(false);
+  }
+  async function pedirReapertura(v: any) {
+    const motivo = window.prompt(`Solicitar a Gerencia la reapertura de la Valorización N°${v.numero}. Motivo:`);
+    if (!motivo) return;
+    setBusy(true);
+    const res = await solicitarReaperturaValorizacion(proy.id, v.id, v.numero, motivo);
+    if (!res.ok) alert(res.error); else setAviso('Solicitud de reapertura enviada a Gerencia.');
     router.refresh(); setBusy(false);
   }
   async function cobrar() {
@@ -332,6 +394,28 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
         )}
       </div>
 
+      {aviso && (
+        <div className="flex items-center justify-between rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span>{aviso}</span>
+          <button onClick={() => setAviso(null)} className="text-amber-600 hover:text-amber-900"><X className="size-4" /></button>
+        </div>
+      )}
+      {reabiertaIdx >= 0 && (
+        <div className="rounded-lg border border-azur-300 bg-azur-50 px-3 py-2 text-sm text-azur-800">
+          Estás editando la <strong>Valorización N°{valsSorted[reabiertaIdx].numero}</strong>, reabierta por Gerencia. Al guardar, se volverá a bloquear.
+        </div>
+      )}
+      {canManage && valsSorted.length > 1 && reabiertaIdx < 0 && (
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span>Corregir una valorización ya cobrada (requiere aprobación de Gerencia):</span>
+          {valsSorted.slice(0, -1).map((v) => (
+            <button key={v.id} onClick={() => pedirReapertura(v)} disabled={busy} className="rounded border border-azur-200 bg-white px-2 py-0.5 text-azur-700 hover:bg-azur-50">
+              Solicitar corrección N°{v.numero}
+            </button>
+          ))}
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -358,7 +442,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   <th className="px-2 py-2 text-right">Valorizado</th>
                   <th className="px-2 py-2 text-right">Saldo</th>
                   {valsDesc.flatMap(({ v, idx }) => {
-                    const act = idx === valsSorted.length - 1;
+                    const act = idx === editIdx;
                     return [
                       <th key={`${v.id}-p`} className={`px-2 py-2 text-center ${act ? 'bg-azur-50/60' : ''}`}>N{v.numero}<br /><span className="font-normal normal-case">% sem</span></th>,
                       <th key={`${v.id}-t`} className={`px-2 py-2 text-center ${act ? 'bg-azur-50/60' : ''}`}>N{v.numero}<br /><span className="font-normal normal-case">S/ sem</span></th>,
@@ -382,8 +466,8 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                         <span style={{ paddingLeft: depth * 14 }}>{row.titulo}</span>
                       </td>
                       <td className="px-1 py-1.5 text-center">{hoja ? (canManage ? <input list="unidades-lp" className="w-16 rounded border bg-white px-1 text-center" defaultValue={row.unidad ?? ''} onBlur={(e) => save(row.id, { unidad: e.target.value })} /> : row.unidad) : ''}</td>
-                      <td className="px-1 py-1.5 text-right">{hoja ? (canManage ? <Num v={row.cantidad} onSave={(x) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, cantidad: x, total_costo: x * Number(r.costo_unitario ?? 0) } : r)); save(row.id, { cantidad: x }); }} /> : fmtNumber(Number(row.cantidad ?? 0), 0)) : ''}</td>
-                      <td className="px-1 py-1.5 text-right">{hoja ? (row.tiene_apu ? <span className="block w-16 rounded bg-azur-50 px-1 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span> : (canManage ? <FormulaCell value={row.costo_unitario} formula={row.costo_formula} onSave={(v, f) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, costo_unitario: v, costo_formula: f, total_costo: Number(r.cantidad ?? 0) * v } : r)); save(row.id, { costo_unitario: v, costo_formula: f }); }} /> : fmtNumber(Number(row.costo_unitario ?? 0)))) : ''}</td>
+                      <td className="px-1 py-1.5 text-right">{hoja ? (canManage ? <Num key={`cant-${row.id}-${row.cantidad ?? ''}`} v={row.cantidad} onSave={(x) => aplicarMonto(row, { cantidad: x }, `Cantidad de "${row.titulo}": ${row.cantidad ?? 0} → ${x}`, { cantidad: x, total_costo: x * Number(row.costo_unitario ?? 0) })} /> : fmtNumber(Number(row.cantidad ?? 0), 0)) : ''}</td>
+                      <td className="px-1 py-1.5 text-right">{hoja ? (row.tiene_apu ? <span className="block w-16 rounded bg-azur-50 px-1 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span> : (canManage ? <FormulaCell value={row.costo_unitario} formula={row.costo_formula} onSave={(v, f) => aplicarMonto(row, { costo_unitario: v, costo_formula: f }, `Costo unitario de "${row.titulo}": ${row.costo_unitario ?? 0} → ${v}`, { costo_unitario: v, costo_formula: f, total_costo: Number(row.cantidad ?? 0) * v })} /> : fmtNumber(Number(row.costo_unitario ?? 0)))) : ''}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{row.nivel > 1 ? fmtNumber(cv?.total_partida ?? 0) : ''}</td>
                       <td className="px-2 py-1.5 text-right font-medium tabular-nums">{row.nivel === 1 ? fmtNumber(cv?.total_partida ?? 0) : ''}</td>
                       <td className="px-1 py-1.5">
@@ -403,7 +487,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                       <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.valorizado_acum ?? 0)}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.saldo ?? 0)}</td>
                       {valsDesc.flatMap(({ v, idx: i }) => {
-                        const isActive = i === valsSorted.length - 1;
+                        const isActive = i === editIdx;
                         const pct = (avancesCalc.get(row.id)?.[i] ?? 0);
                         const totalPartida = Number(cv?.total_partida ?? 0);
                         const monto = pct * totalPartida;

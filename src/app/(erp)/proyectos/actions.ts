@@ -311,6 +311,90 @@ export async function registrarCobroValorizacion(proyectoId: string, valorizacio
   return { ok: true };
 }
 
+// ── Solicitudes de cambio (aprobaciones) ────────────────────────────────
+// Cambios de cantidad/monto en el itemizado → aprueba Presupuestos.
+export async function solicitarCambioMonto(
+  proyectoId: string, itemId: string, descripcion: string, patch: Record<string, unknown>,
+): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('solicitudes_cambio').insert({
+    proyecto_id: proyectoId, tipo: 'item_monto', rol_aprobador: 'presupuestos',
+    referencia_id: itemId, descripcion, payload: patch as never,
+    solicitado_por: session.id, solicitado_nombre: session.nombre,
+  } as never);
+  if (error) return { ok: false, error: error.message };
+  await notifyRoles(['presupuestos', 'gerencia'], { title: 'Solicitud de cambio (monto)', body: descripcion, url: `/proyectos/${proyectoId}` }, 'alertas');
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// Corregir una valorización ya cobrada → aprueba Gerencia (reabre para edición).
+export async function solicitarReaperturaValorizacion(
+  proyectoId: string, valorizacionId: string, numero: number, motivo: string,
+): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('solicitudes_cambio').insert({
+    proyecto_id: proyectoId, tipo: 'valorizacion_reapertura', rol_aprobador: 'gerencia',
+    referencia_id: valorizacionId, descripcion: `Reapertura de la Valorización N°${numero}`,
+    payload: { motivo } as never, solicitado_por: session.id, solicitado_nombre: session.nombre,
+  } as never);
+  if (error) return { ok: false, error: error.message };
+  await notifyRoles(['gerencia'], { title: 'Solicitud de reapertura de valorización', body: `Val N°${numero}: ${motivo}`, url: `/proyectos/${proyectoId}` }, 'alertas');
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function aprobarSolicitud(proyectoId: string, solicitudId: string): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const { data: sol } = await supabase.from('solicitudes_cambio').select('*').eq('id', solicitudId).single();
+  if (!sol || sol.estado !== 'pendiente') return { ok: false, error: 'Solicitud no disponible' };
+  // solo el rol aprobador (o gerencia) puede aprobar
+  const permitido = session.rol === 'gerencia' || session.rol === sol.rol_aprobador;
+  if (!permitido) return { ok: false, error: 'No autorizado para aprobar esta solicitud' };
+
+  if (sol.tipo === 'item_monto' && sol.referencia_id) {
+    const patch = { ...(sol.payload as Record<string, unknown>) };
+    const { data: it } = await supabase.from('proyecto_items').select('cantidad, costo_unitario').eq('id', sol.referencia_id).single();
+    const cant = Number((patch.cantidad ?? it?.cantidad) ?? 0);
+    const cu = Number((patch.costo_unitario ?? it?.costo_unitario) ?? 0);
+    patch.total_costo = cant * cu;
+    await supabase.from('proyecto_items').update(patch as never).eq('id', sol.referencia_id);
+  } else if (sol.tipo === 'valorizacion_reapertura' && sol.referencia_id) {
+    await supabase.from('valorizaciones').update({ reabierta: false } as never).eq('proyecto_id', proyectoId);
+    await supabase.from('valorizaciones').update({ reabierta: true } as never).eq('id', sol.referencia_id);
+  }
+  await supabase.from('solicitudes_cambio').update({
+    estado: 'aprobada', resuelto_por: session.id, resuelto_nombre: session.nombre, resuelto_at: new Date().toISOString(),
+  } as never).eq('id', solicitudId);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function rechazarSolicitud(proyectoId: string, solicitudId: string, motivo: string): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const { data: sol } = await supabase.from('solicitudes_cambio').select('rol_aprobador, estado').eq('id', solicitudId).single();
+  if (!sol || sol.estado !== 'pendiente') return { ok: false, error: 'Solicitud no disponible' };
+  if (!(session.rol === 'gerencia' || session.rol === sol.rol_aprobador)) return { ok: false, error: 'No autorizado' };
+  await supabase.from('solicitudes_cambio').update({
+    estado: 'rechazada', motivo, resuelto_por: session.id, resuelto_nombre: session.nombre, resuelto_at: new Date().toISOString(),
+  } as never).eq('id', solicitudId);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+// Re-bloquea una valorización reabierta tras guardar la corrección.
+export async function cerrarReaperturaValorizacion(proyectoId: string, valorizacionId: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  await supabase.from('valorizaciones').update({ reabierta: false } as never).eq('id', valorizacionId);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
 // ── Equipo de obra ──────────────────────────────────────────────────────
 export async function asignarEquipo(proyectoId: string, profileId: string, rolObra: string): Promise<Res> {
   await guard();
