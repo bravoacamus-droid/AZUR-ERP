@@ -684,6 +684,7 @@ export type Database = {
       cotizacion_items: {
         Row: {
           cantidad: number | null
+          costo_formula: string | null
           costo_unitario: number | null
           cotizacion_id: string
           created_at: string
@@ -700,6 +701,7 @@ export type Database = {
         }
         Insert: {
           cantidad?: number | null
+          costo_formula?: string | null
           costo_unitario?: number | null
           cotizacion_id: string
           created_at?: string
@@ -716,6 +718,7 @@ export type Database = {
         }
         Update: {
           cantidad?: number | null
+          costo_formula?: string | null
           costo_unitario?: number | null
           cotizacion_id?: string
           created_at?: string
@@ -1764,6 +1767,7 @@ export type Database = {
         Row: {
           cantidad: number | null
           contratista_id: string | null
+          costo_formula: string | null
           costo_unitario: number | null
           created_at: string
           duracion_dias: number | null
@@ -1787,6 +1791,7 @@ export type Database = {
         Insert: {
           cantidad?: number | null
           contratista_id?: string | null
+          costo_formula?: string | null
           costo_unitario?: number | null
           created_at?: string
           duracion_dias?: number | null
@@ -1810,6 +1815,7 @@ export type Database = {
         Update: {
           cantidad?: number | null
           contratista_id?: string | null
+          costo_formula?: string | null
           costo_unitario?: number | null
           created_at?: string
           duracion_dias?: number | null
@@ -1871,6 +1877,7 @@ export type Database = {
           correlativo: number
           cotizacion_id: string | null
           created_at: string
+          dias_laborables: string
           direccion: string | null
           estado: Database["public"]["Enums"]["estado_proyecto"]
           fecha_fin: string | null
@@ -1896,6 +1903,7 @@ export type Database = {
           correlativo?: never
           cotizacion_id?: string | null
           created_at?: string
+          dias_laborables?: string
           direccion?: string | null
           estado?: Database["public"]["Enums"]["estado_proyecto"]
           fecha_fin?: string | null
@@ -1921,6 +1929,7 @@ export type Database = {
           correlativo?: never
           cotizacion_id?: string | null
           created_at?: string
+          dias_laborables?: string
           direccion?: string | null
           estado?: Database["public"]["Enums"]["estado_proyecto"]
           fecha_fin?: string | null

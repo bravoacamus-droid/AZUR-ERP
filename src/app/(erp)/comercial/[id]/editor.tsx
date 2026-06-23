@@ -23,6 +23,7 @@ import {
   armarArbol, renumerar, calcularCostosMargen, calcularTotales,
   type ItemCosto, type NodoArbol,
 } from '@/lib/calc';
+import { evalFormula, esFormula } from '@/lib/formula';
 import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
   cambiarEstado, guardarVersion, aprobarCotizacion, guardarCabecera,
@@ -259,6 +260,9 @@ export function CotizacionEditor({
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
+                <datalist id="unidades-cot">
+                  {['m2', 'm3', 'm', 'und', 'glb', 'kg', 'ton', 'pto', 'p2', 'pie', 'gln', 'bls', 'rollo', 'juego', 'día', 'mes', 'hh', 'hm'].map((u) => <option key={u} value={u} />)}
+                </datalist>
                 <table className="w-full text-sm">
                   <thead className="bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                     <tr>
@@ -304,7 +308,7 @@ export function CotizacionEditor({
                           {/* costos: solo hoja captura */}
                           <td className="px-1 py-1.5">
                             {hoja ? (
-                              <input className="w-14 rounded border bg-white px-1 py-0.5 text-center disabled:bg-muted" defaultValue={row.unidad ?? ''} disabled={!editable}
+                              <input list="unidades-cot" className="w-16 rounded border bg-white px-1 py-0.5 text-center disabled:bg-muted" defaultValue={row.unidad ?? ''} disabled={!editable}
                                 onBlur={(e) => persist(row.id, { unidad: e.target.value })} />
                             ) : null}
                           </td>
@@ -318,7 +322,7 @@ export function CotizacionEditor({
                               (row as any).tiene_apu ? (
                                 <span className="block w-20 rounded bg-azur-50 px-1 py-0.5 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span>
                               ) : (
-                                <NumCell value={row.costo_unitario} disabled={!editable} onSave={(v) => { setLocal(row.id, { costo_unitario: v }); persist(row.id, { costo_unitario: v }); }} />
+                                <FormulaCellCot value={row.costo_unitario} formula={(row as any).costo_formula} disabled={!editable} onSave={(v, f) => { setLocal(row.id, { costo_unitario: v }); persist(row.id, { costo_unitario: v, costo_formula: f }); }} />
                               )
                             ) : null}
                           </td>
@@ -597,6 +601,28 @@ function ApuModal({ cotizacionId, item, componentes, editable, onClose, onChange
         )}
       </div>
     </Modal>
+  );
+}
+
+function FormulaCellCot({ value, formula, onSave, disabled }: { value: any; formula?: string | null; onSave: (v: number, f: string | null) => void; disabled?: boolean }) {
+  const [foco, setFoco] = useState(false);
+  const display = foco ? (formula || (value ?? '')) : (value ?? '');
+  return (
+    <input
+      className="w-20 rounded border bg-white px-1 py-0.5 text-right tabular-nums disabled:bg-muted"
+      title={formula ? `Fórmula: ${formula}` : 'Puedes escribir una fórmula, ej. =40/1.18'}
+      defaultValue={display as any}
+      key={`${foco}-${value}-${formula ?? ''}`}
+      disabled={disabled}
+      onFocus={() => setFoco(true)}
+      onBlur={(e) => {
+        setFoco(false);
+        const raw = e.target.value.trim();
+        if (raw === '') return onSave(0, null);
+        if (esFormula(raw)) { const r = evalFormula(raw); if (r != null) onSave(r, raw); }
+        else onSave(Number(raw) || 0, null);
+      }}
+    />
   );
 }
 

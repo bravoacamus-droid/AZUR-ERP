@@ -19,7 +19,8 @@ import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { CurvaS } from '@/components/proyectos/curva-s';
 import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
-import { armarArbol, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
+import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
+import { evalFormula, esFormula } from '@/lib/formula';
 import { calcularLiquidacion } from '@/lib/liquidacion';
 import type { DashboardProyecto } from '@/lib/salud';
 import {
@@ -248,6 +249,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   }, [baseAvances, activeAvances]);
 
   const arbol = useMemo(() => armarArbol(rows as any), [rows]);
+  const codigos = useMemo(() => renumerar(arbol as any), [arbol]);
   const calcVal = useMemo(() => calcularValorizacion(arbol as any, avancesCalc, valsSorted.length || 1), [arbol, avancesCalc, valsSorted.length]);
 
   const flat = useMemo(() => {
@@ -309,6 +311,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
+            <datalist id="unidades-lp">
+              {['m2', 'm3', 'm', 'und', 'glb', 'kg', 'ton', 'pto', 'p2', 'pie', 'gln', 'bls', 'rollo', 'juego', 'día', 'mes', 'hh', 'hm'].map((u) => <option key={u} value={u} />)}
+            </datalist>
             <table className="w-full whitespace-nowrap text-xs">
               <thead className="bg-muted/50 uppercase tracking-wide text-muted-foreground">
                 <tr>
@@ -342,15 +347,16 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   const hoja = row.es_hoja;
                   const et = ESTADO_TAREA[row.estado_tarea] ?? { label: row.estado_tarea, variant: 'muted' as const };
                   const pr = PRIORIDAD[row.prioridad] ?? { label: row.prioridad, variant: 'muted' as const };
+                  const nivelBg = ['bg-azur-100/70', 'bg-azur-50/70', 'bg-sky-50/60', ''][Math.min(3, (row.nivel ?? 1) - 1)];
                   return (
-                    <tr key={row.id} className={`border-b ${!hoja ? 'bg-muted/30 font-medium' : ''}`}>
-                      <td className="px-2 py-1.5 text-muted-foreground">{row.item_codigo}</td>
+                    <tr key={row.id} className={`border-b ${!hoja ? `${nivelBg} font-medium` : ''}`}>
+                      <td className="whitespace-nowrap px-2 py-1.5 font-medium text-muted-foreground">{codigos.get(row.id) ?? row.item_codigo}</td>
                       <td className="px-2 py-1.5">
-                        <span style={{ paddingLeft: depth * 12 }}>{row.titulo}</span>
+                        <span style={{ paddingLeft: depth * 14 }}>{row.titulo}</span>
                       </td>
-                      <td className="px-1 py-1.5 text-center">{hoja ? (canManage ? <input className="w-12 rounded border bg-white px-1 text-center" defaultValue={row.unidad ?? ''} onBlur={(e) => save(row.id, { unidad: e.target.value })} /> : row.unidad) : ''}</td>
+                      <td className="px-1 py-1.5 text-center">{hoja ? (canManage ? <input list="unidades-lp" className="w-16 rounded border bg-white px-1 text-center" defaultValue={row.unidad ?? ''} onBlur={(e) => save(row.id, { unidad: e.target.value })} /> : row.unidad) : ''}</td>
                       <td className="px-1 py-1.5 text-right">{hoja ? (canManage ? <Num v={row.cantidad} onSave={(x) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, cantidad: x, total_costo: x * Number(r.costo_unitario ?? 0) } : r)); save(row.id, { cantidad: x }); }} /> : fmtNumber(Number(row.cantidad ?? 0), 0)) : ''}</td>
-                      <td className="px-1 py-1.5 text-right">{hoja ? (row.tiene_apu ? <span className="block w-16 rounded bg-azur-50 px-1 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span> : (canManage ? <Num v={row.costo_unitario} onSave={(x) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, costo_unitario: x, total_costo: Number(r.cantidad ?? 0) * x } : r)); save(row.id, { costo_unitario: x }); }} /> : fmtNumber(Number(row.costo_unitario ?? 0)))) : ''}</td>
+                      <td className="px-1 py-1.5 text-right">{hoja ? (row.tiene_apu ? <span className="block w-16 rounded bg-azur-50 px-1 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span> : (canManage ? <FormulaCell value={row.costo_unitario} formula={row.costo_formula} onSave={(v, f) => { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, costo_unitario: v, costo_formula: f, total_costo: Number(r.cantidad ?? 0) * v } : r)); save(row.id, { costo_unitario: v, costo_formula: f }); }} /> : fmtNumber(Number(row.costo_unitario ?? 0)))) : ''}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{row.nivel > 1 ? fmtNumber(cv?.total_partida ?? 0) : ''}</td>
                       <td className="px-2 py-1.5 text-right font-medium tabular-nums">{row.nivel === 1 ? fmtNumber(cv?.total_partida ?? 0) : ''}</td>
                       <td className="px-1 py-1.5">
@@ -846,6 +852,33 @@ function PctBar({ pct }: { pct: number }) {
       </div>
       <span className="w-9 text-right text-xs tabular-nums">{Math.round(p * 100)}%</span>
     </div>
+  );
+}
+
+// Celda de costo unitario tipo calculadora: acepta fórmula (=40/1.18, 4*50) y guarda
+// el resultado + la fórmula; al enfocar muestra la fórmula para editarla.
+function FormulaCell({ value, formula, onSave }: { value: any; formula?: string | null; onSave: (v: number, f: string | null) => void }) {
+  const [foco, setFoco] = useState(false);
+  const display = foco ? (formula || (value ?? '')) : (value ?? '');
+  return (
+    <input
+      className="w-20 rounded border bg-white px-1 text-right tabular-nums"
+      title={formula ? `Fórmula: ${formula}` : 'Puedes escribir una fórmula, ej. =40/1.18'}
+      defaultValue={display as any}
+      key={`${foco}-${value}-${formula ?? ''}`}
+      onFocus={() => setFoco(true)}
+      onBlur={(e) => {
+        setFoco(false);
+        const raw = e.target.value.trim();
+        if (raw === '') { onSave(0, null); return; }
+        if (esFormula(raw)) {
+          const r = evalFormula(raw);
+          if (r != null) onSave(r, raw);
+        } else {
+          onSave(Number(raw) || 0, null);
+        }
+      }}
+    />
   );
 }
 
