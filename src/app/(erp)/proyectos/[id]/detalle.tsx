@@ -21,6 +21,7 @@ import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from 
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
 import { evalFormula, esFormula } from '@/lib/formula';
+import { entregaDesdeDuracion, duracionDesdeFechas, PATRON_LABEL, type PatronDias } from '@/lib/fechas';
 import { calcularLiquidacion } from '@/lib/liquidacion';
 import type { DashboardProyecto } from '@/lib/salud';
 import {
@@ -190,6 +191,12 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage }: an
               <Field label="Tope caja chica">
                 <Input type="number" defaultValue={Number(proy.caja_maximo)} onBlur={async (e) => { await actualizarProyecto(proy.id, { caja_maximo: Number(e.target.value) }); router.refresh(); }} />
               </Field>
+              <Field label="Días laborables (calendario)">
+                <Select defaultValue={proy.dias_laborables ?? 'lun_sab'} onChange={async (e) => { await actualizarProyecto(proy.id, { dias_laborables: e.target.value }); router.refresh(); }}>
+                  {Object.entries(PATRON_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </Select>
+              </Field>
+              <p className="text-xs text-muted-foreground">Define qué días cuentan para calcular automáticamente la fecha de entrega a partir de la duración (y viceversa) en el Last Planner.</p>
             </CardContent>
           </Card>
         )}
@@ -271,6 +278,23 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   }
   async function del(id: string) { setBusy(true); await eliminarItemProyecto(proy.id, id); router.refresh(); setBusy(false); }
   async function save(id: string, patch: any) { await actualizarItemProyecto(proy.id, id, patch); }
+  const patron: PatronDias = (proy.dias_laborables ?? 'lun_sab') as PatronDias;
+  // Plazos amarrados: al cambiar inicio/entrega/duración recalcula el campo dependiente.
+  function saveFechas(row: any, patch: any) {
+    const inicio = patch.fecha_inicio !== undefined ? patch.fecha_inicio : fmtDateInput(row.fecha_inicio);
+    let entrega = patch.fecha_entrega !== undefined ? patch.fecha_entrega : fmtDateInput(row.fecha_entrega);
+    let dur = patch.duracion_dias !== undefined ? patch.duracion_dias : row.duracion_dias;
+    if (patch.duracion_dias !== undefined && inicio && dur) {
+      entrega = entregaDesdeDuracion(inicio, Number(dur), patron) ?? entrega;
+    } else if (patch.fecha_entrega !== undefined && inicio && entrega) {
+      dur = duracionDesdeFechas(inicio, entrega, patron) ?? dur;
+    } else if (patch.fecha_inicio !== undefined && inicio && dur) {
+      entrega = entregaDesdeDuracion(inicio, Number(dur), patron) ?? entrega;
+    }
+    const full = { fecha_inicio: inicio || null, fecha_entrega: entrega || null, duracion_dias: dur ?? null };
+    setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, ...full } : r));
+    save(row.id, full);
+  }
   async function nuevaVal() { setBusy(true); await crearValorizacion(proy.id); router.refresh(); setBusy(false); }
   async function guardar() {
     if (!activeVal) return;
@@ -331,12 +355,15 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   <th className="px-2 py-2">Estado</th>
                   <th className="px-2 py-2">Prioridad</th>
                   <th className="px-2 py-2">% Acum</th>
+                  <th className="px-2 py-2 text-right">Valorizado</th>
                   <th className="px-2 py-2 text-right">Saldo</th>
-                  {valsDesc.map(({ v, idx }) => (
-                    <th key={v.id} className={`px-2 py-2 text-center ${idx === valsSorted.length - 1 ? 'bg-azur-50/60' : ''}`}>
-                      Val N{v.numero}<br /><span className="font-normal normal-case">% sem</span>
-                    </th>
-                  ))}
+                  {valsDesc.flatMap(({ v, idx }) => {
+                    const act = idx === valsSorted.length - 1;
+                    return [
+                      <th key={`${v.id}-p`} className={`px-2 py-2 text-center ${act ? 'bg-azur-50/60' : ''}`}>N{v.numero}<br /><span className="font-normal normal-case">% sem</span></th>,
+                      <th key={`${v.id}-t`} className={`px-2 py-2 text-center ${act ? 'bg-azur-50/60' : ''}`}>N{v.numero}<br /><span className="font-normal normal-case">S/ sem</span></th>,
+                    ];
+                  })}
                   {canManage && <th className="px-2 py-2" />}
                 </tr>
               </thead>
@@ -367,26 +394,39 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                           </select>
                         ) : ''}
                       </td>
-                      <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" defaultValue={fmtDateInput(row.fecha_inicio)} onBlur={(e) => save(row.id, { fecha_inicio: e.target.value || null })} /> : (hoja ? fmtDate(row.fecha_inicio) : '')}</td>
-                      <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" defaultValue={fmtDateInput(row.fecha_entrega)} onBlur={(e) => save(row.id, { fecha_entrega: e.target.value || null })} /> : (hoja ? fmtDate(row.fecha_entrega) : '')}</td>
-                      <td className="px-1 py-1.5 text-center">{hoja && canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" defaultValue={row.duracion_dias ?? ''} onBlur={(e) => save(row.id, { duracion_dias: e.target.value === '' ? null : Number(e.target.value) })} /> : (hoja && row.duracion_dias != null ? row.duracion_dias : '')}</td>
+                      <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ini-${row.id}-${fmtDateInput(row.fecha_inicio)}`} defaultValue={fmtDateInput(row.fecha_inicio)} onBlur={(e) => saveFechas(row, { fecha_inicio: e.target.value || null })} /> : (hoja ? fmtDate(row.fecha_inicio) : '')}</td>
+                      <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ent-${row.id}-${fmtDateInput(row.fecha_entrega)}`} defaultValue={fmtDateInput(row.fecha_entrega)} onBlur={(e) => saveFechas(row, { fecha_entrega: e.target.value || null })} /> : (hoja ? fmtDate(row.fecha_entrega) : '')}</td>
+                      <td className="px-1 py-1.5 text-center">{hoja && canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" key={`dur-${row.id}-${row.duracion_dias ?? ''}`} defaultValue={row.duracion_dias ?? ''} onBlur={(e) => saveFechas(row, { duracion_dias: e.target.value === '' ? null : Number(e.target.value) })} /> : (hoja && row.duracion_dias != null ? row.duracion_dias : '')}</td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={et.variant}>{et.label}</Badge></td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={pr.variant}>{pr.label}</Badge></td>
                       <td className="px-2 py-1.5"><PctBar pct={cv?.pct_acumulado ?? 0} /></td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.valorizado_acum ?? 0)}</td>
                       <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.saldo ?? 0)}</td>
-                      {valsDesc.map(({ v, idx: i }) => {
+                      {valsDesc.flatMap(({ v, idx: i }) => {
                         const isActive = i === valsSorted.length - 1;
                         const pct = (avancesCalc.get(row.id)?.[i] ?? 0);
-                        return (
-                          <td key={v.id} className={`px-1 py-1.5 text-center ${isActive ? 'bg-azur-50/40' : ''}`}>
-                            {hoja && isActive && canManage ? (
-                              <input type="number" step="any" className="w-14 rounded border bg-white px-1 text-center" defaultValue={pct ? pct * 100 : ''} onBlur={(e) => {
+                        const totalPartida = Number(cv?.total_partida ?? 0);
+                        const monto = pct * totalPartida;
+                        const editable = hoja && isActive && canManage;
+                        return [
+                          <td key={`${v.id}-p`} className={`px-1 py-1.5 text-center ${isActive ? 'bg-azur-50/40' : ''}`}>
+                            {editable ? (
+                              <input type="number" step="any" className="w-14 rounded border bg-white px-1 text-center" key={`p-${row.id}-${pct}`} defaultValue={pct ? Math.round(pct * 10000) / 100 : ''} onBlur={(e) => {
                                 const val = e.target.value === '' ? 0 : Number(e.target.value) / 100;
                                 setActiveAvances((m) => new Map(m).set(row.id, val));
                               }} />
                             ) : (hoja ? (pct ? `${fmtNumber(pct * 100, 0)}%` : '—') : '')}
-                          </td>
-                        );
+                          </td>,
+                          <td key={`${v.id}-t`} className={`px-1 py-1.5 text-right tabular-nums ${isActive ? 'bg-azur-50/40' : ''}`}>
+                            {editable ? (
+                              <input type="number" step="any" className="w-20 rounded border bg-white px-1 text-right" key={`t-${row.id}-${pct}`} defaultValue={monto ? Math.round(monto * 100) / 100 : ''} onBlur={(e) => {
+                                const m = e.target.value === '' ? 0 : Number(e.target.value);
+                                const val = totalPartida > 0 ? m / totalPartida : 0;
+                                setActiveAvances((mm) => new Map(mm).set(row.id, val));
+                              }} />
+                            ) : (hoja ? (monto ? fmtNumber(monto) : '—') : '')}
+                          </td>,
+                        ];
                       })}
                       {canManage && (
                         <td className="px-1 py-1.5">
