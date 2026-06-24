@@ -53,6 +53,23 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     .order('created_at', { ascending: false })
     .limit(50);
 
+  // Comparativo Comercial vs Proyecto (solo totales/márgenes) para itemizado propio.
+  const sumHojas = (arr: { es_hoja?: boolean | null; total_costo?: number | null; cantidad?: number | null; costo_unitario?: number | null }[]) =>
+    (arr ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? (Number(i.cantidad ?? 0) * Number(i.costo_unitario ?? 0))) : 0), 0);
+  let costoComercial: number | null = null;
+  if (proy.cotizacion_id) {
+    const { data: cotItems } = await supabase
+      .from('cotizacion_items')
+      .select('es_hoja, cantidad, costo_unitario')
+      .eq('cotizacion_id', proy.cotizacion_id);
+    costoComercial = sumHojas(cotItems ?? []);
+  }
+  const comparativo = {
+    venta: Number(proy.contrato_total),
+    costoComercial,
+    costoProyecto: sumHojas((items.data ?? []) as never),
+  };
+
   // Datos de campo (capturados desde la PWA) para supervisión del Jefe
   const [asistencias, partesDiarios, evidencias, sstCharlas, sstObs, sstInc] = await Promise.all([
     supabase.from('asistencias').select('*, persona:profiles(nombre)').eq('proyecto_id', params.id).order('registrado_at', { ascending: false }).limit(50),
@@ -85,6 +102,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         apuProyecto={apuProy ?? []}
         servicios={servicios ?? []}
         solicitudes={solicitudes ?? []}
+        comparativo={comparativo}
         userId={session.id}
         userNombre={session.nombre}
         userRol={session.rol}

@@ -311,6 +311,28 @@ export async function registrarCobroValorizacion(proyectoId: string, valorizacio
   return { ok: true };
 }
 
+// ── Itemizado propio de Proyectos (independiente del comercial) ─────────
+// Vacía el itemizado heredado de la cotización para que Proyectos arme el suyo.
+// La comparación con el comercial pasa a ser solo por totales/márgenes.
+export async function vaciarItemizadoProyecto(proyectoId: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  await supabase.from('proyecto_items').delete().eq('proyecto_id', proyectoId);
+  const { error } = await supabase.from('proyectos').update({ itemizado_propio: true } as never).eq('id', proyectoId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function marcarItemizadoPropio(proyectoId: string, propio: boolean): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('proyectos').update({ itemizado_propio: propio } as never).eq('id', proyectoId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
 // ── Solicitudes de cambio (aprobaciones) ────────────────────────────────
 // Cambios de cantidad/monto en el itemizado → aprueba Presupuestos.
 export async function solicitarCambioMonto(

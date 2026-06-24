@@ -31,14 +31,14 @@ import {
   guardarComponenteApuProyecto, eliminarComponenteApuProyecto, liquidarProyecto,
   generarServiciosMantenimiento, actualizarServicio, eliminarServicio,
   solicitarCambioMonto, solicitarReaperturaValorizacion, cerrarReaperturaValorizacion,
-  aprobarSolicitud, rechazarSolicitud,
+  aprobarSolicitud, rechazarSolicitud, vaciarItemizadoProyecto, marcarItemizadoPropio,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, campo, userId, userNombre, userRol, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, campo, userId, userNombre, userRol, canManage } = props;
   const esMantenimiento = proy.tipo_proyecto === 'chico';
   const router = useRouter();
   const [presentes, setPresentes] = useState<string[]>([]);
@@ -104,7 +104,7 @@ export function ProyectoDetalle(props: any) {
         ]}
       />
 
-      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} />}
+      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} />}
       {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} />}
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
@@ -118,9 +118,15 @@ export function ProyectoDetalle(props: any) {
 }
 
 // ───────────────────────────── RESUMEN ────────────────────────────────
-function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol }: any) {
+function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo }: any) {
   const router = useRouter();
   const [busyS, setBusyS] = useState<string | null>(null);
+  const [busyIt, setBusyIt] = useState(false);
+  async function toggleItemizadoPropio(v: boolean) { setBusyIt(true); await marcarItemizadoPropio(proy.id, v); router.refresh(); setBusyIt(false); }
+  async function vaciarItemizado() {
+    if (!window.confirm('Esto ELIMINA todo el itemizado heredado de la cotización para que Proyectos arme el suyo desde cero. La comparación quedará solo por totales y margen. ¿Continuar?')) return;
+    setBusyIt(true); await vaciarItemizadoProyecto(proy.id); router.refresh(); setBusyIt(false);
+  }
   const pendientes = (solicitudes ?? []).filter((s: any) => s.estado === 'pendiente');
   const puedeAprobar = (s: any) => userRol === 'gerencia' || userRol === s.rol_aprobador;
   async function aprobar(s: any) { setBusyS(s.id); await aprobarSolicitud(proy.id, s.id); router.refresh(); setBusyS(null); }
@@ -165,6 +171,7 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
           <KpiCard label="Caja chica" value={fmtMoney(Number(cajaSaldo))} icon={<Banknote />} />
         </div>
         <BarraTresTramos p={d} />
+        {comparativo && <ComparativoComercial c={comparativo} propio={!!proy.itemizado_propio} />}
         <div className="flex justify-end">
           <InformeBtn proyectoId={proy.id} />
         </div>
@@ -234,9 +241,75 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
             </CardContent>
           </Card>
         )}
+        {canManage && (
+          <Card>
+            <CardHeader className="pb-2"><CardTitle className="text-base">Itemizado de Proyectos</CardTitle></CardHeader>
+            <CardContent className="space-y-2 text-sm">
+              <label className="flex items-center justify-between gap-2">
+                <span>Itemizado propio (independiente del comercial)</span>
+                <input type="checkbox" className="size-4 accent-azur-600" checked={!!proy.itemizado_propio} disabled={busyIt} onChange={(e) => toggleItemizadoPropio(e.target.checked)} />
+              </label>
+              <p className="text-xs text-muted-foreground">Actívalo cuando Proyectos arma una estructura distinta a la cotización. La comparación con el comercial pasa a ser solo por totales y margen.</p>
+              <Button size="sm" variant="outline" className="w-full text-azur-700" disabled={busyIt} onClick={vaciarItemizado}>
+                {busyIt ? <Loader2 className="animate-spin" /> : <Trash2 />} Vaciar itemizado heredado y empezar de cero
+              </Button>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </div>
     </div>
+  );
+}
+
+// Comparativo Comercial vs Proyecto: solo totales y márgenes (no por categorías).
+function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercial: number | null; costoProyecto: number }; propio: boolean }) {
+  const venta = Number(c.venta || 0);
+  const margen = (costo: number) => (venta > 0 ? (venta - costo) / venta : 0);
+  const mC = c.costoComercial != null ? margen(c.costoComercial) : null;
+  const mP = margen(c.costoProyecto);
+  const desv = c.costoComercial != null ? c.costoProyecto - c.costoComercial : null;
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="size-4 text-azur-600" /> Comparativo Comercial vs Proyecto</CardTitle>
+        <p className="text-xs text-muted-foreground">{propio ? 'Itemizado propio: la comparación es solo por totales y margen.' : 'Totales y margen (las categorías pueden no coincidir).'}</p>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b">
+                <th className="py-1.5 text-left"></th>
+                <th className="py-1.5 text-right">Venta (contrato)</th>
+                <th className="py-1.5 text-right">Costo directo</th>
+                <th className="py-1.5 text-right">Margen</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr className="border-b">
+                <td className="py-1.5 font-medium">Comercial (cotización)</td>
+                <td className="py-1.5 text-right tabular-nums">{fmtMoney(venta)}</td>
+                <td className="py-1.5 text-right tabular-nums">{c.costoComercial != null ? fmtMoney(c.costoComercial) : '—'}</td>
+                <td className="py-1.5 text-right tabular-nums">{mC != null ? fmtNumber(mC * 100, 1) + '%' : '—'}</td>
+              </tr>
+              <tr className="border-b">
+                <td className="py-1.5 font-medium">Proyecto (planificado)</td>
+                <td className="py-1.5 text-right tabular-nums">{fmtMoney(venta)}</td>
+                <td className="py-1.5 text-right tabular-nums">{fmtMoney(c.costoProyecto)}</td>
+                <td className="py-1.5 text-right tabular-nums">{fmtNumber(mP * 100, 1)}%</td>
+              </tr>
+              <tr>
+                <td className="py-1.5 font-medium text-muted-foreground">Desviación de costo</td>
+                <td className="py-1.5"></td>
+                <td className={`py-1.5 text-right font-semibold tabular-nums ${desv != null && desv > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{desv != null ? (desv > 0 ? '+' : '') + fmtMoney(desv) : '—'}</td>
+                <td className={`py-1.5 text-right font-semibold tabular-nums ${mC != null && mP < mC ? 'text-red-600' : 'text-emerald-600'}`}>{mC != null ? fmtNumber((mP - mC) * 100, 1) + ' pp' : '—'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

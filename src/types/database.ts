@@ -1886,6 +1886,7 @@ export type Database = {
           gg_pct: number | null
           id: string
           igv_pct: number | null
+          itemizado_propio: boolean
           jefe_id: string | null
           linea_id: string | null
           modalidad_cobro: Database["public"]["Enums"]["modalidad_cobro"]
@@ -1912,6 +1913,7 @@ export type Database = {
           gg_pct?: number | null
           id?: string
           igv_pct?: number | null
+          itemizado_propio?: boolean
           jefe_id?: string | null
           linea_id?: string | null
           modalidad_cobro?: Database["public"]["Enums"]["modalidad_cobro"]
@@ -1938,6 +1940,7 @@ export type Database = {
           gg_pct?: number | null
           id?: string
           igv_pct?: number | null
+          itemizado_propio?: boolean
           jefe_id?: string | null
           linea_id?: string | null
           modalidad_cobro?: Database["public"]["Enums"]["modalidad_cobro"]
