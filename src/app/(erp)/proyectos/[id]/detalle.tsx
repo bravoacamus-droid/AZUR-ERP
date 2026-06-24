@@ -531,9 +531,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   const hoja = row.es_hoja;
                   const et = ESTADO_TAREA[row.estado_tarea] ?? { label: row.estado_tarea, variant: 'muted' as const };
                   const pr = PRIORIDAD[row.prioridad] ?? { label: row.prioridad, variant: 'muted' as const };
-                  const nivelBg = ['bg-azur-100/70', 'bg-azur-50/70', 'bg-sky-50/60', ''][Math.min(3, (row.nivel ?? 1) - 1)];
+                  const nivelBg = ['bg-azur-100/70', 'bg-azur-50/70', 'bg-sky-50/60', 'bg-slate-50/60'][Math.min(3, (row.nivel ?? 1) - 1)];
                   return (
-                    <tr key={row.id} className={`border-b ${!hoja ? `${nivelBg} font-medium` : ''}`}>
+                    <tr key={row.id} className={`border-b ${nivelBg} ${!hoja ? 'font-medium' : ''}`}>
                       <td className="whitespace-nowrap px-2 py-1.5 font-medium text-muted-foreground">{codigos.get(row.id) ?? row.item_codigo}</td>
                       <td className="px-2 py-1.5">
                         <span style={{ paddingLeft: depth * 14 }}>{row.titulo}</span>
