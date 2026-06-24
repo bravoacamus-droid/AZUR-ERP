@@ -331,7 +331,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   const reabiertaIdx = valsSorted.findIndex((v) => v.reabierta);
   const editIdx = reabiertaIdx >= 0 ? reabiertaIdx : valsSorted.length - 1;
   const activeVal = valsSorted[editIdx];
-  const requiereAprobacionMonto = userRol === 'jefe_proyectos'; // Presupuestos/Gerencia editan directo
+  // Aprobación de Presupuestos solo al editar el itemizado HEREDADO del comercial
+  // (protege lo aprobado vs ejecutado). En un itemizado propio el Jefe construye libre.
+  const requiereAprobacionMonto = userRol === 'jefe_proyectos' && !proy.itemizado_propio;
   // orden de presentación N…→N1 (la más nueva a la izquierda) conservando el índice original
   const valsDesc = valsSorted.map((v, idx) => ({ v, idx })).reverse();
 
