@@ -340,6 +340,18 @@ export async function vaciarItemizadoProyecto(proyectoId: string): Promise<Res> 
   return { ok: true };
 }
 
+// Guarda el monto proyectado de un tipo de gasto (reparto manual del presupuesto).
+export async function guardarPresupuestoTipoGasto(proyectoId: string, tipo: string, monto: number): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  const { error } = await supabase
+    .from('presupuesto_tipo_gasto')
+    .upsert({ proyecto_id: proyectoId, tipo, monto_proyectado: monto } as never, { onConflict: 'proyecto_id,tipo' });
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
 export async function marcarItemizadoPropio(proyectoId: string, propio: boolean): Promise<Res> {
   await guard();
   const supabase = createClient();

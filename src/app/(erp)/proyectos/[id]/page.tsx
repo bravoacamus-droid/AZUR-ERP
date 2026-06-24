@@ -64,10 +64,31 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
       .eq('cotizacion_id', proy.cotizacion_id);
     costoComercial = sumHojas(cotItems ?? []);
   }
+  const costoProyecto = sumHojas((items.data ?? []) as never);
   const comparativo = {
     venta: Number(proy.contrato_total),
     costoComercial,
-    costoProyecto: sumHojas((items.data ?? []) as never),
+    costoProyecto,
+  };
+
+  // Presupuesto por tipo de gasto: Proyectado (reparto manual) vs Real (solicitudes pagadas/conciliadas)
+  const TIPOS_GASTO: { tipo: string; label: string }[] = [
+    { tipo: 'contratistas', label: 'Contratistas' },
+    { tipo: 'proveedores', label: 'Proveedores' },
+    { tipo: 'caja_chica', label: 'Caja chica' },
+    { tipo: 'servicios', label: 'Servicios' },
+    { tipo: 'honorarios', label: 'Honorarios' },
+  ];
+  const [{ data: ptg }, { data: solsGasto }] = await Promise.all([
+    supabase.from('presupuesto_tipo_gasto').select('tipo, monto_proyectado').eq('proyecto_id', params.id),
+    supabase.from('solicitudes_pago').select('tipo, monto, status').eq('proyecto_id', params.id).in('status', ['pagada', 'conciliada']),
+  ]);
+  const proyMap = new Map((ptg ?? []).map((r) => [r.tipo as string, Number(r.monto_proyectado)]));
+  const realMap = new Map<string, number>();
+  (solsGasto ?? []).forEach((s) => realMap.set(s.tipo as string, (realMap.get(s.tipo as string) ?? 0) + Number(s.monto)));
+  const presupuestoGasto = {
+    costo: costoProyecto,
+    tipos: TIPOS_GASTO.map((t) => ({ ...t, proyectado: proyMap.get(t.tipo) ?? 0, real: realMap.get(t.tipo) ?? 0 })),
   };
 
   // Datos de campo (capturados desde la PWA) para supervisión del Jefe
@@ -103,6 +124,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         servicios={servicios ?? []}
         solicitudes={solicitudes ?? []}
         comparativo={comparativo}
+        presupuestoGasto={presupuestoGasto}
         userId={session.id}
         userNombre={session.nombre}
         userRol={session.rol}

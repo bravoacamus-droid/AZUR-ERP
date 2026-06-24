@@ -32,13 +32,14 @@ import {
   generarServiciosMantenimiento, actualizarServicio, eliminarServicio,
   solicitarCambioMonto, solicitarReaperturaValorizacion, cerrarReaperturaValorizacion,
   aprobarSolicitud, rechazarSolicitud, vaciarItemizadoProyecto, marcarItemizadoPropio,
+  guardarPresupuestoTipoGasto,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, campo, userId, userNombre, userRol, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, campo, userId, userNombre, userRol, canManage } = props;
   const esMantenimiento = proy.tipo_proyecto === 'chico';
   const router = useRouter();
   const [presentes, setPresentes] = useState<string[]>([]);
@@ -104,7 +105,7 @@ export function ProyectoDetalle(props: any) {
         ]}
       />
 
-      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} />}
+      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} />}
       {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} />}
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
@@ -118,7 +119,7 @@ export function ProyectoDetalle(props: any) {
 }
 
 // ───────────────────────────── RESUMEN ────────────────────────────────
-function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo }: any) {
+function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo, presupuestoGasto }: any) {
   const router = useRouter();
   const [busyS, setBusyS] = useState<string | null>(null);
   const [busyIt, setBusyIt] = useState(false);
@@ -172,6 +173,7 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
         </div>
         <BarraTresTramos p={d} />
         {comparativo && <ComparativoComercial c={comparativo} propio={!!proy.itemizado_propio} />}
+        {presupuestoGasto && <PresupuestoTipoGasto proyectoId={proy.id} data={presupuestoGasto} canManage={canManage} />}
         <div className="flex justify-end">
           <InformeBtn proyectoId={proy.id} />
         </div>
@@ -259,6 +261,78 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
       </div>
     </div>
     </div>
+  );
+}
+
+// Presupuesto por tipo de gasto: Proyectado (reparto manual) vs Real (solicitudes pagadas).
+function PresupuestoTipoGasto({ proyectoId, data, canManage }: { proyectoId: string; data: { costo: number; tipos: { tipo: string; label: string; proyectado: number; real: number }[] }; canManage: boolean }) {
+  const router = useRouter();
+  const [proyMap, setProyMap] = useState<Record<string, number>>(
+    Object.fromEntries(data.tipos.map((t) => [t.tipo, t.proyectado])),
+  );
+  const totalProy = Object.values(proyMap).reduce((a, b) => a + Number(b || 0), 0);
+  const totalReal = data.tipos.reduce((a, t) => a + t.real, 0);
+  const cuadra = Math.abs(totalProy - data.costo) < 1;
+  async function guardar(tipo: string, monto: number) {
+    setProyMap((m) => ({ ...m, [tipo]: monto }));
+    await guardarPresupuestoTipoGasto(proyectoId, tipo, monto);
+    router.refresh();
+  }
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base flex items-center gap-2"><Banknote className="size-4 text-azur-600" /> Presupuesto por tipo de gasto</CardTitle>
+        <p className="text-xs text-muted-foreground">Proyectado (reparto del costo) vs Real (solicitudes pagadas/conciliadas).</p>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-xs uppercase tracking-wide text-muted-foreground">
+              <tr className="border-b">
+                <th className="py-1.5 text-left">Tipo de gasto</th>
+                <th className="py-1.5 text-right">Proyectado</th>
+                <th className="py-1.5 text-right">Real</th>
+                <th className="py-1.5 text-right">Gap</th>
+                <th className="py-1.5 text-right">% real</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.tipos.map((t) => {
+                const proy = Number(proyMap[t.tipo] ?? 0);
+                const gap = proy - t.real;
+                const pct = proy > 0 ? t.real / proy : 0;
+                return (
+                  <tr key={t.tipo} className="border-b">
+                    <td className="py-1.5 font-medium">{t.label}</td>
+                    <td className="py-1.5 text-right">
+                      {canManage ? (
+                        <input type="number" className="w-24 rounded border bg-white px-1 py-0.5 text-right tabular-nums"
+                          defaultValue={proy || ''} key={`${t.tipo}-${proy}`}
+                          onBlur={(e) => guardar(t.tipo, Number(e.target.value) || 0)} />
+                      ) : <span className="tabular-nums">{fmtMoney(proy)}</span>}
+                    </td>
+                    <td className="py-1.5 text-right tabular-nums">{fmtMoney(t.real)}</td>
+                    <td className={`py-1.5 text-right font-medium tabular-nums ${gap < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{gap < 0 ? '' : '+'}{fmtMoney(gap)}</td>
+                    <td className="py-1.5 text-right tabular-nums">{proy > 0 ? fmtNumber(pct * 100, 0) + '%' : '—'}</td>
+                  </tr>
+                );
+              })}
+              <tr className="border-t-2 font-semibold">
+                <td className="py-1.5">TOTAL</td>
+                <td className="py-1.5 text-right tabular-nums">{fmtMoney(totalProy)}</td>
+                <td className="py-1.5 text-right tabular-nums">{fmtMoney(totalReal)}</td>
+                <td className={`py-1.5 text-right tabular-nums ${totalProy - totalReal < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{totalProy - totalReal < 0 ? '' : '+'}{fmtMoney(totalProy - totalReal)}</td>
+                <td className="py-1.5"></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p className={`mt-2 text-xs ${cuadra ? 'text-emerald-600' : 'text-amber-600'}`}>
+          Costo presupuestado del proyecto: <strong>{fmtMoney(data.costo)}</strong> · Suma proyectada: <strong>{fmtMoney(totalProy)}</strong>{' '}
+          {cuadra ? '✓ cuadra' : `· diferencia ${fmtMoney(data.costo - totalProy)}`}
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 

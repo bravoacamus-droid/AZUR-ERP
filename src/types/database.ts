@@ -1684,6 +1684,45 @@ export type Database = {
           },
         ]
       }
+      presupuesto_tipo_gasto: {
+        Row: {
+          created_at: string
+          id: string
+          monto_proyectado: number
+          proyecto_id: string
+          tipo: Database["public"]["Enums"]["tipo_solicitud"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          monto_proyectado?: number
+          proyecto_id: string
+          tipo: Database["public"]["Enums"]["tipo_solicitud"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          monto_proyectado?: number
+          proyecto_id?: string
+          tipo?: Database["public"]["Enums"]["tipo_solicitud"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "presupuesto_tipo_gasto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "presupuesto_tipo_gasto_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_proyecto"
+            referencedColumns: ["proyecto_id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           activo: boolean
