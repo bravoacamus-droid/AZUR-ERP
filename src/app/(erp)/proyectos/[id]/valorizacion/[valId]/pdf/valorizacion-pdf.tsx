@@ -20,9 +20,14 @@ const s = StyleSheet.create({
   hi: { color: AZUR },
   sectionTitle: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: AZUR, marginBottom: 6 },
   thead: { flexDirection: 'row', backgroundColor: AZUR, paddingVertical: 4, paddingHorizontal: 4 },
-  th: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 8 },
+  th: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7.5 },
   tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingVertical: 3, paddingHorizontal: 4 },
-  cTit: { flex: 1 }, cPct: { width: 70, textAlign: 'right' }, cMon: { width: 90, textAlign: 'right' },
+  trGrp: { flexDirection: 'row', backgroundColor: '#fbe9ec', paddingVertical: 3, paddingHorizontal: 4 },
+  cell: { fontSize: 7.5 },
+  cCod: { width: 38 }, cTit: { flex: 1 }, cUnd: { width: 34, textAlign: 'center' },
+  cContr: { width: 70, textAlign: 'right' }, cPct: { width: 42, textAlign: 'right' },
+  cMon: { width: 70, textAlign: 'right' }, cAcumPct: { width: 42, textAlign: 'right' },
+  cAcum: { width: 70, textAlign: 'right' }, cSaldo: { width: 70, textAlign: 'right' },
   footer: { position: 'absolute', bottom: 20, left: 32, right: 32, textAlign: 'center', fontSize: 7, color: '#999', borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 6 },
 });
 
@@ -30,14 +35,17 @@ export interface ValPdfData {
   proyecto: string; codigo: string; cliente: string; numero: number; fecha: string;
   contrato: number; valorizadoPeriodo: number; amortizacion: number; cobroNeto: number;
   adelantoPct: number; valorizadoAcum: number; saldoContrato: number;
-  rows: { titulo: string; pct: number; monto: number }[];
+  rows: {
+    codigo: string; titulo: string; unidad: string; contractual: number;
+    pct: number; monto: number; pctAcum: number; valorizadoAcum: number; saldo: number;
+  }[];
   historial: { numero: number; fecha: string; monto: number }[];
 }
 
 export function ValorizacionPDF({ d }: { d: ValPdfData }) {
   return (
     <Document title={`Valorización N${d.numero} — ${d.codigo}`}>
-      <Page size="A4" style={s.page}>
+      <Page size="A4" orientation="landscape" style={s.page}>
         <View style={s.header}>
           <View style={s.brandRow}>
             <View style={s.logoBox}><Image src={LOGO_DATA_URI} style={s.logo} /></View>
@@ -82,17 +90,40 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
 
         <Text style={s.sectionTitle}>Detalle por partida</Text>
         <View style={s.thead}>
+          <Text style={[s.th, s.cCod]}>ÍTEM</Text>
           <Text style={[s.th, s.cTit]}>PARTIDA</Text>
-          <Text style={[s.th, s.cPct]}>% PERIODO</Text>
-          <Text style={[s.th, s.cMon]}>VALORIZADO</Text>
+          <Text style={[s.th, s.cUnd]}>UND</Text>
+          <Text style={[s.th, s.cContr]}>CONTRACTUAL</Text>
+          <Text style={[s.th, s.cPct]}>% PER.</Text>
+          <Text style={[s.th, s.cMon]}>VAL. PERIODO</Text>
+          <Text style={[s.th, s.cAcumPct]}>% ACUM.</Text>
+          <Text style={[s.th, s.cAcum]}>VAL. ACUM.</Text>
+          <Text style={[s.th, s.cSaldo]}>SALDO</Text>
         </View>
         {d.rows.map((r, i) => (
-          <View key={i} style={s.tr}>
-            <Text style={s.cTit}>{r.titulo}</Text>
-            <Text style={s.cPct}>{fmtNumber(r.pct * 100, 0)}%</Text>
-            <Text style={s.cMon}>{fmtMoney(r.monto)}</Text>
+          <View key={i} style={s.tr} wrap={false}>
+            <Text style={[s.cell, s.cCod]}>{r.codigo}</Text>
+            <Text style={[s.cell, s.cTit]}>{r.titulo}</Text>
+            <Text style={[s.cell, s.cUnd]}>{r.unidad}</Text>
+            <Text style={[s.cell, s.cContr]}>{fmtMoney(r.contractual)}</Text>
+            <Text style={[s.cell, s.cPct]}>{fmtNumber(r.pct * 100, 0)}%</Text>
+            <Text style={[s.cell, s.cMon]}>{fmtMoney(r.monto)}</Text>
+            <Text style={[s.cell, s.cAcumPct]}>{fmtNumber(r.pctAcum * 100, 0)}%</Text>
+            <Text style={[s.cell, s.cAcum]}>{fmtMoney(r.valorizadoAcum)}</Text>
+            <Text style={[s.cell, s.cSaldo]}>{fmtMoney(r.saldo)}</Text>
           </View>
         ))}
+        <View style={[s.tr, { borderTopWidth: 1, borderTopColor: AZUR }]}>
+          <Text style={[s.cell, s.cCod]}></Text>
+          <Text style={[s.cell, s.cTit, s.vb]}>TOTALES</Text>
+          <Text style={[s.cell, s.cUnd]}></Text>
+          <Text style={[s.cell, s.cContr, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.contractual, 0))}</Text>
+          <Text style={[s.cell, s.cPct]}></Text>
+          <Text style={[s.cell, s.cMon, s.vb]}>{fmtMoney(d.valorizadoPeriodo)}</Text>
+          <Text style={[s.cell, s.cAcumPct]}></Text>
+          <Text style={[s.cell, s.cAcum, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.valorizadoAcum, 0))}</Text>
+          <Text style={[s.cell, s.cSaldo, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.saldo, 0))}</Text>
+        </View>
 
         <Text style={s.footer} fixed>AZUR Constructora e Inmobiliaria · Valorización N{d.numero} · {d.codigo}</Text>
       </Page>

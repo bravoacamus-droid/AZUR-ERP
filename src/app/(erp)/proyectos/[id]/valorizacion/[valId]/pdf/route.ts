@@ -2,7 +2,7 @@ import { renderToBuffer } from '@react-pdf/renderer';
 import { createElement } from 'react';
 import { createClient } from '@/lib/supabase/server';
 import { fmtDate } from '@/lib/format';
-import { dilucionAdelanto } from '@/lib/calc';
+import { dilucionAdelanto, armarArbol, renumerar } from '@/lib/calc';
 import { ValorizacionPDF, type ValPdfData } from './valorizacion-pdf';
 
 export const runtime = 'nodejs';
@@ -18,10 +18,30 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
 
   const { data: val } = await supabase
     .from('valorizaciones')
-    .select('*, valorizacion_items(pct_avance, total, proyecto_item:proyecto_items(titulo))')
+    .select('*, valorizacion_items(proyecto_item_id, pct_avance, total)')
     .eq('id', params.valId)
     .single();
   if (!val) return new Response('No encontrado', { status: 404 });
+
+  // itemizado completo (para código de ítem, unidad y monto contractual de cada partida)
+  const { data: allItems } = await supabase
+    .from('proyecto_items')
+    .select('id, parent_id, nivel, orden, item_codigo, titulo, unidad, total_costo, es_hoja')
+    .eq('proyecto_id', params.id)
+    .order('orden');
+  const codigos = renumerar(armarArbol((allItems ?? []) as never) as never);
+  const itemById = new Map((allItems ?? []).map((i) => [i.id, i]));
+
+  // % acumulado por ítem hasta esta valorización (inclusive)
+  const { data: valsHasta } = await supabase
+    .from('valorizaciones')
+    .select('numero, valorizacion_items(proyecto_item_id, pct_avance)')
+    .eq('proyecto_id', params.id)
+    .lte('numero', val.numero);
+  const acumPct = new Map<string, number>();
+  (valsHasta ?? []).forEach((v) => (v.valorizacion_items as any[] ?? []).forEach((vi) => {
+    acumPct.set(vi.proyecto_item_id, (acumPct.get(vi.proyecto_item_id) ?? 0) + Number(vi.pct_avance));
+  }));
 
   // acumulado del proyecto hasta esta valorización
   const { data: vals } = await supabase
@@ -41,11 +61,25 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   const periodo = Number(val.monto_valorizado);
   const dil = dilucionAdelanto(periodo, Number(proy.adelanto_pct));
 
-  const rows = ((val.valorizacion_items as any[]) ?? []).map((vi) => ({
-    titulo: vi.proyecto_item?.titulo ?? '—',
-    pct: Number(vi.pct_avance),
-    monto: Number(vi.total),
-  }));
+  const rows = ((val.valorizacion_items as any[]) ?? [])
+    .map((vi) => {
+      const it = itemById.get(vi.proyecto_item_id);
+      const contractual = Number(it?.total_costo ?? 0);
+      const pctAcum = acumPct.get(vi.proyecto_item_id) ?? Number(vi.pct_avance);
+      const valorizadoAcum = pctAcum * contractual;
+      return {
+        codigo: codigos.get(vi.proyecto_item_id) ?? it?.item_codigo ?? '',
+        titulo: it?.titulo ?? '—',
+        unidad: it?.unidad ?? '',
+        contractual,
+        pct: Number(vi.pct_avance),
+        monto: Number(vi.total),
+        pctAcum,
+        valorizadoAcum,
+        saldo: contractual - valorizadoAcum,
+      };
+    })
+    .sort((a, b) => a.codigo.localeCompare(b.codigo, undefined, { numeric: true }));
 
   const d: ValPdfData = {
     proyecto: proy.nombre,
