@@ -58,8 +58,13 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   }));
 
   const contrato = Number(proy.contrato_total);
+  const adelantoPct = Number(proy.adelanto_pct);
   const periodo = Number(val.monto_valorizado);
-  const dil = dilucionAdelanto(periodo, Number(proy.adelanto_pct));
+  const dil = dilucionAdelanto(periodo, adelantoPct);
+  // Adelanto: total recibido, amortizado acumulado y saldo pendiente de diluir.
+  const adelantoTotal = contrato * adelantoPct;
+  const amortizadoAcum = adelantoPct * valorizadoAcum;
+  const saldoAdelanto = adelantoTotal - amortizadoAcum;
 
   const rows = ((val.valorizacion_items as any[]) ?? [])
     .map((vi) => {
@@ -91,7 +96,10 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     valorizadoPeriodo: periodo,
     amortizacion: dil.amortizacion,
     cobroNeto: dil.cobroNeto,
-    adelantoPct: Number(proy.adelanto_pct),
+    adelantoPct,
+    adelantoTotal,
+    amortizadoAcum,
+    saldoAdelanto,
     valorizadoAcum,
     saldoContrato: contrato - valorizadoAcum,
     rows,

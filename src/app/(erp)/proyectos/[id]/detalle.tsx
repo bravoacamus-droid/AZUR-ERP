@@ -453,6 +453,14 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     return acc + (leaf ? pct * Number(leaf.total_costo ?? 0) : 0);
   }, 0) : 0;
   const dil = dilucionAdelanto(montoActivo, Number(proy.adelanto_pct));
+  // Adelanto recibido y saldo por amortizar (a lo largo del proyecto se diluye al 100%).
+  const adelantoTotalProy = Number(proy.contrato_total) * Number(proy.adelanto_pct);
+  const valorizadoAcumProy = rows.reduce((acc, r) => {
+    if (!r.es_hoja) return acc;
+    const acumPct = (avancesCalc.get(r.id) ?? []).reduce((x, y) => x + y, 0);
+    return acc + acumPct * Number(r.total_costo ?? 0);
+  }, 0);
+  const saldoAdelantoProy = adelantoTotalProy - Number(proy.adelanto_pct) * valorizadoAcumProy;
 
   return (
     <div className="space-y-4">
@@ -607,7 +615,13 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
 
       {activeVal && (
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Valorización N{activeVal.numero} · dilución del adelanto</CardTitle></CardHeader>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Valorización N{activeVal.numero} · dilución del adelanto</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Adelanto recibido ({fmtPct(Number(proy.adelanto_pct), 0)}): <strong>{fmtMoney(adelantoTotalProy)}</strong>
+              {' · '}Saldo del adelanto por amortizar: <strong>{fmtMoney(saldoAdelantoProy)}</strong>
+            </p>
+          </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-4">
             <KpiCard label="Valorizado periodo" value={fmtMoney(montoActivo)} />
             <KpiCard label={`Amortización (${fmtPct(Number(proy.adelanto_pct), 0)})`} value={fmtMoney(dil.amortizacion)} tone="warning" />
