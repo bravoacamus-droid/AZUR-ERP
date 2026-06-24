@@ -768,6 +768,8 @@ function CondicionesPago({ cot, formas, medios, onSave, onCab, editable }: any) 
               <Select defaultValue={cot.plazo_tipo} disabled={!editable} onChange={(e) => onCab({ plazo_tipo: e.target.value })}>
                 <option value="calendario">Días calendario</option>
                 <option value="util">Días útiles</option>
+                <option value="semanas">Semanas</option>
+                <option value="meses">Meses</option>
               </Select>
             </Field>
           </div>

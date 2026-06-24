@@ -47,7 +47,14 @@ export interface PdfData {
   totales: { subtotal: number; gg?: number; ga?: number; util?: number; costoDirecto: number; igv?: number; total: number; descuento?: number; totalConDescuento: number };
   condiciones?: string; serviciosIncluidos?: string; serviciosOmitidos?: string; garantia?: string;
   medios: { banco: string; titular: string; cuenta?: string; detraccion: boolean }[];
+  formaPago?: { concepto: string; porcentaje: number; esAdelanto: boolean }[];
+  responsable?: string; responsableRol?: string;
 }
+
+const ROL_LABEL: Record<string, string> = {
+  gerencia: 'Gerencia General', comercial: 'Área Comercial', presupuestos: 'Presupuestos',
+  jefe_proyectos: 'Jefatura de Proyectos', administrador: 'Administración',
+};
 
 export function CotizacionPDF({ d }: { d: PdfData }) {
   return (
@@ -118,12 +125,32 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
         {d.serviciosOmitidos ? <><Text style={s.sectionTitle}>SERVICIOS OMITIDOS</Text><Text style={s.cond}>{d.serviciosOmitidos}</Text></> : null}
         {d.garantia ? <><Text style={s.sectionTitle}>GARANTÍA</Text><Text style={s.cond}>{d.garantia}</Text></> : null}
 
+        {d.formaPago && d.formaPago.length ? <>
+          <Text style={s.sectionTitle}>FORMA DE PAGO</Text>
+          {d.formaPago.map((f, i) => (
+            <View key={i} style={s.totRow}>
+              <Text style={[s.totLabel, { textAlign: 'left', width: 'auto', flex: 1 }]}>
+                {f.esAdelanto ? 'Adelanto — ' : ''}{f.concepto}
+              </Text>
+              <Text style={[s.totVal, { width: 70 }]}>{fmtNumber(f.porcentaje * 100, 0)}%</Text>
+              <Text style={[s.totVal, { width: 90 }]}>{fmtMoney(d.totales.totalConDescuento * f.porcentaje)}</Text>
+            </View>
+          ))}
+        </> : null}
+
         {d.medios.length ? <>
           <Text style={s.sectionTitle}>MEDIOS DE PAGO</Text>
           {d.medios.map((m, i) => (
             <Text key={i} style={s.cond}>{m.banco} — {m.titular} · Cta: {m.cuenta ?? ''}{m.detraccion ? ' (Detracción)' : ''}</Text>
           ))}
         </> : null}
+
+        {/* Firma del responsable */}
+        <View style={{ marginTop: 28, alignItems: 'center' }} wrap={false}>
+          <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 200, marginBottom: 4 }} />
+          <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? '____________________'}</Text>
+          <Text style={{ fontSize: 8, color: '#666' }}>{d.responsableRol ? (ROL_LABEL[d.responsableRol] ?? d.responsableRol) : 'Responsable'} · {d.empresa}</Text>
+        </View>
 
         <Text style={s.footer} fixed>AZUR Constructora e Inmobiliaria · {d.empresa} · Cotización {d.codigo}</Text>
       </Page>

@@ -19,9 +19,13 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     .single();
   if (!cot) return new Response('No encontrado', { status: 404 });
 
-  const [{ data: items }, { data: medios }] = await Promise.all([
+  const [{ data: items }, { data: medios }, { data: formasPago }, { data: responsable }] = await Promise.all([
     supabase.from('cotizacion_items').select('*').eq('cotizacion_id', params.id).order('orden'),
     supabase.from('medios_pago_empresa').select('*').order('orden'),
+    supabase.from('cotizacion_formas_pago').select('*').eq('cotizacion_id', params.id).order('orden'),
+    cot.responsable_id
+      ? supabase.from('profiles').select('nombre, rol').eq('id', cot.responsable_id).single()
+      : Promise.resolve({ data: null }),
   ]);
 
   const arbol = armarArbol((items ?? []) as never);
@@ -63,7 +67,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     empresa: 'AZUR CONSTRUYE S.A.C.',
     rucEmpresa: 'R.U.C. 20602938019',
     vigencia: cot.vigencia_dias ? `${cot.vigencia_dias} días` : undefined,
-    plazo: cot.plazo_valor ? `${cot.plazo_valor} días ${cot.plazo_tipo === 'util' ? 'útiles' : 'calendario'}` : undefined,
+    plazo: cot.plazo_valor
+      ? `${cot.plazo_valor} ${({ calendario: 'días calendario', util: 'días útiles', semanas: 'semanas', meses: 'meses' } as Record<string, string>)[cot.plazo_tipo ?? 'calendario'] ?? 'días calendario'}`
+      : undefined,
     rows,
     totales: {
       subtotal: totales.subtotal,
@@ -81,6 +87,9 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     serviciosOmitidos: cot.servicios_omitidos ?? undefined,
     garantia: cot.garantia_activa ? (cot.garantia ?? undefined) : undefined,
     medios: (medios ?? []).map((m) => ({ banco: m.banco, titular: m.titular, cuenta: m.cuenta_soles ?? undefined, detraccion: m.es_detraccion })),
+    formaPago: (formasPago ?? []).map((f) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), esAdelanto: f.es_adelanto })),
+    responsable: (responsable as { nombre?: string; rol?: string } | null)?.nombre ?? undefined,
+    responsableRol: (responsable as { nombre?: string; rol?: string } | null)?.rol ?? undefined,
   };
 
   const buffer = await renderToBuffer(createElement(CotizacionPDF as any, { d }) as any);

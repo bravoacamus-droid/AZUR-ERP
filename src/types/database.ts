@@ -2902,7 +2902,7 @@ export type Database = {
       modalidad_cobro: "contado" | "credito"
       moneda_enum: "PEN" | "USD"
       origen_lead: "directo" | "recomendacion" | "oficina" | "llamada"
-      plazo_tipo: "calendario" | "util"
+      plazo_tipo: "calendario" | "util" | "semanas" | "meses"
       prioridad_enum: "muy_baja" | "baja" | "media" | "alta" | "muy_alta"
       recurrencia_enum:
         | "unica"
@@ -3122,7 +3122,7 @@ export const Constants = {
       modalidad_cobro: ["contado", "credito"],
       moneda_enum: ["PEN", "USD"],
       origen_lead: ["directo", "recomendacion", "oficina", "llamada"],
-      plazo_tipo: ["calendario", "util"],
+      plazo_tipo: ["calendario", "util", "semanas", "meses"],
       prioridad_enum: ["muy_baja", "baja", "media", "alta", "muy_alta"],
       recurrencia_enum: [
         "unica",
