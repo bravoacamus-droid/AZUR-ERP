@@ -23,6 +23,14 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     .single();
   if (!val) return new Response('No encontrado', { status: 404 });
 
+  // jefe de proyectos del equipo (responsable que elabora el informe)
+  const { data: equipo } = await supabase
+    .from('proyecto_equipo')
+    .select('profile:profiles(nombre, rol)')
+    .eq('proyecto_id', params.id);
+  const responsable = (equipo ?? []).map((e) => e.profile as { nombre?: string; rol?: string } | null)
+    .find((p) => p?.rol === 'jefe_proyectos')?.nombre ?? undefined;
+
   // itemizado completo (para código de ítem, unidad y monto contractual de cada partida)
   const { data: allItems } = await supabase
     .from('proyecto_items')
@@ -102,6 +110,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     saldoAdelanto,
     valorizadoAcum,
     saldoContrato: contrato - valorizadoAcum,
+    responsable,
     rows,
     historial,
   };

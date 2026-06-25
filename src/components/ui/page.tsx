@@ -43,11 +43,11 @@ export function KpiCard({
   }[tone];
   return (
     <Card>
-      <CardContent className="flex items-center justify-between p-4">
-        <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-          <p className={cn('mt-1 text-2xl font-bold tabular-nums', toneCls)}>{value}</p>
-          {sub && <p className="mt-0.5 text-xs text-muted-foreground">{sub}</p>}
+      <CardContent className="flex items-center justify-between gap-3 p-4">
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className={cn('mt-1 truncate text-xl font-bold tabular-nums sm:text-2xl', toneCls)} title={typeof value === 'string' ? value : undefined}>{value}</p>
+          {sub && <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>}
         </div>
         {icon && (
           <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-azur-50 text-azur-600 [&_svg]:size-5">

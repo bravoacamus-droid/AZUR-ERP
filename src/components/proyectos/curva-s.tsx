@@ -37,15 +37,18 @@ export function CurvaS({
 
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-base">Curva S · avance acumulado</CardTitle></CardHeader>
+      <CardHeader className="pb-1">
+        <CardTitle className="text-base">Curva S · avance acumulado</CardTitle>
+        <p className="text-xs text-muted-foreground">% de avance acumulado del contrato por semana: <span className="text-slate-500">Planificado</span> (lineal) vs <span className="text-azur-600">Ejecutado</span> (valorizado real).</p>
+      </CardHeader>
       <CardContent>
-        <div className="h-64 w-full">
+        <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 12, left: -8, bottom: 0 }}>
+            <LineChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 18 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="semana" fontSize={11} />
-              <YAxis fontSize={11} domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-              <Tooltip formatter={(v: number) => `${v}%`} />
+              <XAxis dataKey="semana" fontSize={11} label={{ value: 'Semanas', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#64748b' }} />
+              <YAxis fontSize={11} domain={[0, 100]} tickFormatter={(v) => `${v}%`} label={{ value: '% avance acumulado', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 11, fill: '#64748b' } }} />
+              <Tooltip formatter={(v: number) => `${v}%`} labelFormatter={(l) => `Semana ${String(l).replace('S', '')}`} />
               <Legend />
               <Line type="monotone" dataKey="Planificado" stroke="#94a3b8" strokeWidth={2} dot={false} />
               <Line type="monotone" dataKey="Ejecutado" stroke="#E20627" strokeWidth={2.5} dot={{ r: 3 }} connectNulls />

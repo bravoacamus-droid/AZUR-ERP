@@ -35,7 +35,7 @@ export interface ValPdfData {
   proyecto: string; codigo: string; cliente: string; numero: number; fecha: string;
   contrato: number; valorizadoPeriodo: number; amortizacion: number; cobroNeto: number;
   adelantoPct: number; adelantoTotal: number; amortizadoAcum: number; saldoAdelanto: number;
-  valorizadoAcum: number; saldoContrato: number;
+  valorizadoAcum: number; saldoContrato: number; responsable?: string;
   rows: {
     codigo: string; titulo: string; unidad: string; contractual: number;
     pct: number; monto: number; pctAcum: number; valorizadoAcum: number; saldo: number;
@@ -131,6 +131,20 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
           <Text style={[s.cell, s.cAcumPct]}></Text>
           <Text style={[s.cell, s.cAcum, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.valorizadoAcum, 0))}</Text>
           <Text style={[s.cell, s.cSaldo, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.saldo, 0))}</Text>
+        </View>
+
+        {/* Firmas: elaborado (Jefe de Proyectos) y aprobado (Gerencia) */}
+        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 30 }} wrap={false}>
+          <View style={{ alignItems: 'center', width: 200 }}>
+            <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? '____________________'}</Text>
+            <Text style={{ fontSize: 8, color: '#666' }}>Elaborado por · Jefe de Proyectos</Text>
+          </View>
+          <View style={{ alignItems: 'center', width: 200 }}>
+            <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>____________________</Text>
+            <Text style={{ fontSize: 8, color: '#666' }}>Aprobado por · Gerencia</Text>
+          </View>
         </View>
 
         <Text style={s.footer} fixed>AZUR Constructora e Inmobiliaria · Valorización N{d.numero} · {d.codigo}</Text>

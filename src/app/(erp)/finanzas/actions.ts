@@ -65,12 +65,12 @@ export async function programarPago(id: string, banco: string, fecha: string): P
   return { ok: true };
 }
 
-// ── N2: Administrador marca pagada (sube voucher) ───────────────────────
+// ── N3: Gerencia ejecuta/registra el pago (sube voucher) ────────────────
 export async function marcarPagada(
   id: string,
   pago: { voucherUrl: string; detraccion: number; metodo?: string; num_operacion?: string },
 ): Promise<Res> {
-  const session = await requireRol(['administrador', 'gerencia']);
+  const session = await requireRol(['gerencia']);
   const supabase = createClient();
   const admin = createAdminClient();
 

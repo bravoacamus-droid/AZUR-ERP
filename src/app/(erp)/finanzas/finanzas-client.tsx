@@ -73,7 +73,8 @@ function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
   const [busy, setBusy] = useState(false);
 
   const puedeAprobar = rol === 'jefe_proyectos' || rol === 'gerencia';
-  const puedePagar = rol === 'administrador' || rol === 'gerencia';
+  const puedeProgramar = rol === 'administrador' || rol === 'gerencia'; // Administración programa
+  const puedePagar = rol === 'gerencia'; // Gerencia ejecuta el pago
   const esGerencia = rol === 'gerencia';
 
   const wa = (s: any) => encodeURIComponent(`*AZUR* Comprobante de pago\n${s.codigo} · ${s.beneficiario_nombre ?? ''}\nMonto: ${fmtMoney(Number(s.monto))}\n${s.voucher_url ?? ''}`);
@@ -96,7 +97,10 @@ function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
 
   return (
     <div className="space-y-3">
-    <div className="flex justify-end">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <p className="text-xs text-muted-foreground">
+        Flujo: <strong>Solicitada</strong> (campo) → <strong>Aprobada</strong> (Jefe de Proyectos) → <strong>Programada</strong> (Administración) → <strong>Pagada</strong> (Gerencia) → <strong>Conciliada</strong> (automático)
+      </p>
       <Button size="sm" variant="gradient" onClick={() => { setNueva(true); setNs(SOL_VACIA); setNsMsg(null); }}><Plus /> Nueva solicitud de pago</Button>
     </div>
     <Card>
@@ -134,7 +138,7 @@ function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
                             <Button size="sm" variant="ghost" onClick={() => setRech(s)}><XCircle className="text-azur-600" /></Button>
                           </>
                         )}
-                        {s.status === 'aprobada' && puedePagar && (
+                        {s.status === 'aprobada' && puedeProgramar && (
                           <Button size="sm" variant="outline" onClick={() => { setProg(s); setBanco(''); }}><CalendarClock /> Programar</Button>
                         )}
                         {s.status === 'programada' && puedePagar && (
