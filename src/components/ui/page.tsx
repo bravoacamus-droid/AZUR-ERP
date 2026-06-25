@@ -43,14 +43,14 @@ export function KpiCard({
   }[tone];
   return (
     <Card>
-      <CardContent className="flex items-center justify-between gap-3 p-4">
+      <CardContent className="flex items-center justify-between gap-2 overflow-hidden p-4">
         <div className="min-w-0 flex-1">
           <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
-          <p className={cn('mt-1 truncate text-xl font-bold tabular-nums sm:text-2xl', toneCls)} title={typeof value === 'string' ? value : undefined}>{value}</p>
+          <p className={cn('mt-1 truncate text-lg font-bold leading-tight tabular-nums sm:text-xl lg:text-2xl', toneCls)} title={typeof value === 'string' ? value : undefined}>{value}</p>
           {sub && <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>}
         </div>
         {icon && (
-          <div className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-azur-50 text-azur-600 [&_svg]:size-5">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-azur-50 text-azur-600 sm:size-11 [&_svg]:size-4 sm:[&_svg]:size-5">
             {icon}
           </div>
         )}

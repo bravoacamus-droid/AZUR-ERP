@@ -1,6 +1,6 @@
 'use client';
 
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Label } from 'recharts';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { semanasEntre } from '@/lib/lastplanner';
 
@@ -44,10 +44,14 @@ export function CurvaS({
       <CardContent>
         <div className="h-72 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={data} margin={{ top: 8, right: 16, left: 8, bottom: 18 }}>
+            <LineChart data={data} margin={{ top: 8, right: 20, left: 24, bottom: 28 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-              <XAxis dataKey="semana" fontSize={11} label={{ value: 'Semanas', position: 'insideBottom', offset: -10, fontSize: 11, fill: '#64748b' }} />
-              <YAxis fontSize={11} domain={[0, 100]} tickFormatter={(v) => `${v}%`} label={{ value: '% avance acumulado', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fontSize: 11, fill: '#64748b' } }} />
+              <XAxis dataKey="semana" fontSize={11} height={42}>
+                <Label value="Semanas (cronograma)" position="insideBottom" offset={-2} style={{ fontSize: 11, fill: '#64748b' }} />
+              </XAxis>
+              <YAxis fontSize={11} domain={[0, 100]} tickFormatter={(v) => `${v}%`} width={54}>
+                <Label value="% avance acumulado" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fontSize: 11, fill: '#64748b' }} />
+              </YAxis>
               <Tooltip formatter={(v: number) => `${v}%`} labelFormatter={(l) => `Semana ${String(l).replace('S', '')}`} />
               <Legend />
               <Line type="monotone" dataKey="Planificado" stroke="#94a3b8" strokeWidth={2} dot={false} />
