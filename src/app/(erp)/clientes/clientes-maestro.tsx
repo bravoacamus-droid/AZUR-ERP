@@ -14,6 +14,7 @@ import { Field, EmptyState } from '@/components/ui/misc';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { soloDigitos } from '@/lib/utils';
 import { guardarCliente, importarClientes } from '../catalogos/actions';
+import { CuentasBancarias } from '@/components/finanzas/cuentas-bancarias';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const VACIO = { id: undefined as string | undefined, razon_social: '', tipo_doc: 'RUC', ruc_dni: '', contacto_nombre: '', contacto_email: '', contacto_telefono: '', ubicacion: '', origen: '', banco: '', cuenta: '', cci: '', cuenta_detraccion: '', lat: null as number | null, lng: null as number | null };
@@ -110,6 +111,8 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
             <Field label="Cuenta"><Input value={edit.cuenta} onChange={(e) => setEdit({ ...edit, cuenta: e.target.value })} /></Field>
             <Field label="CCI"><Input value={edit.cci} onChange={(e) => setEdit({ ...edit, cci: e.target.value })} /></Field>
             <Field label="Cuenta de detracción"><Input value={edit.cuenta_detraccion} onChange={(e) => setEdit({ ...edit, cuenta_detraccion: e.target.value })} placeholder="Banco de la Nación" /></Field>
+            {edit.id ? <div className="border-t pt-3 sm:col-span-2"><CuentasBancarias clienteId={edit.id} /></div>
+              : <p className="text-xs text-muted-foreground sm:col-span-2">Guarda el cliente para poder agregar más cuentas bancarias.</p>}
             {error && <p className="text-sm text-azur-700 sm:col-span-2">{error}</p>}
           </div>
         )}

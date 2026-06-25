@@ -15,7 +15,7 @@ export interface ReportesData {
   kpis: { ingresos: number; egresos: number; utilidad: number; nProyectos: number };
   serie: { label: string; Ingresos: number; Egresos: number }[];
   lineas: { nombre: string; color: string; proyectado: number; pagos: number; gasto: number }[];
-  categorias: { tipo: string; label: string; monto: number }[];
+  categorias: { tipo: string; label: string; monto: number; proyectado: number }[];
   proyectos: { proyecto_id: string; codigo: string | null; nombre: string; proyectado: number; pagos: number; gasto: number; valorizado: number; salud: string }[];
 }
 
@@ -52,9 +52,13 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
 
   let qAbonos = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
   let qSols = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
+  let qPtg = supabase.from('presupuesto_tipo_gasto').select('tipo, monto_proyectado, proyecto_id');
   if (desdeISO) { qAbonos = qAbonos.gte('fecha', desdeISO); qSols = qSols.gte('pagado_at', desdeISO); }
-  if (proyIds) { qAbonos = qAbonos.in('proyecto_id', proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000']); qSols = qSols.in('proyecto_id', proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000']); }
-  const [{ data: abonos }, { data: sols }] = await Promise.all([qAbonos, qSols]);
+  if (proyIds) {
+    const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000'];
+    qAbonos = qAbonos.in('proyecto_id', ids); qSols = qSols.in('proyecto_id', ids); qPtg = qPtg.in('proyecto_id', ids);
+  }
+  const [{ data: abonos }, { data: sols }, { data: ptg }] = await Promise.all([qAbonos, qSols, qPtg]);
 
   const bucket = (s: string) => (periodo === 'todo' ? s.slice(0, 7) : s.slice(0, 10));
   const serieMap = new Map<string, { Ingresos: number; Egresos: number }>();
@@ -68,7 +72,9 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
 
   const acc = new Map<string, number>();
   (sols ?? []).forEach((s) => acc.set(s.tipo, (acc.get(s.tipo) ?? 0) + Number(s.monto)));
-  const categorias = CATEGORIAS.map((tipo) => ({ tipo, label: TIPO_SOLICITUD_LABEL[tipo] ?? tipo, monto: acc.get(tipo) ?? 0 }));
+  const proyAcc = new Map<string, number>();
+  (ptg ?? []).forEach((p) => proyAcc.set(p.tipo, (proyAcc.get(p.tipo) ?? 0) + Number(p.monto_proyectado)));
+  const categorias = CATEGORIAS.map((tipo) => ({ tipo, label: TIPO_SOLICITUD_LABEL[tipo] ?? tipo, monto: acc.get(tipo) ?? 0, proyectado: proyAcc.get(tipo) ?? 0 }));
 
   const dash: DashboardProyecto[] = (dashRaw ?? [])
     .map((d) => ({

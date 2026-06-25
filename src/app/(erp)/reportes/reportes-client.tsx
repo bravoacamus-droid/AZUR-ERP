@@ -55,6 +55,9 @@ export function ReportesClient({ data }: { data: ReportesData }) {
   const excelUrl = `/reportes/excel?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}`;
   const saludVariant = (s: string) => (s === 'ok' ? 'success' : s === 'advertencia' ? 'warning' : 'danger');
   const catData = categorias.filter((c) => c.monto > 0).map((c) => ({ name: c.label, value: c.monto }));
+  const catComp = categorias
+    .filter((c) => c.monto > 0 || c.proyectado > 0)
+    .map((c) => ({ name: c.label, Proyectado: c.proyectado, Real: c.monto, gap: c.proyectado - c.monto }));
 
   return (
     <div className="space-y-6">
@@ -188,6 +191,48 @@ export function ReportesClient({ data }: { data: ReportesData }) {
           </Card>
         </motion.div>
       </div>
+
+      {/* Proyectado vs Real por tipo de gasto (control financiero) */}
+      <motion.div {...fade(2)}>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base">Proyectado vs Real por tipo de gasto</CardTitle>
+            <p className="text-xs text-muted-foreground">Presupuesto proyectado (reparto) vs gasto real (solicitudes pagadas/conciliadas) por categoría, con el gap.</p>
+          </CardHeader>
+          <CardContent>
+            {catComp.length === 0 ? <EmptyState titulo="Sin datos de presupuesto/gasto" /> : (
+              <>
+                <div className="h-72 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={catComp} margin={{ top: 8, right: 12, left: 8, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
+                      <XAxis dataKey="name" fontSize={11} />
+                      <YAxis fontSize={11} tickFormatter={(v) => `S/ ${(v / 1000).toFixed(0)}k`} />
+                      <Tooltip formatter={(v: number) => fmtMoney(v)} />
+                      <Legend />
+                      <Bar dataKey="Proyectado" fill={SKY} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Real" fill={AZUR} radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <Table>
+                  <TableHeader><TableRow><TableHead>Tipo de gasto</TableHead><TableHead className="text-right">Proyectado</TableHead><TableHead className="text-right">Real</TableHead><TableHead className="text-right">Gap</TableHead></TableRow></TableHeader>
+                  <TableBody>
+                    {catComp.map((c) => (
+                      <TableRow key={c.name}>
+                        <TableCell className="font-medium">{c.name}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtMoney(c.Proyectado)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(c.Real)}</TableCell>
+                        <TableCell className={`text-right font-medium tabular-nums ${c.gap < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{c.gap < 0 ? '' : '+'}{fmtMoney(c.gap)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
 
       {/* Tabla de proyectos */}
       <motion.div {...fade(3)}>

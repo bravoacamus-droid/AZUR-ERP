@@ -16,6 +16,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@
 import { PageHeader } from '@/components/ui/page';
 import { fmtMoney } from '@/lib/format';
 import { soloDigitos } from '@/lib/utils';
+import { CuentasBancarias } from '@/components/finanzas/cuentas-bancarias';
 import {
   guardarCliente,
   importarClientes,
@@ -351,6 +352,8 @@ function ContraparteForm({ contraparte, onClose }: { contraparte: Contraparte | 
           <Field label="CCI"><Input value={f.cci} onChange={(e) => setF({ ...f, cci: e.target.value })} /></Field>
           <Field label="Cuenta de detracción" className="col-span-3"><Input value={f.cuenta_detraccion} onChange={(e) => setF({ ...f, cuenta_detraccion: e.target.value })} placeholder="N° de cuenta de detracciones (Banco de la Nación)" /></Field>
         </div>
+        {contraparte?.id ? <div className="border-t pt-3"><CuentasBancarias contraparteId={contraparte.id} /></div>
+          : <p className="text-xs text-muted-foreground">Guarda la contraparte para poder agregar más cuentas bancarias.</p>}
         <ErrorMsg msg={error} />
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>

@@ -17,6 +17,31 @@ async function guard() {
 const opt = (s: z.ZodTypeAny = z.string()) => s.optional().or(z.literal('')).transform((v) => (v ? v : null));
 const optUuid = z.string().uuid().optional().or(z.literal('')).transform((v) => (v ? v : null));
 
+// ─────────────────────────── Cuentas bancarias ───────────────────────────
+export async function agregarCuentaBancaria(input: { contraparte_id?: string; cliente_id?: string; banco: string; cuenta?: string; cci?: string; moneda?: string; es_detraccion?: boolean }): Promise<Res> {
+  await guard();
+  if (!input.banco?.trim()) return { ok: false, error: 'Banco requerido' };
+  const supabase = createClient();
+  const { error } = await supabase.from('cuentas_bancarias').insert({
+    contraparte_id: input.contraparte_id || null, cliente_id: input.cliente_id || null,
+    banco: input.banco, cuenta: input.cuenta || null, cci: input.cci || null,
+    moneda: input.moneda || 'PEN', es_detraccion: !!input.es_detraccion,
+  } as never);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/catalogos');
+  revalidatePath('/clientes');
+  return { ok: true };
+}
+
+export async function eliminarCuentaBancaria(id: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  await supabase.from('cuentas_bancarias').delete().eq('id', id);
+  revalidatePath('/catalogos');
+  revalidatePath('/clientes');
+  return { ok: true };
+}
+
 // ─────────────────────────── Clientes ───────────────────────────
 const clienteSchema = z.object({
   id: z.string().uuid().optional(),

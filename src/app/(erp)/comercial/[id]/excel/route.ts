@@ -83,11 +83,19 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       row.getCell(3).value = hoja ? (n.data.unidad ?? '') : '';
       row.getCell(4).value = hoja ? Number(n.data.cantidad ?? 0) : '';
       row.getCell(5).value = hoja ? Number(n.data.costo_unitario ?? 0) : '';
-      row.getCell(6).value = Number((c?.costo_subtotal ?? 0).toFixed(2));
       row.getCell(7).value = hoja ? Number(((n.data.margen_pct ?? 0)).toFixed(4)) : '';
-      row.getCell(8).value = hoja ? Number((c?.precio_unitario ?? 0).toFixed(2)) : '';
-      row.getCell(9).value = Number((c?.margen_monto ?? 0).toFixed(2));
-      row.getCell(10).value = Number((c?.margen_subtotal ?? 0).toFixed(2));
+      if (hoja) {
+        // Celdas referenciadas (fórmulas) para que el Excel recalcule al editar.
+        row.getCell(6).value = { formula: `D${r}*E${r}`, result: Number((c?.costo_subtotal ?? 0).toFixed(2)) }; // costo = cant × C.U.
+        row.getCell(8).value = { formula: `IF(G${r}>=1,0,E${r}/(1-G${r}))`, result: Number((c?.precio_unitario ?? 0).toFixed(2)) }; // P.U. = C.U./(1−margen)
+        row.getCell(9).value = { formula: `(H${r}-E${r})*D${r}`, result: Number((c?.margen_monto ?? 0).toFixed(2)) }; // margen = (P.U.−C.U.)×cant
+        row.getCell(10).value = { formula: `H${r}*D${r}`, result: Number((c?.margen_subtotal ?? 0).toFixed(2)) }; // subtotal c/m = P.U.×cant
+      } else {
+        row.getCell(6).value = Number((c?.costo_subtotal ?? 0).toFixed(2));
+        row.getCell(8).value = '';
+        row.getCell(9).value = Number((c?.margen_monto ?? 0).toFixed(2));
+        row.getCell(10).value = Number((c?.margen_subtotal ?? 0).toFixed(2));
+      }
       [5, 6, 8, 9, 10].forEach((i) => (row.getCell(i).numFmt = money));
       row.getCell(7).numFmt = '0.0%';
       if (!hoja) {

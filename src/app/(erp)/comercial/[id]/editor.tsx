@@ -672,6 +672,7 @@ function TotalesPanel({ cot, totales, onToggle, editable }: { cot: any; totales:
           {editable && (
             <div className="space-y-2 rounded-lg border p-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Configuración</p>
+              <p className="text-xs text-muted-foreground">Controla qué conceptos ve el cliente en el PDF/Excel de la cotización. Si lo apagas, el concepto se suma pero no se muestra desglosado.</p>
               <div className="grid grid-cols-2 gap-2 text-sm">
                 <Toggle label="Mostrar GG" v={cot.mostrar_gg} onClick={(v) => onToggle({ mostrar_gg: v })} />
                 <Toggle label="Mostrar GA" v={cot.mostrar_ga} onClick={(v) => onToggle({ mostrar_ga: v })} />

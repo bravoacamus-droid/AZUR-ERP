@@ -1114,6 +1114,57 @@ export type Database = {
           },
         ]
       }
+      cuentas_bancarias: {
+        Row: {
+          banco: string
+          cci: string | null
+          cliente_id: string | null
+          contraparte_id: string | null
+          created_at: string
+          cuenta: string | null
+          es_detraccion: boolean
+          id: string
+          moneda: string
+        }
+        Insert: {
+          banco: string
+          cci?: string | null
+          cliente_id?: string | null
+          contraparte_id?: string | null
+          created_at?: string
+          cuenta?: string | null
+          es_detraccion?: boolean
+          id?: string
+          moneda?: string
+        }
+        Update: {
+          banco?: string
+          cci?: string | null
+          cliente_id?: string | null
+          contraparte_id?: string | null
+          created_at?: string
+          cuenta?: string | null
+          es_detraccion?: boolean
+          id?: string
+          moneda?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cuentas_bancarias_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cuentas_bancarias_contraparte_id_fkey"
+            columns: ["contraparte_id"]
+            isOneToOne: false
+            referencedRelation: "contrapartes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos: {
         Row: {
           carpeta: string
