@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   CheckCircle2, XCircle, CalendarClock, Banknote, MessageCircle, FilePlus,
-  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye,
+  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye, Loader2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,6 +23,7 @@ import {
   aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
   emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja, crearCajaChica,
 } from './actions';
+import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -42,7 +43,7 @@ export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, cli
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
       ]} />
-      {tab === 'solicitudes' && <Solicitudes rol={rol} solicitudes={solicitudes} />}
+      {tab === 'solicitudes' && <Solicitudes rol={rol} solicitudes={solicitudes} proyectos={proyectos} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'cxc' && <CxC rol={rol} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
       {tab === 'cajas' && <Cajas rol={rol} cajas={cajas} proyectos={proyectos} perfiles={perfiles} />}
@@ -50,8 +51,14 @@ export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, cli
   );
 }
 
-function Solicitudes({ rol, solicitudes }: any) {
+const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
+const SOL_VACIA = { tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', ruc_dni: '', razon_social: '', cta_bancaria: '', num_comprobante: '', partida_ppto: '', descripcion: '' };
+
+function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
   const router = useRouter();
+  const [nueva, setNueva] = useState(false);
+  const [ns, setNs] = useState<any>(SOL_VACIA);
+  const [nsMsg, setNsMsg] = useState<string | null>(null);
   const [prog, setProg] = useState<any>(null);
   const [pago, setPago] = useState<any>(null);
   const [rech, setRech] = useState<any>(null);
@@ -71,7 +78,27 @@ function Solicitudes({ rol, solicitudes }: any) {
 
   const wa = (s: any) => encodeURIComponent(`*AZUR* Comprobante de pago\n${s.codigo} · ${s.beneficiario_nombre ?? ''}\nMonto: ${fmtMoney(Number(s.monto))}\n${s.voucher_url ?? ''}`);
 
+  async function crearNueva() {
+    setNsMsg(null);
+    if (!ns.monto || Number(ns.monto) <= 0) { setNsMsg('Ingresa un monto válido.'); return; }
+    setBusy(true);
+    const res = await crearSolicitud({
+      tipo: ns.tipo, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
+      beneficiario_nombre: ns.beneficiario_nombre || null, especialidad: null, categoria_etapa: null,
+      monto: Number(ns.monto), constancia: (ns.constancia || null) as any, descripcion: ns.descripcion || null,
+      cta_bancaria: ns.cta_bancaria || null, ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null,
+      num_comprobante: ns.num_comprobante || null,
+    });
+    setBusy(false);
+    if (res.ok) { setNueva(false); setNs(SOL_VACIA); router.refresh(); }
+    else setNsMsg(res.error ?? 'No se pudo crear.');
+  }
+
   return (
+    <div className="space-y-3">
+    <div className="flex justify-end">
+      <Button size="sm" variant="gradient" onClick={() => { setNueva(true); setNs(SOL_VACIA); setNsMsg(null); }}><Plus /> Nueva solicitud de pago</Button>
+    </div>
     <Card>
       <CardContent className="p-0">
         {solicitudes.length === 0 ? (
@@ -172,6 +199,33 @@ function Solicitudes({ rol, solicitudes }: any) {
         <Field label="Motivo"><Input value={motivo} onChange={(e) => setMotivo(e.target.value)} /></Field>
       </Modal>
     </Card>
+
+    {/* Nueva solicitud de pago (desde la web) */}
+    <Modal open={nueva} onClose={() => setNueva(false)} title="Nueva solicitud de pago"
+      footer={<><Button variant="outline" onClick={() => setNueva(false)}>Cancelar</Button>
+        <Button variant="gradient" disabled={busy} onClick={crearNueva}>{busy ? <Loader2 className="animate-spin" /> : null} Enviar</Button></>}>
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Tipo"><Select value={ns.tipo} onChange={(e) => setNs((f: any) => ({ ...f, tipo: e.target.value }))}>{TIPOS_SOL.map((t) => <option key={t} value={t}>{TIPO_SOLICITUD_LABEL[t] ?? t}</option>)}</Select></Field>
+          <Field label="Proyecto"><Select value={ns.proyecto_id} onChange={(e) => setNs((f: any) => ({ ...f, proyecto_id: e.target.value }))}><option value="">Sin proyecto</option>{proyectos.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select></Field>
+        </div>
+        <Field label="Beneficiario"><Input value={ns.beneficiario_nombre} onChange={(e) => setNs((f: any) => ({ ...f, beneficiario_nombre: e.target.value }))} placeholder="Nombre del beneficiario" /></Field>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Monto (S/)"><Input type="number" value={ns.monto} onChange={(e) => setNs((f: any) => ({ ...f, monto: e.target.value }))} placeholder="0.00" /></Field>
+          <Field label="Constancia"><Select value={ns.constancia} onChange={(e) => setNs((f: any) => ({ ...f, constancia: e.target.value }))}><option value="">— Ninguna —</option><option value="factura">Factura</option><option value="boleta">Boleta</option><option value="rhe">RHE</option></Select></Field>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="RUC / DNI"><Input value={ns.ruc_dni} onChange={(e) => setNs((f: any) => ({ ...f, ruc_dni: e.target.value }))} inputMode="numeric" /></Field>
+          <Field label="N° comprobante"><Input value={ns.num_comprobante} onChange={(e) => setNs((f: any) => ({ ...f, num_comprobante: e.target.value }))} /></Field>
+        </div>
+        <Field label="Razón social"><Input value={ns.razon_social} onChange={(e) => setNs((f: any) => ({ ...f, razon_social: e.target.value }))} /></Field>
+        <Field label="Cuenta bancaria / CCI"><Input value={ns.cta_bancaria} onChange={(e) => setNs((f: any) => ({ ...f, cta_bancaria: e.target.value }))} /></Field>
+        <Field label="Partida presupuestal (opcional)"><Input value={ns.partida_ppto} onChange={(e) => setNs((f: any) => ({ ...f, partida_ppto: e.target.value }))} /></Field>
+        <Field label="Descripción"><Input value={ns.descripcion} onChange={(e) => setNs((f: any) => ({ ...f, descripcion: e.target.value }))} /></Field>
+        {nsMsg && <p className="text-sm text-azur-600">{nsMsg}</p>}
+      </div>
+    </Modal>
+    </div>
   );
 }
 
