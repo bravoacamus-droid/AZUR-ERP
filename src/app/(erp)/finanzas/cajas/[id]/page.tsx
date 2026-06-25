@@ -14,13 +14,14 @@ export default async function CajaPage({ params }: { params: { id: string } }) {
   const { data: caja } = await supabase.from('v_cajas_saldos').select('*').eq('caja_id', params.id).single();
   if (!caja) notFound();
 
-  const [{ data: movimientos }, { data: cajas }] = await Promise.all([
+  const [{ data: movimientos }, { data: cajas }, { data: perfiles }] = await Promise.all([
     supabase
       .from('movimientos_caja')
       .select('*, autor:profiles!movimientos_caja_created_by_fkey(nombre)')
       .eq('caja_id', params.id)
       .order('created_at', { ascending: false }),
     supabase.from('v_cajas_saldos').select('caja_id, nombre, tipo').neq('caja_id', params.id),
+    supabase.from('profiles').select('id, nombre, rol').eq('activo', true).order('nombre'),
   ]);
 
   return (
@@ -32,6 +33,7 @@ export default async function CajaPage({ params }: { params: { id: string } }) {
         caja={caja}
         movimientos={movimientos ?? []}
         otrasCajas={cajas ?? []}
+        perfiles={perfiles ?? []}
         canManage={['gerencia', 'administrador'].includes(session.rol)}
       />
     </div>

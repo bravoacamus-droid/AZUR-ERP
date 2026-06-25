@@ -204,3 +204,29 @@ export async function movimientoCaja(input: { caja_id: string; proyecto_id?: str
   revalidatePath('/finanzas');
   return { ok: true };
 }
+
+// Crea una caja chica adicional para el proyecto, asignada a un residente/coordinador.
+export async function crearCajaChica(input: { proyecto_id: string; nombre: string; responsable_id?: string; asignacion_semanal?: number; monto_maximo?: number }): Promise<Res> {
+  await requireRol(['administrador', 'gerencia']);
+  const admin = createAdminClient();
+  const { data, error } = await admin.from('cajas').insert({
+    proyecto_id: input.proyecto_id, tipo: 'chica', nombre: input.nombre,
+    responsable_id: input.responsable_id || null,
+    asignacion_semanal: input.asignacion_semanal ?? 0,
+    monto_maximo: input.monto_maximo ?? 0, modalidad: 'credito', saldo_inicial: 0,
+  } as never).select('id').single();
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/finanzas');
+  return { ok: true, id: data?.id };
+}
+
+// Edita datos de la caja (responsable, asignación semanal, tope, nombre).
+export async function actualizarCaja(cajaId: string, patch: { responsable_id?: string | null; asignacion_semanal?: number; monto_maximo?: number; nombre?: string }): Promise<Res> {
+  await requireRol(['administrador', 'gerencia']);
+  const admin = createAdminClient();
+  const { error } = await admin.from('cajas').update(patch as never).eq('id', cajaId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/finanzas');
+  revalidatePath(`/finanzas/cajas/${cajaId}`);
+  return { ok: true };
+}

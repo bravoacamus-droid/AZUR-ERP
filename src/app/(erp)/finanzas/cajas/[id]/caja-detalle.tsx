@@ -12,8 +12,8 @@ import { Modal } from '@/components/ui/dialog';
 import { Field, EmptyState } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { fmtMoney, fmtDateTime } from '@/lib/format';
-import { movimientoCaja } from '../../actions';
+import { fmtMoney, fmtDateTime, fmtDate } from '@/lib/format';
+import { movimientoCaja, actualizarCaja } from '../../actions';
 import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 
 const METODOS = [
@@ -32,7 +32,16 @@ const TIPO_MOV: Record<string, { label: string; signo: number; variant: any }> =
   ajuste: { label: 'Ajuste', signo: 1, variant: 'muted' },
 };
 
-export function CajaDetalle({ caja, movimientos, canManage }: any) {
+// Lunes (00:00) de la semana de una fecha — agrupa el control semanal.
+function lunesDeSemana(d: Date) {
+  const x = new Date(d);
+  const day = (x.getDay() + 6) % 7; // 0 = lunes
+  x.setDate(x.getDate() - day);
+  x.setHours(0, 0, 0, 0);
+  return x;
+}
+
+export function CajaDetalle({ caja, movimientos, perfiles = [], canManage }: any) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -41,6 +50,25 @@ export function CajaDetalle({ caja, movimientos, canManage }: any) {
   const ingresos = movimientos.filter((m: any) => ['abono', 'reposicion'].includes(m.tipo)).reduce((a: number, m: any) => a + Number(m.monto), 0);
   const egresos = movimientos.filter((m: any) => m.tipo === 'egreso').reduce((a: number, m: any) => a + Number(m.monto), 0);
   const pctUso = caja.monto_maximo > 0 ? 1 - Number(caja.saldo_actual) / Number(caja.monto_maximo) : 0;
+  const esChica = caja.tipo !== 'central';
+  const asignacion = Number(caja.asignacion_semanal ?? 0);
+
+  // Control semanal: entregado (abono/reposición) vs gastado (egreso) por semana.
+  const semanas = (() => {
+    const map = new Map<string, { lunes: Date; entregado: number; gastado: number; acumulado: number }>();
+    movimientos.forEach((m: any) => {
+      const lun = lunesDeSemana(new Date(m.fecha ?? m.created_at));
+      const key = lun.toISOString().slice(0, 10);
+      const e = map.get(key) ?? { lunes: lun, entregado: 0, gastado: 0, acumulado: 0 };
+      if (['abono', 'reposicion'].includes(m.tipo)) e.entregado += Number(m.monto);
+      else if (m.tipo === 'egreso') e.gastado += Number(m.monto);
+      map.set(key, e);
+    });
+    const arr = Array.from(map.values()).sort((a, b) => a.lunes.getTime() - b.lunes.getTime());
+    let acum = Number(caja.saldo_inicial ?? 0);
+    arr.forEach((s) => { acum += s.entregado - s.gastado; s.acumulado = acum; });
+    return arr.reverse();
+  })();
 
   async function registrar() {
     setBusy(true);
@@ -59,12 +87,31 @@ export function CajaDetalle({ caja, movimientos, canManage }: any) {
             <span className="flex size-11 items-center justify-center rounded-xl bg-azur-50 text-azur-600"><Wallet className="size-5" /></span>
             <div>
               <h1 className="text-xl font-bold">{caja.nombre}</h1>
-              <Badge variant={caja.tipo === 'central' ? 'info' : 'secondary'}>{caja.tipo === 'central' ? 'Caja Central' : 'Caja chica'}</Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant={caja.tipo === 'central' ? 'info' : 'secondary'}>{caja.tipo === 'central' ? 'Caja Central' : 'Caja chica'}</Badge>
+                {esChica && caja.responsable_nombre && <span className="text-sm text-muted-foreground">Responsable: <strong>{caja.responsable_nombre}</strong></span>}
+              </div>
             </div>
           </div>
           {canManage && <Button variant="gradient" onClick={() => setOpen(true)}><Plus /> Registrar movimiento</Button>}
         </CardContent>
       </Card>
+
+      {esChica && canManage && (
+        <Card>
+          <CardContent className="grid gap-3 p-4 sm:grid-cols-2">
+            <Field label="Responsable (residente / coordinador)">
+              <Select defaultValue={caja.responsable_id ?? ''} onChange={async (e) => { await actualizarCaja(caja.caja_id, { responsable_id: e.target.value || null }); router.refresh(); }}>
+                <option value="">— Sin asignar —</option>
+                {perfiles.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}{p.rol ? ` (${p.rol})` : ''}</option>)}
+              </Select>
+            </Field>
+            <Field label="Asignación semanal (referencia para control)">
+              <Input type="number" defaultValue={asignacion || ''} onBlur={async (e) => { await actualizarCaja(caja.caja_id, { asignacion_semanal: Number(e.target.value) || 0 }); router.refresh(); }} placeholder="Ej. 1500" />
+            </Field>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Saldo actual" value={fmtMoney(Number(caja.saldo_actual))} icon={<Wallet />} tone="azur" />
@@ -77,6 +124,42 @@ export function CajaDetalle({ caja, movimientos, canManage }: any) {
         <div className="rounded-lg border border-azur-100 bg-azur-50/50 px-4 py-2 text-sm text-azur-700">
           ⚠ Consumo &gt; 80% del tope — anticipar reposición.
         </div>
+      )}
+
+      {esChica && semanas.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><Wallet className="size-4 text-azur-600" /> Control semanal</CardTitle>
+            <p className="text-xs text-muted-foreground">Entregado (abonos/reposiciones) vs gastado (egresos) por semana.{asignacion > 0 ? ` Asignación de referencia: ${fmtMoney(asignacion)}/sem.` : ''}</p>
+          </CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow><TableHead>Semana</TableHead>{asignacion > 0 && <TableHead className="text-right">Asignado</TableHead>}<TableHead className="text-right">Entregado</TableHead><TableHead className="text-right">Gastado</TableHead><TableHead className="text-right">Saldo acumulado</TableHead><TableHead>Estado</TableHead></TableRow>
+              </TableHeader>
+              <TableBody>
+                {semanas.map((s) => {
+                  const sobregasto = s.gastado > s.entregado;
+                  const excesoEntrega = asignacion > 0 && s.entregado > asignacion * 1.0001;
+                  return (
+                    <TableRow key={s.lunes.toISOString()}>
+                      <TableCell className="whitespace-nowrap">Semana del {fmtDate(s.lunes.toISOString())}</TableCell>
+                      {asignacion > 0 && <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMoney(asignacion)}</TableCell>}
+                      <TableCell className="text-right tabular-nums text-emerald-600">+ {fmtMoney(s.entregado)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-azur-600">− {fmtMoney(s.gastado)}</TableCell>
+                      <TableCell className="text-right font-medium tabular-nums">{fmtMoney(s.acumulado)}</TableCell>
+                      <TableCell>
+                        {sobregasto ? <Badge variant="danger">Gastó más de lo recibido</Badge>
+                          : excesoEntrega ? <Badge variant="warning">Recibió más de lo asignado</Badge>
+                          : <Badge variant="success">Normal</Badge>}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
 
       <Card>

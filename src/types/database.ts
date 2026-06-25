@@ -393,34 +393,40 @@ export type Database = {
       cajas: {
         Row: {
           activa: boolean
+          asignacion_semanal: number
           created_at: string
           id: string
           modalidad: Database["public"]["Enums"]["modalidad_cobro"] | null
           monto_maximo: number | null
           nombre: string
           proyecto_id: string | null
+          responsable_id: string | null
           saldo_inicial: number | null
           tipo: Database["public"]["Enums"]["tipo_caja"]
         }
         Insert: {
           activa?: boolean
+          asignacion_semanal?: number
           created_at?: string
           id?: string
           modalidad?: Database["public"]["Enums"]["modalidad_cobro"] | null
           monto_maximo?: number | null
           nombre: string
           proyecto_id?: string | null
+          responsable_id?: string | null
           saldo_inicial?: number | null
           tipo?: Database["public"]["Enums"]["tipo_caja"]
         }
         Update: {
           activa?: boolean
+          asignacion_semanal?: number
           created_at?: string
           id?: string
           modalidad?: Database["public"]["Enums"]["modalidad_cobro"] | null
           monto_maximo?: number | null
           nombre?: string
           proyecto_id?: string | null
+          responsable_id?: string | null
           saldo_inicial?: number | null
           tipo?: Database["public"]["Enums"]["tipo_caja"]
         }
@@ -438,6 +444,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_dashboard_proyecto"
             referencedColumns: ["proyecto_id"]
+          },
+          {
+            foreignKeyName: "cajas_responsable_id_fkey"
+            columns: ["responsable_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2813,11 +2826,14 @@ export type Database = {
     Views: {
       v_cajas_saldos: {
         Row: {
+          asignacion_semanal: number | null
           caja_id: string | null
           monto_maximo: number | null
           movimientos: number | null
           nombre: string | null
           proyecto_id: string | null
+          responsable_id: string | null
+          responsable_nombre: string | null
           saldo_actual: number | null
           saldo_inicial: number | null
           tipo: Database["public"]["Enums"]["tipo_caja"] | null
@@ -2836,6 +2852,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_dashboard_proyecto"
             referencedColumns: ["proyecto_id"]
+          },
+          {
+            foreignKeyName: "cajas_responsable_id_fkey"
+            columns: ["responsable_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }

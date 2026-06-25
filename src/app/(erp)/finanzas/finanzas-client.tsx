@@ -21,7 +21,7 @@ import { STATUS_SOLICITUD, TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 import {
   aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
-  emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja,
+  emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja, crearCajaChica,
 } from './actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -32,7 +32,7 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, clientes, proyectos }: any) {
+export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles }: any) {
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
@@ -45,7 +45,7 @@ export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, cli
       {tab === 'solicitudes' && <Solicitudes rol={rol} solicitudes={solicitudes} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'cxc' && <CxC rol={rol} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
-      {tab === 'cajas' && <Cajas rol={rol} cajas={cajas} proyectos={proyectos} />}
+      {tab === 'cajas' && <Cajas rol={rol} cajas={cajas} proyectos={proyectos} perfiles={perfiles} />}
     </div>
   );
 }
@@ -348,15 +348,23 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
   );
 }
 
-function Cajas({ rol, cajas, proyectos }: any) {
+function Cajas({ rol, cajas, proyectos, perfiles = [] }: any) {
   const router = useRouter();
   const [mov, setMov] = useState<any>(null);
   const [form, setForm] = useState({ tipo: 'reposicion', monto: 0, concepto: '', metodo: 'transferencia', num_operacion: '', voucher_url: '' });
   const [busy, setBusy] = useState(false);
+  const [nueva, setNueva] = useState(false);
+  const [nf, setNf] = useState({ proyecto_id: '', nombre: '', responsable_id: '', asignacion_semanal: 0 });
   const puede = rol === 'administrador' || rol === 'gerencia';
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-3">
+      {puede && (
+        <div className="flex justify-end">
+          <Button size="sm" variant="outline" onClick={() => { setNueva(true); setNf({ proyecto_id: '', nombre: '', responsable_id: '', asignacion_semanal: 0 }); }}><Plus /> Nueva caja chica</Button>
+        </div>
+      )}
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {cajas.length === 0 && <Card><CardContent className="p-6"><EmptyState titulo="Sin cajas" /></CardContent></Card>}
       {cajas.map((c: any) => {
         const pctUso = c.monto_maximo > 0 ? (1 - Number(c.saldo_actual) / Number(c.monto_maximo)) : 0;
@@ -368,6 +376,7 @@ function Cajas({ rol, cajas, proyectos }: any) {
               </Link>
             </CardHeader>
             <CardContent className="space-y-2">
+              {c.responsable_nombre && <div className="flex justify-between text-xs"><span className="text-muted-foreground">Responsable</span><span className="font-medium">{c.responsable_nombre}</span></div>}
               <div className="flex justify-between text-sm"><span className="text-muted-foreground">Saldo actual</span><span className="font-bold tabular-nums">{fmtMoney(Number(c.saldo_actual))}</span></div>
               <div className="flex justify-between text-xs text-muted-foreground"><span>Tope</span><span>{fmtMoney(Number(c.monto_maximo))}</span></div>
               {c.monto_maximo > 0 && (
@@ -398,6 +407,18 @@ function Cajas({ rol, cajas, proyectos }: any) {
           <Field label="N° de operación"><Input value={form.num_operacion} onChange={(e) => setForm((f) => ({ ...f, num_operacion: e.target.value }))} /></Field>
           <Field label="Concepto"><Input value={form.concepto} onChange={(e) => setForm((f) => ({ ...f, concepto: e.target.value }))} /></Field>
           <Field label="Voucher"><VoucherUpload value={form.voucher_url} onChange={(url) => setForm((f) => ({ ...f, voucher_url: url }))} /></Field>
+        </div>
+      </Modal>
+      </div>
+
+      <Modal open={nueva} onClose={() => setNueva(false)} title="Nueva caja chica"
+        footer={<><Button variant="outline" onClick={() => setNueva(false)}>Cancelar</Button>
+          <Button variant="gradient" disabled={busy || !nf.proyecto_id || !nf.nombre} onClick={async () => { setBusy(true); await crearCajaChica({ proyecto_id: nf.proyecto_id, nombre: nf.nombre, responsable_id: nf.responsable_id || undefined, asignacion_semanal: Number(nf.asignacion_semanal) || 0 }); setNueva(false); router.refresh(); setBusy(false); }}>Crear</Button></>}>
+        <div className="space-y-2">
+          <Field label="Proyecto"><Select value={nf.proyecto_id} onChange={(e) => setNf((f) => ({ ...f, proyecto_id: e.target.value }))}><option value="">— Selecciona —</option>{proyectos.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select></Field>
+          <Field label="Nombre de la caja"><Input value={nf.nombre} onChange={(e) => setNf((f) => ({ ...f, nombre: e.target.value }))} placeholder="Ej. Caja chica — Residente Pérez" /></Field>
+          <Field label="Responsable (residente / coordinador)"><Select value={nf.responsable_id} onChange={(e) => setNf((f) => ({ ...f, responsable_id: e.target.value }))}><option value="">— Sin asignar —</option>{perfiles.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}{p.rol ? ` (${p.rol})` : ''}</option>)}</Select></Field>
+          <Field label="Asignación semanal (referencia)"><Input type="number" value={nf.asignacion_semanal} onChange={(e) => setNf((f) => ({ ...f, asignacion_semanal: Number(e.target.value) }))} placeholder="Ej. 1500" /></Field>
         </div>
       </Modal>
     </div>
