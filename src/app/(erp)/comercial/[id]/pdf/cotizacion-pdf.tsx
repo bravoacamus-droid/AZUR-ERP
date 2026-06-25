@@ -43,6 +43,7 @@ export interface PdfRow { codigo: string; titulo: string; depth: number; esHoja:
 export interface PdfData {
   codigo: string; fecha: string; proyecto: string; asunto?: string; ubicacion?: string;
   cliente: string; ruc?: string; empresa: string; rucEmpresa?: string; vigencia?: string; plazo?: string;
+  moneda?: string; tipoCambio?: number;
   rows: PdfRow[];
   totales: { subtotal: number; gg?: number; ga?: number; util?: number; costoDirecto: number; igv?: number; total: number; descuento?: number; totalConDescuento: number };
   condiciones?: string; serviciosIncluidos?: string; serviciosOmitidos?: string; garantia?: string;
@@ -57,6 +58,9 @@ const ROL_LABEL: Record<string, string> = {
 };
 
 export function CotizacionPDF({ d }: { d: PdfData }) {
+  const cur = d.moneda === 'USD' ? 'USD' : 'PEN';
+  const tc = Number(d.tipoCambio ?? 1);
+  const m = (n: number) => fmtMoney(n, cur);
   return (
     <Document title={`COTIZACIÓN ${d.codigo}`}>
       <Page size="A4" style={s.page}>
@@ -108,16 +112,18 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
 
         {/* Totales */}
         <View style={{ marginTop: 10 }}>
-          <View style={s.totRow}><Text style={s.totLabel}>SUBTOTAL</Text><Text style={s.totVal}>{fmtMoney(d.totales.subtotal)}</Text></View>
-          {d.totales.gg != null ? <View style={s.totRow}><Text style={s.totLabel}>Gastos generales</Text><Text style={s.totVal}>{fmtMoney(d.totales.gg)}</Text></View> : null}
-          {d.totales.ga != null ? <View style={s.totRow}><Text style={s.totLabel}>Gastos administrativos</Text><Text style={s.totVal}>{fmtMoney(d.totales.ga)}</Text></View> : null}
-          {d.totales.util != null ? <View style={s.totRow}><Text style={s.totLabel}>Utilidad</Text><Text style={s.totVal}>{fmtMoney(d.totales.util)}</Text></View> : null}
-          {d.totales.igv != null ? <View style={s.totRow}><Text style={s.totLabel}>I.G.V. (18%)</Text><Text style={s.totVal}>{fmtMoney(d.totales.igv)}</Text></View> : null}
-          <View style={s.totRow}><Text style={[s.totLabel, { fontFamily: 'Helvetica-Bold' }]}>TOTAL</Text><Text style={[s.totVal, s.totHi]}>{fmtMoney(d.totales.total)}</Text></View>
+          {cur === 'USD' ? <View style={s.totRow}><Text style={[s.totLabel, { fontFamily: 'Helvetica-Bold' }]}>Moneda: Dólares (US$) · T.C. {fmtNumber(tc, 3)}</Text><Text style={s.totVal} /></View> : null}
+          <View style={s.totRow}><Text style={s.totLabel}>SUBTOTAL</Text><Text style={s.totVal}>{m(d.totales.subtotal)}</Text></View>
+          {d.totales.gg != null ? <View style={s.totRow}><Text style={s.totLabel}>Gastos generales</Text><Text style={s.totVal}>{m(d.totales.gg)}</Text></View> : null}
+          {d.totales.ga != null ? <View style={s.totRow}><Text style={s.totLabel}>Gastos administrativos</Text><Text style={s.totVal}>{m(d.totales.ga)}</Text></View> : null}
+          {d.totales.util != null ? <View style={s.totRow}><Text style={s.totLabel}>Utilidad</Text><Text style={s.totVal}>{m(d.totales.util)}</Text></View> : null}
+          {d.totales.igv != null ? <View style={s.totRow}><Text style={s.totLabel}>I.G.V. (18%)</Text><Text style={s.totVal}>{m(d.totales.igv)}</Text></View> : null}
+          <View style={s.totRow}><Text style={[s.totLabel, { fontFamily: 'Helvetica-Bold' }]}>TOTAL</Text><Text style={[s.totVal, s.totHi]}>{m(d.totales.total)}</Text></View>
           {d.totales.descuento ? <>
-            <View style={s.totRow}><Text style={s.totLabel}>Descuento comercial</Text><Text style={s.totVal}>- {fmtMoney(d.totales.descuento)}</Text></View>
-            <View style={s.totRow}><Text style={[s.totLabel, { fontFamily: 'Helvetica-Bold' }]}>TOTAL CON DESCUENTO</Text><Text style={[s.totVal, s.totHi]}>{fmtMoney(d.totales.totalConDescuento)}</Text></View>
+            <View style={s.totRow}><Text style={s.totLabel}>Descuento comercial</Text><Text style={s.totVal}>- {m(d.totales.descuento)}</Text></View>
+            <View style={s.totRow}><Text style={[s.totLabel, { fontFamily: 'Helvetica-Bold' }]}>TOTAL CON DESCUENTO</Text><Text style={[s.totVal, s.totHi]}>{m(d.totales.totalConDescuento)}</Text></View>
           </> : null}
+          {cur === 'USD' ? <View style={s.totRow}><Text style={s.totLabel}>Equivalente en soles (T.C. {fmtNumber(tc, 3)})</Text><Text style={s.totVal}>{fmtMoney((d.totales.descuento ? d.totales.totalConDescuento : d.totales.total) * tc, 'PEN')}</Text></View> : null}
         </View>
 
         {/* Condiciones */}
@@ -133,7 +139,7 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
                 {f.esAdelanto ? 'Adelanto — ' : ''}{f.concepto}
               </Text>
               <Text style={[s.totVal, { width: 70 }]}>{fmtNumber(f.porcentaje * 100, 0)}%</Text>
-              <Text style={[s.totVal, { width: 90 }]}>{fmtMoney(d.totales.totalConDescuento * f.porcentaje)}</Text>
+              <Text style={[s.totVal, { width: 90 }]}>{m(d.totales.totalConDescuento * f.porcentaje)}</Text>
             </View>
           ))}
         </> : null}

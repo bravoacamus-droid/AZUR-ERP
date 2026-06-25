@@ -406,7 +406,8 @@ export function CotizacionEditor({
           <Button variant="outline" onClick={() => setShowAprobar(false)}>Cancelar</Button>
           <Button variant="gradient" onClick={doAprobar} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Aprobar y crear proyecto</Button>
         </>}>
-        <p className="text-sm text-muted-foreground">Total cliente: <b>{fmtMoney(totales.total_con_descuento)}</b></p>
+        <p className="text-sm text-muted-foreground">Total cliente: <b>{fmtMoney(totales.total_con_descuento, cot.moneda === 'USD' ? 'USD' : 'PEN')}</b>
+          {cot.moneda === 'USD' && <span> · ≈ {fmtMoney(totales.total_con_descuento * Number(cot.tipo_cambio ?? 1), 'PEN')} (T.C. {fmtNumber(Number(cot.tipo_cambio ?? 1), 3)})</span>}</p>
       </Modal>
 
       <Modal open={showVersion} onClose={() => setShowVersion(false)} title="Guardar versión de negociación"
@@ -644,23 +645,32 @@ function NumCell({ value, onSave, disabled, pct }: { value: any; onSave: (v: num
 }
 
 function TotalesPanel({ cot, totales, onToggle, editable }: { cot: any; totales: any; onToggle: (p: any) => void; editable: boolean }) {
+  const cur = cot.moneda === 'USD' ? 'USD' : 'PEN';
+  const tc = Number(cot.tipo_cambio ?? 1);
+  const totalFinal = cot.descuento_activo ? totales.total_con_descuento : totales.total;
   return (
     <Card>
-      <CardHeader className="pb-2"><CardTitle className="text-base">Bloque de totales</CardTitle></CardHeader>
+      <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2">Bloque de totales {cur === 'USD' && <Badge variant="info">USD · T.C. {fmtNumber(tc, 3)}</Badge>}</CardTitle></CardHeader>
       <CardContent className="grid gap-6 lg:grid-cols-2">
         <div className="space-y-1.5 text-sm">
-          <Row3 label="Subtotal (con margen)" value={totales.subtotal} />
-          {cot.mostrar_gg && <Row3 label={`Gastos generales (${fmtNumber(Number(cot.gg_pct) * 100, 0)}%)`} value={totales.gastos_generales} />}
-          {cot.mostrar_ga && <Row3 label={`Gastos administrativos (${fmtNumber(Number(cot.ga_pct) * 100, 0)}%)`} value={totales.gastos_administrativos} />}
-          {cot.mostrar_utilidad && <Row3 label={`Utilidad (${fmtNumber(Number(cot.utilidad_pct) * 100, 0)}%)`} value={totales.utilidad} />}
-          <Row3 label="Costo directo" value={totales.costo_directo} bold />
-          {cot.mostrar_igv && <Row3 label={`I.G.V. (${fmtNumber(Number(cot.igv_pct) * 100, 0)}%)`} value={totales.igv} />}
-          <Row3 label="TOTAL" value={totales.total} bold />
+          <Row3 label="Subtotal (con margen)" value={totales.subtotal} currency={cur} />
+          {cot.mostrar_gg && <Row3 label={`Gastos generales (${fmtNumber(Number(cot.gg_pct) * 100, 0)}%)`} value={totales.gastos_generales} currency={cur} />}
+          {cot.mostrar_ga && <Row3 label={`Gastos administrativos (${fmtNumber(Number(cot.ga_pct) * 100, 0)}%)`} value={totales.gastos_administrativos} currency={cur} />}
+          {cot.mostrar_utilidad && <Row3 label={`Utilidad (${fmtNumber(Number(cot.utilidad_pct) * 100, 0)}%)`} value={totales.utilidad} currency={cur} />}
+          <Row3 label="Costo directo" value={totales.costo_directo} bold currency={cur} />
+          {cot.mostrar_igv && <Row3 label={`I.G.V. (${fmtNumber(Number(cot.igv_pct) * 100, 0)}%)`} value={totales.igv} currency={cur} />}
+          <Row3 label="TOTAL" value={totales.total} bold currency={cur} />
           {cot.descuento_activo && (
             <>
-              <Row3 label={`Descuento comercial (${fmtNumber(Number(cot.descuento_pct) * 100, 0)}%)`} value={-totales.descuento} />
-              <Row3 label="TOTAL CON DESCUENTO" value={totales.total_con_descuento} bold azur />
+              <Row3 label={`Descuento comercial (${fmtNumber(Number(cot.descuento_pct) * 100, 0)}%)`} value={-totales.descuento} currency={cur} />
+              <Row3 label="TOTAL CON DESCUENTO" value={totales.total_con_descuento} bold azur currency={cur} />
             </>
+          )}
+          {cur === 'USD' && (
+            <div className="mt-1 flex items-center justify-between rounded-lg bg-sky-50 px-2 py-1.5 text-xs text-sky-800">
+              <span>Equivalente en soles (T.C. {fmtNumber(tc, 3)})</span>
+              <span className="font-semibold tabular-nums">{fmtMoney(totalFinal * tc, 'PEN')}</span>
+            </div>
           )}
         </div>
         <div className="space-y-3">
@@ -680,6 +690,7 @@ function TotalesPanel({ cot, totales, onToggle, editable }: { cot: any; totales:
                 <Toggle label="Mostrar IGV" v={cot.mostrar_igv} onClick={(v) => onToggle({ mostrar_igv: v })} />
               </div>
               <DescuentoControl cot={cot} onToggle={onToggle} />
+              <MonedaControl cot={cot} onToggle={onToggle} />
             </div>
           )}
         </div>
@@ -709,6 +720,29 @@ function DescuentoControl({ cot, onToggle }: { cot: any; onToggle: (p: any) => v
   );
 }
 
+function MonedaControl({ cot, onToggle }: { cot: any; onToggle: (p: any) => void }) {
+  const [tc, setTc] = useState(Number(cot.tipo_cambio ?? 1));
+  const esUSD = cot.moneda === 'USD';
+  return (
+    <div className="mt-2 space-y-2 border-t pt-2">
+      <div className="flex items-end gap-2">
+        <Field label="Moneda" className="flex-1">
+          <Select value={esUSD ? 'USD' : 'PEN'} onChange={(e) => onToggle({ moneda: e.target.value, ...(e.target.value === 'PEN' ? { tipo_cambio: 1 } : {}) })}>
+            <option value="PEN">Soles (S/)</option>
+            <option value="USD">Dólares ($)</option>
+          </Select>
+        </Field>
+        {esUSD && (
+          <Field label="Tipo de cambio (S/ por $)" className="flex-1">
+            <Input type="number" step="0.001" value={tc} onChange={(e) => setTc(Number(e.target.value))} onBlur={() => onToggle({ tipo_cambio: tc })} />
+          </Field>
+        )}
+      </div>
+      {esUSD && <p className="text-xs text-muted-foreground">Los montos se ingresan y muestran en dólares. El tipo de cambio (lo define el usuario) convierte el total a soles al aprobar el proyecto.</p>}
+    </div>
+  );
+}
+
 function Toggle({ label, v, onClick }: { label: string; v: boolean; onClick: (v: boolean) => void }) {
   return (
     <button onClick={() => onClick(!v)} className={`flex items-center justify-between rounded border px-2 py-1.5 text-xs ${v ? 'border-azur-200 bg-azur-50 text-azur-700' : 'text-muted-foreground'}`}>
@@ -717,11 +751,11 @@ function Toggle({ label, v, onClick }: { label: string; v: boolean; onClick: (v:
   );
 }
 
-function Row3({ label, value, bold, azur }: { label: string; value: number; bold?: boolean; azur?: boolean }) {
+function Row3({ label, value, bold, azur, currency }: { label: string; value: number; bold?: boolean; azur?: boolean; currency?: string }) {
   return (
     <div className={`flex items-center justify-between ${bold ? 'border-t pt-1.5 font-semibold' : ''} ${azur ? 'text-azur-600' : ''}`}>
       <span className={bold ? '' : 'text-muted-foreground'}>{label}</span>
-      <span className="tabular-nums">{fmtMoney(value)}</span>
+      <span className="tabular-nums">{fmtMoney(value, currency)}</span>
     </div>
   );
 }

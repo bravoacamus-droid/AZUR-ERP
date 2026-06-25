@@ -384,6 +384,9 @@ export async function aprobarCotizacion(cotizacionId: string): Promise<Res> {
     igv_pct: Number(cot.igv_pct), descuento_pct: Number(cot.descuento_pct), descuento_activo: cot.descuento_activo,
   });
 
+  // si la cotización está en dólares, convertir a soles con el T.C. (el proyecto/finanzas opera en soles)
+  const tc = cot.moneda === 'USD' ? Number(cot.tipo_cambio ?? 1) : 1;
+
   // crear proyecto
   const { data: proy, error: ep } = await admin
     .from('proyectos')
@@ -395,7 +398,7 @@ export async function aprobarCotizacion(cotizacionId: string): Promise<Res> {
       direccion: cot.ubicacion,
       tipo_proyecto: cot.tipo_proyecto,
       estado: 'planeacion',
-      contrato_total: totales.total_con_descuento,
+      contrato_total: totales.total_con_descuento * tc,
       gg_pct: cot.gg_pct,
       ga_pct: cot.ga_pct,
       utilidad_pct: cot.utilidad_pct,
@@ -425,8 +428,8 @@ export async function aprobarCotizacion(cotizacionId: string): Promise<Res> {
             titulo: it.titulo,
             unidad: it.unidad,
             cantidad: it.cantidad,
-            costo_unitario: it.costo_unitario,
-            total_costo: Number(it.cantidad ?? 0) * Number(it.costo_unitario ?? 0),
+            costo_unitario: it.costo_unitario == null ? null : Number(it.costo_unitario) * tc,
+            total_costo: Number(it.cantidad ?? 0) * Number(it.costo_unitario ?? 0) * tc,
             es_hoja: it.es_hoja,
           })
           .select('id')
@@ -450,7 +453,7 @@ export async function aprobarCotizacion(cotizacionId: string): Promise<Res> {
         orden: i + 1,
         concepto: f.concepto,
         porcentaje: f.porcentaje,
-        monto: totales.total_con_descuento * Number(f.porcentaje),
+        monto: totales.total_con_descuento * tc * Number(f.porcentaje),
         condicion_tipo: f.es_adelanto ? 'fecha' : 'avance',
         estado: 'pendiente',
       })),
