@@ -16,7 +16,7 @@ import { soloDigitos } from '@/lib/utils';
 import { guardarCliente, importarClientes } from '../catalogos/actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-const VACIO = { id: undefined as string | undefined, razon_social: '', tipo_doc: 'RUC', ruc_dni: '', contacto_nombre: '', contacto_email: '', contacto_telefono: '', ubicacion: '', origen: '', lat: null as number | null, lng: null as number | null };
+const VACIO = { id: undefined as string | undefined, razon_social: '', tipo_doc: 'RUC', ruc_dni: '', contacto_nombre: '', contacto_email: '', contacto_telefono: '', ubicacion: '', origen: '', banco: '', cuenta: '', cci: '', cuenta_detraccion: '', lat: null as number | null, lng: null as number | null };
 
 export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: any[]; countCot: Record<string, number>; countProy: Record<string, number> }) {
   const router = useRouter();
@@ -83,7 +83,7 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
                     <TableCell>{c.origen ? <Badge variant="outline">{c.origen}</Badge> : '—'}</TableCell>
                     <TableCell>{countCot[c.id] ?? 0}</TableCell>
                     <TableCell>{countProy[c.id] ?? 0}</TableCell>
-                    <TableCell><Button size="icon" variant="ghost" onClick={() => { setEdit({ id: c.id, razon_social: c.razon_social, tipo_doc: c.tipo_doc ?? 'RUC', ruc_dni: c.ruc_dni ?? '', contacto_nombre: c.contacto_nombre ?? '', contacto_email: c.contacto_email ?? '', contacto_telefono: c.contacto_telefono ?? '', ubicacion: c.ubicacion ?? '', origen: c.origen ?? '', lat: c.lat ?? null, lng: c.lng ?? null }); setError(null); }}><Pencil className="size-4" /></Button></TableCell>
+                    <TableCell><Button size="icon" variant="ghost" onClick={() => { setEdit({ id: c.id, razon_social: c.razon_social, tipo_doc: c.tipo_doc ?? 'RUC', ruc_dni: c.ruc_dni ?? '', contacto_nombre: c.contacto_nombre ?? '', contacto_email: c.contacto_email ?? '', contacto_telefono: c.contacto_telefono ?? '', ubicacion: c.ubicacion ?? '', origen: c.origen ?? '', banco: (c as any).banco ?? '', cuenta: (c as any).cuenta ?? '', cci: (c as any).cci ?? '', cuenta_detraccion: (c as any).cuenta_detraccion ?? '', lat: c.lat ?? null, lng: c.lng ?? null }); setError(null); }}><Pencil className="size-4" /></Button></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -106,6 +106,10 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
             <Field label="Email"><Input type="email" value={edit.contacto_email} onChange={(e) => setEdit({ ...edit, contacto_email: e.target.value })} /></Field>
             <Field label="Origen"><Select value={edit.origen} onChange={(e) => setEdit({ ...edit, origen: e.target.value })}><option value="">—</option><option value="directo">Contacto directo</option><option value="recomendacion">Recomendación</option><option value="oficina">Visita a oficina</option><option value="llamada">Llamada/reunión</option></Select></Field>
             <Field label="Ubicación (referencial)" hint="Dirección o referencia en texto libre." className="sm:col-span-2"><Input value={edit.ubicacion} onChange={(e) => setEdit({ ...edit, ubicacion: e.target.value })} /></Field>
+            <Field label="Banco"><Input value={edit.banco} onChange={(e) => setEdit({ ...edit, banco: e.target.value })} /></Field>
+            <Field label="Cuenta"><Input value={edit.cuenta} onChange={(e) => setEdit({ ...edit, cuenta: e.target.value })} /></Field>
+            <Field label="CCI"><Input value={edit.cci} onChange={(e) => setEdit({ ...edit, cci: e.target.value })} /></Field>
+            <Field label="Cuenta de detracción"><Input value={edit.cuenta_detraccion} onChange={(e) => setEdit({ ...edit, cuenta_detraccion: e.target.value })} placeholder="Banco de la Nación" /></Field>
             {error && <p className="text-sm text-azur-700 sm:col-span-2">{error}</p>}
           </div>
         )}

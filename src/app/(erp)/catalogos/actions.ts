@@ -27,6 +27,10 @@ const clienteSchema = z.object({
   contacto_email: opt(z.string().email('Email inválido').or(z.literal(''))),
   contacto_telefono: opt(),
   ubicacion: opt(),
+  banco: opt(),
+  cuenta: opt(),
+  cci: opt(),
+  cuenta_detraccion: opt(),
   origen: z.enum(['directo', 'recomendacion', 'oficina', 'llamada']).optional().or(z.literal('')).transform((v) => (v ? v : null)),
   lat: z.union([z.coerce.number(), z.literal(''), z.null()]).optional().transform((v) => (v === '' || v == null ? null : Number(v))),
   lng: z.union([z.coerce.number(), z.literal(''), z.null()]).optional().transform((v) => (v === '' || v == null ? null : Number(v))),
@@ -103,6 +107,7 @@ const contraparteSchema = z.object({
   banco: opt(),
   cuenta: opt(),
   cci: opt(),
+  cuenta_detraccion: opt(),
 });
 
 export async function guardarContraparte(input: z.input<typeof contraparteSchema>): Promise<Res> {

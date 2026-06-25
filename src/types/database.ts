@@ -571,10 +571,14 @@ export type Database = {
       }
       clientes: {
         Row: {
+          banco: string | null
+          cci: string | null
           contacto_email: string | null
           contacto_nombre: string | null
           contacto_telefono: string | null
           created_at: string
+          cuenta: string | null
+          cuenta_detraccion: string | null
           id: string
           lat: number | null
           lng: number | null
@@ -586,10 +590,14 @@ export type Database = {
           ubicacion: string | null
         }
         Insert: {
+          banco?: string | null
+          cci?: string | null
           contacto_email?: string | null
           contacto_nombre?: string | null
           contacto_telefono?: string | null
           created_at?: string
+          cuenta?: string | null
+          cuenta_detraccion?: string | null
           id?: string
           lat?: number | null
           lng?: number | null
@@ -601,10 +609,14 @@ export type Database = {
           ubicacion?: string | null
         }
         Update: {
+          banco?: string | null
+          cci?: string | null
           contacto_email?: string | null
           contacto_nombre?: string | null
           contacto_telefono?: string | null
           created_at?: string
+          cuenta?: string | null
+          cuenta_detraccion?: string | null
           id?: string
           lat?: number | null
           lng?: number | null
@@ -624,6 +636,7 @@ export type Database = {
           contacto: string | null
           created_at: string
           cuenta: string | null
+          cuenta_detraccion: string | null
           especialidad: string | null
           id: string
           razon_social: string
@@ -637,6 +650,7 @@ export type Database = {
           contacto?: string | null
           created_at?: string
           cuenta?: string | null
+          cuenta_detraccion?: string | null
           especialidad?: string | null
           id?: string
           razon_social: string
@@ -650,6 +664,7 @@ export type Database = {
           contacto?: string | null
           created_at?: string
           cuenta?: string | null
+          cuenta_detraccion?: string | null
           especialidad?: string | null
           id?: string
           razon_social?: string

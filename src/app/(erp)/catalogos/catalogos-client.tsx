@@ -322,6 +322,7 @@ function ContraparteForm({ contraparte, onClose }: { contraparte: Contraparte | 
     banco: contraparte?.banco ?? '',
     cuenta: contraparte?.cuenta ?? '',
     cci: contraparte?.cci ?? '',
+    cuenta_detraccion: (contraparte as any)?.cuenta_detraccion ?? '',
   });
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -348,6 +349,7 @@ function ContraparteForm({ contraparte, onClose }: { contraparte: Contraparte | 
           <Field label="Banco"><Input value={f.banco} onChange={(e) => setF({ ...f, banco: e.target.value })} /></Field>
           <Field label="Cuenta"><Input value={f.cuenta} onChange={(e) => setF({ ...f, cuenta: e.target.value })} /></Field>
           <Field label="CCI"><Input value={f.cci} onChange={(e) => setF({ ...f, cci: e.target.value })} /></Field>
+          <Field label="Cuenta de detracción" className="col-span-3"><Input value={f.cuenta_detraccion} onChange={(e) => setF({ ...f, cuenta_detraccion: e.target.value })} placeholder="N° de cuenta de detracciones (Banco de la Nación)" /></Field>
         </div>
         <ErrorMsg msg={error} />
         <div className="flex justify-end gap-2 pt-1">

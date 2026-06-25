@@ -12,7 +12,7 @@ export default async function CatalogosPage() {
     await Promise.all([
       supabase.from('lineas_negocio').select('id, nombre, codigo, color').eq('activo', true).order('nombre'),
       supabase.from('clientes').select('id, razon_social, tipo_doc, ruc_dni, contacto_nombre, contacto_email, contacto_telefono, ubicacion, origen').order('razon_social'),
-      supabase.from('contrapartes').select('id, razon_social, tipo, ruc_dni, especialidad, contacto, telefono, banco, cuenta, cci').order('razon_social'),
+      supabase.from('contrapartes').select('id, razon_social, tipo, ruc_dni, especialidad, contacto, telefono, banco, cuenta, cci, cuenta_detraccion').order('razon_social'),
       supabase.from('catalogo_partidas').select('id, linea_id, codigo, descripcion, unidad, costo_referencial').order('descripcion'),
       supabase.from('catalogo_insumos').select('id, codigo, nombre, unidad, precio, tipo').order('nombre'),
       supabase.from('plantillas_cotizacion').select('id, linea_id, nombre, condiciones, servicios_incluidos, servicios_omitidos, garantia').order('nombre'),
