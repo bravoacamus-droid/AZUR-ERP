@@ -34,7 +34,7 @@ const s = StyleSheet.create({
 export interface ValPdfData {
   proyecto: string; codigo: string; cliente: string; numero: number; fecha: string;
   contrato: number; valorizadoPeriodo: number; amortizacion: number; cobroNeto: number;
-  adelantoPct: number; adelantoTotal: number; amortizadoAcum: number; saldoAdelanto: number;
+  adelantoPct: number; tasaAmort: number; adelantoTotal: number; amortizadoAcum: number; saldoAdelanto: number;
   valorizadoAcum: number; saldoContrato: number; responsable?: string;
   rows: {
     codigo: string; titulo: string; unidad: string; contractual: number;
@@ -65,11 +65,11 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
         <Text style={s.sectionTitle}>Resumen ejecutivo</Text>
         <View style={s.box}>
           <View style={s.rowB}><Text style={s.k}>Monto del contrato</Text><Text style={s.vb}>{fmtMoney(d.contrato)}</Text></View>
-          <View style={s.rowB}><Text style={s.k}>Adelanto recibido ({fmtNumber(d.adelantoPct * 100, 0)}%)</Text><Text style={s.vb}>- {fmtMoney(d.adelantoTotal)}</Text></View>
+          <View style={s.rowB}><Text style={s.k}>Adelanto recibido (contrato {fmtNumber(d.adelantoPct * 100, 0)}%{d.adelantoTotal > d.contrato * d.adelantoPct ? ' + adic.' : ''})</Text><Text style={s.vb}>- {fmtMoney(d.adelantoTotal)}</Text></View>
 
           <Text style={[s.k, { marginTop: 6, marginBottom: 2, fontFamily: 'Helvetica-Bold' }]}>Periodo — Valorización N° {d.numero}</Text>
           <View style={s.rowB}><Text style={s.k}>Valorización del periodo</Text><Text style={s.vb}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
-          <View style={s.rowB}><Text style={s.k}>Amortización del adelanto ({fmtNumber(d.adelantoPct * 100, 0)}%)</Text><Text style={s.vb}>- {fmtMoney(d.amortizacion)}</Text></View>
+          <View style={s.rowB}><Text style={s.k}>Amortización del adelanto ({fmtNumber(d.tasaAmort * 100, 1)}%)</Text><Text style={s.vb}>- {fmtMoney(d.amortizacion)}</Text></View>
           <View style={s.rowB}><Text style={[s.k, s.vb]}>Cobro neto del periodo</Text><Text style={[s.vb, s.hi]}>{fmtMoney(d.cobroNeto)}</Text></View>
 
           <Text style={[s.k, { marginTop: 6, marginBottom: 2, fontFamily: 'Helvetica-Bold' }]}>Acumulado del proyecto</Text>

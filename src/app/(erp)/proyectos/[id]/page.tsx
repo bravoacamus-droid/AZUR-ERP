@@ -53,6 +53,12 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     .order('created_at', { ascending: false })
     .limit(50);
 
+  const { data: adelantos } = await supabase
+    .from('adelantos')
+    .select('*')
+    .eq('proyecto_id', params.id)
+    .order('fecha');
+
   // Comparativo Comercial vs Proyecto (solo totales/márgenes) para itemizado propio.
   const sumHojas = (arr: { es_hoja?: boolean | null; total_costo?: number | null; cantidad?: number | null; costo_unitario?: number | null }[]) =>
     (arr ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? (Number(i.cantidad ?? 0) * Number(i.costo_unitario ?? 0))) : 0), 0);
@@ -125,6 +131,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         solicitudes={solicitudes ?? []}
         comparativo={comparativo}
         presupuestoGasto={presupuestoGasto}
+        adelantos={adelantos ?? []}
         userId={session.id}
         userNombre={session.nombre}
         userRol={session.rol}

@@ -327,6 +327,27 @@ export async function registrarCobroValorizacion(proyectoId: string, valorizacio
   return { ok: true };
 }
 
+// ── Adelantos adicionales / extraordinarios ─────────────────────────────
+export async function agregarAdelanto(proyectoId: string, input: { concepto: string; tipo: string; monto: number; fecha?: string }): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const { error } = await supabase.from('adelantos').insert({
+    proyecto_id: proyectoId, concepto: input.concepto, tipo: input.tipo,
+    monto: input.monto, fecha: input.fecha || undefined, created_by: session.id,
+  } as never);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
+export async function eliminarAdelanto(proyectoId: string, id: string): Promise<Res> {
+  await guard();
+  const supabase = createClient();
+  await supabase.from('adelantos').delete().eq('id', id);
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
 // ── Itemizado propio de Proyectos (independiente del comercial) ─────────
 // Vacía el itemizado heredado de la cotización para que Proyectos arme el suyo.
 // La comparación con el comercial pasa a ser solo por totales/márgenes.

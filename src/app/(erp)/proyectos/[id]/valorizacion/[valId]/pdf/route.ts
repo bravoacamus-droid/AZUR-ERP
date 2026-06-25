@@ -68,10 +68,13 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   const contrato = Number(proy.contrato_total);
   const adelantoPct = Number(proy.adelanto_pct);
   const periodo = Number(val.monto_valorizado);
-  const dil = dilucionAdelanto(periodo, adelantoPct);
-  // Adelanto: total recibido, amortizado acumulado y saldo pendiente de diluir.
-  const adelantoTotal = contrato * adelantoPct;
-  const amortizadoAcum = adelantoPct * valorizadoAcum;
+  // Adelanto: contractual (%) + adicionales/extraordinarios; dilución proporcional.
+  const { data: adels } = await supabase.from('adelantos').select('monto').eq('proyecto_id', params.id);
+  const adelantoExtra = (adels ?? []).reduce((a, x) => a + Number(x.monto ?? 0), 0);
+  const adelantoTotal = contrato * adelantoPct + adelantoExtra;
+  const tasaAmort = contrato > 0 ? adelantoTotal / contrato : 0;
+  const dil = dilucionAdelanto(periodo, tasaAmort);
+  const amortizadoAcum = tasaAmort * valorizadoAcum;
   const saldoAdelanto = adelantoTotal - amortizadoAcum;
 
   const rows = ((val.valorizacion_items as any[]) ?? [])
@@ -105,6 +108,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     amortizacion: dil.amortizacion,
     cobroNeto: dil.cobroNeto,
     adelantoPct,
+    tasaAmort,
     adelantoTotal,
     amortizadoAcum,
     saldoAdelanto,

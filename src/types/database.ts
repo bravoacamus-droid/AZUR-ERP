@@ -79,6 +79,61 @@ export type Database = {
           },
         ]
       }
+      adelantos: {
+        Row: {
+          concepto: string
+          created_at: string
+          created_by: string | null
+          fecha: string
+          id: string
+          monto: number
+          proyecto_id: string
+          tipo: string
+        }
+        Insert: {
+          concepto: string
+          created_at?: string
+          created_by?: string | null
+          fecha?: string
+          id?: string
+          monto?: number
+          proyecto_id: string
+          tipo?: string
+        }
+        Update: {
+          concepto?: string
+          created_at?: string
+          created_by?: string | null
+          fecha?: string
+          id?: string
+          monto?: number
+          proyecto_id?: string
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "adelantos_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adelantos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "proyectos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "adelantos_proyecto_id_fkey"
+            columns: ["proyecto_id"]
+            isOneToOne: false
+            referencedRelation: "v_dashboard_proyecto"
+            referencedColumns: ["proyecto_id"]
+          },
+        ]
+      }
       adicionales_deductivos: {
         Row: {
           aprobado_por: string | null

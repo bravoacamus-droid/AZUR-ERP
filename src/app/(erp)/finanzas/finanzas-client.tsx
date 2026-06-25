@@ -33,7 +33,7 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles }: any) {
+export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards }: any) {
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
@@ -46,7 +46,7 @@ export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, cli
       {tab === 'solicitudes' && <Solicitudes rol={rol} solicitudes={solicitudes} proyectos={proyectos} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'cxc' && <CxC rol={rol} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
-      {tab === 'cajas' && <Cajas rol={rol} cajas={cajas} proyectos={proyectos} perfiles={perfiles} />}
+      {tab === 'cajas' && <Cajas rol={rol} cajas={cajas} proyectos={proyectos} perfiles={perfiles} dashboards={dashboards} />}
     </div>
   );
 }
@@ -406,7 +406,7 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
   );
 }
 
-function Cajas({ rol, cajas, proyectos, perfiles = [] }: any) {
+function Cajas({ rol, cajas, proyectos, perfiles = [], dashboards = [] }: any) {
   const router = useRouter();
   const [mov, setMov] = useState<any>(null);
   const [form, setForm] = useState({ tipo: 'reposicion', monto: 0, concepto: '', metodo: 'transferencia', num_operacion: '', voucher_url: '' });
@@ -416,12 +416,41 @@ function Cajas({ rol, cajas, proyectos, perfiles = [] }: any) {
   const puede = rol === 'administrador' || rol === 'gerencia';
 
   return (
-    <div className="space-y-3">
-      {puede && (
-        <div className="flex justify-end">
-          <Button size="sm" variant="outline" onClick={() => { setNueva(true); setNf({ proyecto_id: '', nombre: '', responsable_id: '', asignacion_semanal: 0 }); }}><Plus /> Nueva caja chica</Button>
-        </div>
+    <div className="space-y-4">
+      {dashboards.length > 0 && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Wallet className="size-4 text-azur-600" /> Estado financiero por proyecto</CardTitle></CardHeader>
+          <CardContent className="p-0">
+            <Table>
+              <TableHeader>
+                <TableRow><TableHead>Proyecto</TableHead><TableHead className="text-right">Contrato</TableHead><TableHead className="text-right">Cobrado</TableHead><TableHead className="text-right">Gastado</TableHead><TableHead className="text-right">Por cobrar</TableHead><TableHead className="text-right">Disponible</TableHead></TableRow>
+              </TableHeader>
+              <TableBody>
+                {dashboards.map((d: any) => {
+                  const contrato = Number(d.proyectado ?? 0), cobrado = Number(d.pagos ?? 0), gastado = Number(d.gasto ?? 0);
+                  const disp = cobrado - gastado;
+                  return (
+                    <TableRow key={d.proyecto_id}>
+                      <TableCell className="font-medium">{d.nombre}<div className="text-xs text-muted-foreground">{d.codigo}</div></TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtMoney(contrato)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-emerald-600">{fmtMoney(cobrado)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(gastado)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtMoney(contrato - cobrado)}</TableCell>
+                      <TableCell className={`text-right font-medium tabular-nums ${disp < 0 ? 'text-red-600' : 'text-emerald-600'}`}>{fmtMoney(disp)}</TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       )}
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-sm font-medium text-muted-foreground">Cajas chicas</p>
+        {puede && (
+          <Button size="sm" variant="outline" onClick={() => { setNueva(true); setNf({ proyecto_id: '', nombre: '', responsable_id: '', asignacion_semanal: 0 }); }}><Plus /> Nueva caja chica</Button>
+        )}
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {cajas.length === 0 && <Card><CardContent className="p-6"><EmptyState titulo="Sin cajas" /></CardContent></Card>}
       {cajas.map((c: any) => {

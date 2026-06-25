@@ -11,7 +11,7 @@ export default async function FinanzasPage() {
   const session = await requireRol(['gerencia', 'jefe_proyectos', 'administrador']);
   const supabase = createClient();
 
-  const [sols, facturas, armadas, cajas, clientes, proyectos, perfiles] = await Promise.all([
+  const [sols, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards] = await Promise.all([
     supabase.from('solicitudes_pago').select('*, proyecto:proyectos(nombre), solicitante:profiles!solicitudes_pago_solicitado_por_fkey(nombre)').order('created_at', { ascending: false }),
     supabase.from('facturas').select('*, cliente:clientes(razon_social), proyecto:proyectos(nombre)').order('created_at', { ascending: false }),
     supabase.from('cronograma_cobros').select('*, proyecto:proyectos(nombre)').in('estado', ['pendiente', 'por_facturar']).order('fecha_esperada'),
@@ -19,6 +19,7 @@ export default async function FinanzasPage() {
     supabase.from('clientes').select('id, razon_social').order('razon_social'),
     supabase.from('proyectos').select('id, nombre').order('nombre'),
     supabase.from('profiles').select('id, nombre, rol').eq('activo', true).order('nombre'),
+    supabase.from('v_dashboard_proyecto').select('proyecto_id, codigo, nombre, estado, proyectado, pagos, gasto, valorizado'),
   ]);
 
   const solicitudes = sols.data ?? [];
@@ -47,6 +48,7 @@ export default async function FinanzasPage() {
         clientes={clientes.data ?? []}
         proyectos={proyectos.data ?? []}
         perfiles={perfiles.data ?? []}
+        dashboards={dashboards.data ?? []}
       />
     </div>
   );

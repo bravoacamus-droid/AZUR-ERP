@@ -32,14 +32,14 @@ import {
   generarServiciosMantenimiento, actualizarServicio, eliminarServicio,
   solicitarCambioMonto, solicitarReaperturaValorizacion, cerrarReaperturaValorizacion,
   aprobarSolicitud, rechazarSolicitud, vaciarItemizadoProyecto, marcarItemizadoPropio,
-  guardarPresupuestoTipoGasto,
+  guardarPresupuestoTipoGasto, agregarAdelanto, eliminarAdelanto,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, campo, userId, userNombre, userRol, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, adelantos, campo, userId, userNombre, userRol, canManage } = props;
   const esMantenimiento = proy.tipo_proyecto === 'chico';
   const router = useRouter();
   const [presentes, setPresentes] = useState<string[]>([]);
@@ -105,8 +105,8 @@ export function ProyectoDetalle(props: any) {
         ]}
       />
 
-      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} />}
-      {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} />}
+      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} adelantos={adelantos} />}
+      {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} adelantos={adelantos} />}
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
@@ -119,9 +119,21 @@ export function ProyectoDetalle(props: any) {
 }
 
 // ───────────────────────────── RESUMEN ────────────────────────────────
-function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo, presupuestoGasto }: any) {
+function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo, presupuestoGasto, adelantos = [] }: any) {
   const router = useRouter();
   const [busyS, setBusyS] = useState<string | null>(null);
+  const [adForm, setAdForm] = useState({ concepto: '', tipo: 'extraordinario', monto: '' });
+  const [adBusy, setAdBusy] = useState(false);
+  async function addAdelanto() {
+    if (!adForm.concepto || !adForm.monto) return;
+    setAdBusy(true);
+    await agregarAdelanto(proy.id, { concepto: adForm.concepto, tipo: adForm.tipo, monto: Number(adForm.monto) });
+    setAdForm({ concepto: '', tipo: 'extraordinario', monto: '' });
+    router.refresh(); setAdBusy(false);
+  }
+  async function delAdelanto(id: string) { setAdBusy(true); await eliminarAdelanto(proy.id, id); router.refresh(); setAdBusy(false); }
+  const adelantoExtra = (adelantos ?? []).reduce((a: number, x: any) => a + Number(x.monto ?? 0), 0);
+  const adelantoContractual = Number(proy.contrato_total) * Number(proy.adelanto_pct);
   const [busyIt, setBusyIt] = useState(false);
   async function toggleItemizadoPropio(v: boolean) { setBusyIt(true); await marcarItemizadoPropio(proy.id, v); router.refresh(); setBusyIt(false); }
   async function vaciarItemizado() {
@@ -174,6 +186,46 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
         <BarraTresTramos p={d} />
         {comparativo && <ComparativoComercial c={comparativo} propio={!!proy.itemizado_propio} />}
         {presupuestoGasto && <PresupuestoTipoGasto proyectoId={proy.id} data={presupuestoGasto} canManage={canManage} />}
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2"><Banknote className="size-4 text-azur-600" /> Adelantos</CardTitle>
+            <p className="text-xs text-muted-foreground">Adelanto del contrato + adicionales/extraordinarios. Todos se diluyen en las valorizaciones.</p>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm">
+            <div className="flex items-center justify-between rounded-lg border p-2">
+              <span>Adelanto del contrato ({fmtPct(Number(proy.adelanto_pct), 0)})</span>
+              <span className="font-medium tabular-nums">{fmtMoney(adelantoContractual)}</span>
+            </div>
+            {(adelantos ?? []).map((a: any) => (
+              <div key={a.id} className="flex items-center justify-between rounded-lg border p-2">
+                <div>
+                  <p className="font-medium">{a.concepto}</p>
+                  <p className="text-xs text-muted-foreground capitalize">{a.tipo}{a.fecha ? ` · ${fmtDate(a.fecha)}` : ''}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium tabular-nums">{fmtMoney(Number(a.monto))}</span>
+                  {canManage && <button onClick={() => delAdelanto(a.id)} disabled={adBusy} className="text-muted-foreground hover:text-azur-600"><Trash2 className="size-3.5" /></button>}
+                </div>
+              </div>
+            ))}
+            <div className="flex items-center justify-between border-t pt-2 font-semibold">
+              <span>Total adelanto recibido</span>
+              <span className="tabular-nums text-azur-700">{fmtMoney(adelantoContractual + adelantoExtra)}</span>
+            </div>
+            {canManage && (
+              <div className="grid grid-cols-2 gap-2 border-t pt-2">
+                <Field label="Concepto" className="col-span-2"><Input value={adForm.concepto} onChange={(e) => setAdForm((f) => ({ ...f, concepto: e.target.value }))} placeholder="Ej. Adelanto del adicional N°1" /></Field>
+                <Field label="Tipo"><Select value={adForm.tipo} onChange={(e) => setAdForm((f) => ({ ...f, tipo: e.target.value }))}><option value="extraordinario">Extraordinario</option><option value="adicional">Adicional</option></Select></Field>
+                <Field label="Monto"><Input type="number" value={adForm.monto} onChange={(e) => setAdForm((f) => ({ ...f, monto: e.target.value }))} placeholder="0.00" /></Field>
+                <div className="col-span-2 flex justify-end">
+                  <Button size="sm" variant="outline" disabled={adBusy || !adForm.concepto || !adForm.monto} onClick={addAdelanto}><Plus /> Registrar adelanto</Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         <div className="flex justify-end">
           <InformeBtn proyectoId={proy.id} />
         </div>
@@ -392,7 +444,7 @@ function Dato({ k, v }: { k: string; v: any }) {
 }
 
 // ───────────────────────── LAST PLANNER ───────────────────────────────
-function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuProyecto, canManage, userRol }: any) {
+function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuProyecto, canManage, userRol, adelantos = [] }: any) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<any[]>(items);
@@ -526,15 +578,18 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     const leaf = rows.find((r) => r.id === id && r.es_hoja);
     return acc + (leaf ? pct * Number(leaf.total_costo ?? 0) : 0);
   }, 0) : 0;
-  const dil = dilucionAdelanto(montoActivo, Number(proy.adelanto_pct));
-  // Adelanto recibido y saldo por amortizar (a lo largo del proyecto se diluye al 100%).
-  const adelantoTotalProy = Number(proy.contrato_total) * Number(proy.adelanto_pct);
+  // Adelanto: contractual (%) + adicionales/extraordinarios. Se diluye proporcionalmente.
+  const adelantoExtra = (adelantos ?? []).reduce((a: number, x: any) => a + Number(x.monto ?? 0), 0);
+  const adelantoContractual = Number(proy.contrato_total) * Number(proy.adelanto_pct);
+  const adelantoTotalProy = adelantoContractual + adelantoExtra;
+  const tasaAmort = Number(proy.contrato_total) > 0 ? adelantoTotalProy / Number(proy.contrato_total) : 0;
+  const dil = dilucionAdelanto(montoActivo, tasaAmort);
   const valorizadoAcumProy = rows.reduce((acc, r) => {
     if (!r.es_hoja) return acc;
     const acumPct = (avancesCalc.get(r.id) ?? []).reduce((x, y) => x + y, 0);
     return acc + acumPct * Number(r.total_costo ?? 0);
   }, 0);
-  const saldoAdelantoProy = adelantoTotalProy - Number(proy.adelanto_pct) * valorizadoAcumProy;
+  const saldoAdelantoProy = adelantoTotalProy - tasaAmort * valorizadoAcumProy;
 
   return (
     <div className="space-y-4">
@@ -692,13 +747,14 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Valorización N{activeVal.numero} · dilución del adelanto</CardTitle>
             <p className="text-xs text-muted-foreground">
-              Adelanto recibido ({fmtPct(Number(proy.adelanto_pct), 0)}): <strong>{fmtMoney(adelantoTotalProy)}</strong>
+              Adelanto recibido: <strong>{fmtMoney(adelantoTotalProy)}</strong>
+              {' '}(contrato {fmtPct(Number(proy.adelanto_pct), 0)} = {fmtMoney(adelantoContractual)}{adelantoExtra > 0 ? ` + extras ${fmtMoney(adelantoExtra)}` : ''})
               {' · '}Saldo del adelanto por amortizar: <strong>{fmtMoney(saldoAdelantoProy)}</strong>
             </p>
           </CardHeader>
           <CardContent className="grid gap-3 sm:grid-cols-4">
             <KpiCard label="Valorizado periodo" value={fmtMoney(montoActivo)} />
-            <KpiCard label={`Amortización (${fmtPct(Number(proy.adelanto_pct), 0)})`} value={fmtMoney(dil.amortizacion)} tone="warning" />
+            <KpiCard label={`Amortización (${fmtPct(tasaAmort, 0)})`} value={fmtMoney(dil.amortizacion)} tone="warning" />
             <KpiCard label="Cobro neto" value={fmtMoney(dil.cobroNeto)} tone="success" />
             <div className="flex items-end gap-2">
               <a href={`/proyectos/${proy.id}/valorizacion/${activeVal.id}/pdf`} target="_blank" rel="noreferrer" className="flex-1">
