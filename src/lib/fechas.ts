@@ -17,7 +17,8 @@ function esLaborable(d: Date, patron: PatronDias): boolean {
 }
 
 const toDate = (iso: string) => new Date(iso + 'T00:00:00');
-const toISO = (d: Date) => d.toISOString().slice(0, 10);
+// Componentes LOCALES (no UTC) para no correr el día al serializar.
+const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
 // Fecha de entrega = inicio + (dias) días laborables (1 día = mismo día de inicio).
 export function entregaDesdeDuracion(inicioISO: string, dias: number, patron: PatronDias): string | null {

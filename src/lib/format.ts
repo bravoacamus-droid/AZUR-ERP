@@ -12,8 +12,16 @@ export const todayLimaISO = (): string => {
   return `${g('year')}-${g('month')}-${g('day')}`;
 };
 
+// ¿Es una fecha pura "yyyy-mm-dd" (sin hora)? Esas NO deben convertirse de TZ:
+// new Date('2026-06-13') se interpreta como UTC y en Lima retrocede 1 día.
+const esFechaPura = (d: unknown): d is string => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d);
+
 export const fmtDate = (d: Date | string | null | undefined) => {
   if (!d) return '—';
+  if (esFechaPura(d)) {
+    const [y, m, day] = d.split('-').map(Number);
+    return new Date(y, m - 1, day).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+  }
   return new Date(d).toLocaleDateString('es-PE', {
     timeZone: TZ,
     day: '2-digit',
@@ -36,7 +44,9 @@ export const fmtDateTime = (d: Date | string | null | undefined) => {
 
 export const fmtDateInput = (d: Date | string | null | undefined) => {
   if (!d) return '';
-  // yyyy-mm-dd para inputs type=date, en TZ Lima
+  // Fecha pura: ya está en yyyy-mm-dd; devolver tal cual (sin TZ, evita el -1 día).
+  if (esFechaPura(d)) return d;
+  // Timestamp: convertir a yyyy-mm-dd en TZ Lima.
   const date = new Date(d);
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: TZ,
