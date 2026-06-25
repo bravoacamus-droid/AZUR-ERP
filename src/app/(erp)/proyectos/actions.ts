@@ -9,7 +9,6 @@ import { notifyRoles } from '@/lib/push/notify';
 import { calcEstado, calcPrioridad, proyectadoSemana, semanasEntre } from '@/lib/lastplanner';
 import { saludRegla1, saludRegla2 } from '@/lib/salud';
 import { nowLima } from '@/lib/format';
-import { entregaDesdeDuracion, type PatronDias } from '@/lib/fechas';
 
 type Res = { ok: boolean; error?: string; id?: string };
 const ROLES_PROY = ['gerencia', 'jefe_proyectos', 'presupuestos'] as const;
@@ -24,21 +23,8 @@ export async function actualizarProyecto(id: string, patch: Record<string, unkno
   const supabase = createClient();
   const { error } = await supabase.from('proyectos').update(patch as never).eq('id', id);
   if (error) return { ok: false, error: error.message };
-  // Si cambia la regla de calendario, recalcula la fecha de entrega de cada partida
-  // que tenga inicio + duración (respetando los nuevos días laborables).
-  if ('dias_laborables' in patch) {
-    const patron = String(patch.dias_laborables) as PatronDias;
-    const { data: its } = await supabase
-      .from('proyecto_items')
-      .select('id, fecha_inicio, duracion_dias')
-      .eq('proyecto_id', id);
-    for (const it of its ?? []) {
-      if (it.fecha_inicio && it.duracion_dias) {
-        const entrega = entregaDesdeDuracion(String(it.fecha_inicio).slice(0, 10), Number(it.duracion_dias), patron);
-        if (entrega) await supabase.from('proyecto_items').update({ fecha_entrega: entrega } as never).eq('id', it.id);
-      }
-    }
-  }
+  // El recálculo de fechas de entrega se hace de forma explícita desde el Last Planner
+  // (botón "Recalcular fechas"), para aplicar todos los cambios de un golpe y con feedback.
   revalidatePath(`/proyectos/${id}`);
   return { ok: true };
 }

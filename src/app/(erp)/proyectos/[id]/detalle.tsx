@@ -291,7 +291,7 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
                   {Object.entries(PATRON_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </Select>
               </Field>
-              <p className="text-xs text-muted-foreground">Define qué días cuentan para calcular automáticamente la fecha de entrega a partir de la duración (y viceversa) en el Last Planner.</p>
+              <p className="text-xs text-muted-foreground">Define qué días cuentan para las fechas. Para aplicarlo a las partidas existentes, usa el botón <strong>“Recalcular fechas”</strong> en el Last Planner.</p>
             </CardContent>
           </Card>
         )}
@@ -531,7 +531,22 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       save(row.id, patch);
     }
   }
-  const patron: PatronDias = (proy.dias_laborables ?? 'lun_sab') as PatronDias;
+  const [patronSel, setPatronSel] = useState<PatronDias>((proy.dias_laborables ?? 'lun_sab') as PatronDias);
+  useEffect(() => setPatronSel((proy.dias_laborables ?? 'lun_sab') as PatronDias), [proy.dias_laborables]);
+  const patron: PatronDias = patronSel;
+  // Recalcula en bloque todas las entregas (inicio + duración) con el calendario elegido.
+  async function recalcularFechas() {
+    setBusy(true);
+    if (patronSel !== proy.dias_laborables) await actualizarProyecto(proy.id, { dias_laborables: patronSel });
+    const cambios = rows.filter((r) => r.es_hoja && r.fecha_inicio && r.duracion_dias).map((r) => {
+      const entrega = entregaDesdeDuracion(fmtDateInput(r.fecha_inicio), Number(r.duracion_dias), patronSel);
+      return entrega ? { id: r.id, entrega } : null;
+    }).filter(Boolean) as { id: string; entrega: string }[];
+    setRows((rs) => rs.map((r) => { const c = cambios.find((x) => x.id === r.id); return c ? { ...r, fecha_entrega: c.entrega } : r; }));
+    await Promise.all(cambios.map((c) => actualizarItemProyecto(proy.id, c.id, { fecha_entrega: c.entrega })));
+    setAviso(`Fechas de entrega recalculadas con el calendario "${PATRON_LABEL[patronSel]}".`);
+    router.refresh(); setBusy(false);
+  }
   // Plazos amarrados: al cambiar inicio/entrega/duración recalcula el campo dependiente.
   function saveFechas(row: any, patch: any) {
     const inicio = patch.fecha_inicio !== undefined ? patch.fecha_inicio : fmtDateInput(row.fecha_inicio);
@@ -598,7 +613,14 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
           <Layers className="size-4" /> Cuadrantes 1-4 + valorizaciones semanales acumulables
         </div>
         {canManage && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border bg-white px-1.5 py-0.5">
+              <Calendar className="size-3.5 text-muted-foreground" />
+              <select className="bg-transparent py-1 text-xs" value={patronSel} onChange={(e) => setPatronSel(e.target.value as PatronDias)}>
+                {Object.entries(PATRON_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
+              <Button size="sm" variant="outline" onClick={recalcularFechas} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Recalcular fechas</Button>
+            </div>
             <Button size="sm" variant="outline" onClick={() => add(null)} disabled={busy}><Plus /> Partida</Button>
             <Button size="sm" variant="outline" onClick={nuevaVal} disabled={busy}><Calendar /> Nueva valorización</Button>
             {activeVal && <Button size="sm" variant="gradient" onClick={guardar} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Guardar avances</Button>}
