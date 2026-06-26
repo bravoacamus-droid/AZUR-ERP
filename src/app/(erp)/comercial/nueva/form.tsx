@@ -47,6 +47,11 @@ export function NuevaCotizacionForm({
     ubicacion: '',
     vigencia_dias: 7,
     plantilla_id: '',
+    moneda: 'PEN',
+    tipo_cambio: 3.75,
+    plazo_valor: '' as number | '',
+    plazo_tipo: 'calendario',
+    recomendado_por: '',
     lat: null as number | null,
     lng: null as number | null,
   });
@@ -61,6 +66,9 @@ export function NuevaCotizacionForm({
       tipo_cotizacion: form.tipo_cotizacion as 'unica' | 'programada' | 'recurrencia',
       tipo_proyecto: form.tipo_proyecto as 'grande' | 'chico',
       origen: form.origen as 'directo' | 'recomendacion' | 'oficina' | 'llamada',
+      moneda: form.moneda as 'PEN' | 'USD',
+      plazo_tipo: form.plazo_tipo as 'calendario' | 'util' | 'semanas' | 'meses',
+      plazo_valor: form.plazo_valor === '' ? null : Number(form.plazo_valor),
     });
     if (!res.ok || !res.id) {
       setError(res.error ?? 'No se pudo crear');
@@ -168,6 +176,33 @@ export function NuevaCotizacionForm({
               ))}
             </Select>
           </Field>
+          <Field label="Moneda">
+            <Select value={form.moneda} onChange={(e) => set('moneda', e.target.value)}>
+              <option value="PEN">Soles (S/)</option>
+              <option value="USD">Dólares ($)</option>
+            </Select>
+          </Field>
+          {form.moneda === 'USD' && (
+            <Field label="Tipo de cambio (S/ por $)">
+              <Input type="number" step="0.001" value={form.tipo_cambio} onChange={(e) => set('tipo_cambio', Number(e.target.value))} />
+            </Field>
+          )}
+          <Field label="Plazo de ejecución">
+            <div className="flex gap-2">
+              <Input type="number" className="w-24" placeholder="N°" value={form.plazo_valor} onChange={(e) => set('plazo_valor', e.target.value === '' ? '' : Number(e.target.value))} />
+              <Select value={form.plazo_tipo} onChange={(e) => set('plazo_tipo', e.target.value)} className="flex-1">
+                <option value="calendario">Días calendario</option>
+                <option value="util">Días útiles</option>
+                <option value="semanas">Semanas</option>
+                <option value="meses">Meses</option>
+              </Select>
+            </div>
+          </Field>
+          {form.origen === 'recomendacion' && (
+            <Field label="Recomendado por">
+              <Input value={form.recomendado_por} onChange={(e) => set('recomendado_por', e.target.value)} placeholder="¿Quién lo recomendó?" />
+            </Field>
+          )}
         </div>
 
         <Field label="Ubicación en el mapa" hint="Busca la dirección o haz click en el mapa; rellena la ubicación automáticamente.">

@@ -33,6 +33,11 @@ const crearSchema = z.object({
   plantilla_id: z.string().uuid().optional().or(z.literal('')),
   lat: z.coerce.number().optional().nullable(),
   lng: z.coerce.number().optional().nullable(),
+  moneda: z.enum(['PEN', 'USD']).optional(),
+  tipo_cambio: z.coerce.number().optional(),
+  plazo_valor: z.coerce.number().optional().nullable(),
+  plazo_tipo: z.enum(['calendario', 'util', 'semanas', 'meses']).optional(),
+  recomendado_por: z.string().optional(),
 });
 
 export async function crearCotizacion(input: z.input<typeof crearSchema>): Promise<Res> {
@@ -69,6 +74,11 @@ export async function crearCotizacion(input: z.input<typeof crearSchema>): Promi
       plantilla_id: d.plantilla_id || null,
       lat: d.lat ?? null,
       lng: d.lng ?? null,
+      moneda: d.moneda ?? 'PEN',
+      tipo_cambio: d.moneda === 'USD' ? (d.tipo_cambio ?? 1) : 1,
+      plazo_valor: d.plazo_valor ?? null,
+      plazo_tipo: d.plazo_tipo ?? 'calendario',
+      recomendado_por: d.recomendado_por || null,
       responsable_id: session.id,
       ...cond,
     })
