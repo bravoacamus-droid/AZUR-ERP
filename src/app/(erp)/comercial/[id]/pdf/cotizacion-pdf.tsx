@@ -43,7 +43,7 @@ export interface PdfRow { codigo: string; titulo: string; depth: number; esHoja:
 export interface PdfData {
   codigo: string; fecha: string; proyecto: string; asunto?: string; ubicacion?: string;
   cliente: string; ruc?: string; empresa: string; rucEmpresa?: string; vigencia?: string; plazo?: string;
-  moneda?: string; tipoCambio?: number;
+  moneda?: string; tipoCambio?: number; mostrarEquivPen?: boolean;
   rows: PdfRow[];
   totales: { subtotal: number; gg?: number; ga?: number; util?: number; costoDirecto: number; igv?: number; total: number; descuento?: number; totalConDescuento: number };
   condiciones?: string; serviciosIncluidos?: string; serviciosOmitidos?: string; garantia?: string;
@@ -123,7 +123,7 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
             <View style={s.totRow}><Text style={s.totLabel}>Descuento comercial</Text><Text style={s.totVal}>- {m(d.totales.descuento)}</Text></View>
             <View style={s.totRow}><Text style={[s.totLabel, { fontFamily: 'Helvetica-Bold' }]}>TOTAL CON DESCUENTO</Text><Text style={[s.totVal, s.totHi]}>{m(d.totales.totalConDescuento)}</Text></View>
           </> : null}
-          {cur === 'USD' ? <View style={s.totRow}><Text style={s.totLabel}>Equivalente en soles (T.C. {fmtNumber(tc, 3)})</Text><Text style={s.totVal}>{fmtMoney((d.totales.descuento ? d.totales.totalConDescuento : d.totales.total) * tc, 'PEN')}</Text></View> : null}
+          {cur === 'USD' && d.mostrarEquivPen !== false ? <View style={s.totRow}><Text style={s.totLabel}>Equivalente en soles (T.C. {fmtNumber(tc, 3)})</Text><Text style={s.totVal}>{fmtMoney((d.totales.descuento ? d.totales.totalConDescuento : d.totales.total) * tc, 'PEN')}</Text></View> : null}
         </View>
 
         {/* Condiciones */}

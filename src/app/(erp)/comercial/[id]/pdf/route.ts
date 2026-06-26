@@ -68,6 +68,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     rucEmpresa: 'R.U.C. 20602938019',
     moneda: cot.moneda === 'USD' ? 'USD' : 'PEN',
     tipoCambio: Number(cot.tipo_cambio ?? 1),
+    mostrarEquivPen: cot.mostrar_equiv_pen !== false,
     vigencia: cot.vigencia_dias ? `${cot.vigencia_dias} días` : undefined,
     plazo: cot.plazo_valor
       ? `${cot.plazo_valor} ${({ calendario: 'días calendario', util: 'días útiles', semanas: 'semanas', meses: 'meses' } as Record<string, string>)[cot.plazo_tipo ?? 'calendario'] ?? 'días calendario'}`

@@ -905,6 +905,7 @@ export type Database = {
           lng: number | null
           margen_min_pct: number | null
           moneda: Database["public"]["Enums"]["moneda_enum"]
+          mostrar_equiv_pen: boolean
           mostrar_ga: boolean
           mostrar_gg: boolean
           mostrar_igv: boolean
@@ -952,6 +953,7 @@ export type Database = {
           lng?: number | null
           margen_min_pct?: number | null
           moneda?: Database["public"]["Enums"]["moneda_enum"]
+          mostrar_equiv_pen?: boolean
           mostrar_ga?: boolean
           mostrar_gg?: boolean
           mostrar_igv?: boolean
@@ -999,6 +1001,7 @@ export type Database = {
           lng?: number | null
           margen_min_pct?: number | null
           moneda?: Database["public"]["Enums"]["moneda_enum"]
+          mostrar_equiv_pen?: boolean
           mostrar_ga?: boolean
           mostrar_gg?: boolean
           mostrar_igv?: boolean

@@ -35,7 +35,7 @@ import {
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId,
+  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId,
 }: {
   cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
   historial: any[]; perfilesMap: Record<string, string>;
@@ -43,6 +43,9 @@ export function CotizacionEditor({
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  // Estado local de la cabecera → updates optimistas (toggles/moneda/descuento al instante).
+  const [cot, setCot] = useState<any>(cotProp);
+  useEffect(() => setCot(cotProp), [cotProp]);
   const [rows, setRows] = useState<Row[]>(items);
   const [tab, setTab] = useState('presupuesto');
   const [presentes, setPresentes] = useState<string[]>([]);
@@ -145,8 +148,8 @@ export function CotizacionEditor({
     setBusy(false);
   }
   async function toggleParam(patch: Record<string, unknown>) {
-    await guardarCabecera(cot.id, patch);
-    router.refresh();
+    setCot((c: any) => ({ ...c, ...patch })); // optimista: la UI cambia al instante
+    await guardarCabecera(cot.id, patch);     // persiste en segundo plano (sin recargar todo)
   }
 
   const est = ESTADO_COTIZACION[cot.estado] ?? { label: cot.estado, variant: 'muted' as const };
@@ -289,8 +292,9 @@ export function CotizacionEditor({
                     {flat.map(({ row, depth }) => {
                       const c = calc.get(row.id);
                       const hoja = row.es_hoja;
+                      const nivelBg = ['bg-azur-100/70', 'bg-azur-50/70', 'bg-sky-50/60', 'bg-slate-50/60'][Math.min(3, (row.nivel ?? 1) - 1)];
                       return (
-                        <tr key={row.id} className={`border-b ${!hoja ? 'bg-muted/30 font-medium' : ''}`}>
+                        <tr key={row.id} className={`border-b ${nivelBg} ${!hoja ? 'font-medium' : ''}`}>
                           <td className="whitespace-nowrap px-2 py-1.5 text-xs text-muted-foreground">
                             {codigos.get(row.id)}
                           </td>
@@ -666,7 +670,7 @@ function TotalesPanel({ cot, totales, onToggle, editable }: { cot: any; totales:
               <Row3 label="TOTAL CON DESCUENTO" value={totales.total_con_descuento} bold azur currency={cur} />
             </>
           )}
-          {cur === 'USD' && (
+          {cur === 'USD' && cot.mostrar_equiv_pen !== false && (
             <div className="mt-1 flex items-center justify-between rounded-lg bg-sky-50 px-2 py-1.5 text-xs text-sky-800">
               <span>Equivalente en soles (T.C. {fmtNumber(tc, 3)})</span>
               <span className="font-semibold tabular-nums">{fmtMoney(totalFinal * tc, 'PEN')}</span>
@@ -738,6 +742,7 @@ function MonedaControl({ cot, onToggle }: { cot: any; onToggle: (p: any) => void
           </Field>
         )}
       </div>
+      {esUSD && <Toggle label="Mostrar equivalente en soles" v={cot.mostrar_equiv_pen !== false} onClick={(v) => onToggle({ mostrar_equiv_pen: v })} />}
       {esUSD && <p className="text-xs text-muted-foreground">Los montos se ingresan y muestran en dólares. El tipo de cambio (lo define el usuario) convierte el total a soles al aprobar el proyecto.</p>}
     </div>
   );
