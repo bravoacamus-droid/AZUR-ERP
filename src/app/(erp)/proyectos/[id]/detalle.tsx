@@ -615,6 +615,13 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   }, 0);
   const saldoAdelantoProy = adelantoTotalProy - tasaAmort * valorizadoAcumProy;
 
+  // Totales de columna para el pie de la tabla (estilo Excel: total por valorización).
+  const leavesLP = rows.filter((r: any) => r.es_hoja);
+  const totContratoLP = leavesLP.reduce((a, r) => a + Number(r.total_costo ?? 0), 0);
+  const totValAcumLP = leavesLP.reduce((a, r) => { const acum = (avancesCalc.get(r.id) ?? []).reduce((x, y) => x + y, 0); return a + acum * Number(r.total_costo ?? 0); }, 0);
+  const totSaldoLP = totContratoLP - totValAcumLP;
+  const totPorValLP = valsSorted.map((_, i) => leavesLP.reduce((a, r) => a + (avancesCalc.get(r.id)?.[i] ?? 0) * Number(r.total_costo ?? 0), 0));
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -768,6 +775,23 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   );
                 })}
               </tbody>
+              {flat.length > 0 && (
+                <tfoot className="border-t-2 border-azur-200 bg-muted/40 font-semibold">
+                  <tr>
+                    <td colSpan={6} className="px-2 py-2 text-right">TOTALES</td>
+                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(totContratoLP)}</td>
+                    <td colSpan={6} />
+                    <td className="px-2 py-2" />
+                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(totValAcumLP)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(totSaldoLP)}</td>
+                    {valsDesc.flatMap(({ v, idx }) => [
+                      <td key={`tf-${v.id}-p`} className="px-2 py-2" />,
+                      <td key={`tf-${v.id}-t`} className="px-2 py-2 text-right tabular-nums text-azur-700">{fmtNumber(totPorValLP[idx])}</td>,
+                    ])}
+                    {canManage && <td className="px-2 py-2" />}
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </CardContent>
