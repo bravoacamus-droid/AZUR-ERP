@@ -49,6 +49,7 @@ export function NuevaCotizacionForm({
     plantilla_id: '',
     moneda: 'PEN',
     tipo_cambio: 3.75,
+    plazo_activo: false,
     plazo_valor: '' as number | '',
     plazo_tipo: 'calendario',
     recomendado_por: '',
@@ -68,7 +69,7 @@ export function NuevaCotizacionForm({
       origen: form.origen as 'directo' | 'recomendacion' | 'oficina' | 'llamada',
       moneda: form.moneda as 'PEN' | 'USD',
       plazo_tipo: form.plazo_tipo as 'calendario' | 'util' | 'semanas' | 'meses',
-      plazo_valor: form.plazo_valor === '' ? null : Number(form.plazo_valor),
+      plazo_valor: form.plazo_activo && form.plazo_valor !== '' ? Number(form.plazo_valor) : null,
     });
     if (!res.ok || !res.id) {
       setError(res.error ?? 'No se pudo crear');
@@ -187,16 +188,22 @@ export function NuevaCotizacionForm({
               <Input type="number" step="0.001" value={form.tipo_cambio} onChange={(e) => set('tipo_cambio', Number(e.target.value))} />
             </Field>
           )}
-          <Field label="Plazo de ejecución">
-            <div className="flex gap-2">
-              <Input type="number" className="w-24" placeholder="N°" value={form.plazo_valor} onChange={(e) => set('plazo_valor', e.target.value === '' ? '' : Number(e.target.value))} />
-              <Select value={form.plazo_tipo} onChange={(e) => set('plazo_tipo', e.target.value)} className="flex-1">
-                <option value="calendario">Días calendario</option>
-                <option value="util">Días útiles</option>
-                <option value="semanas">Semanas</option>
-                <option value="meses">Meses</option>
-              </Select>
-            </div>
+          <Field label="Plazo de ejecución (opcional)">
+            <label className="mb-1 flex items-center gap-2 text-sm">
+              <input type="checkbox" className="size-4 accent-azur-600" checked={form.plazo_activo} onChange={(e) => setForm((f) => ({ ...f, plazo_activo: e.target.checked }))} />
+              Definir plazo de ejecución
+            </label>
+            {form.plazo_activo && (
+              <div className="flex gap-2">
+                <Input type="number" className="w-24" placeholder="N°" value={form.plazo_valor} onChange={(e) => set('plazo_valor', e.target.value === '' ? '' : Number(e.target.value))} />
+                <Select value={form.plazo_tipo} onChange={(e) => set('plazo_tipo', e.target.value)} className="flex-1">
+                  <option value="calendario">Días calendario</option>
+                  <option value="util">Días útiles</option>
+                  <option value="semanas">Semanas</option>
+                  <option value="meses">Meses</option>
+                </Select>
+              </div>
+            )}
           </Field>
           {form.origen === 'recomendacion' && (
             <Field label="Recomendado por">
