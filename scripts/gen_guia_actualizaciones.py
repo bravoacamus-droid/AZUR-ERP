@@ -384,9 +384,60 @@ pasos([
 ])
 obs()
 
-# ───────────────────────── 7. REGISTRO GENERAL ─────────────────────────
+# ───────────────────────── 7. PENDIENTE POR DEFINIR ─────────────────────────
 doc.add_page_break()
-h1("7. Registro general de observaciones")
+h1("7. Pendiente por definir (decisiones para Juan)")
+para("Estos puntos quedan ABIERTOS: el sistema ya tiene la base, pero falta la decisión de Juan/David "
+     "para dejarlos en su forma final. Marquen la decisión en la última columna.")
+
+def decision(tema, estado, opciones):
+    h2(tema)
+    p = doc.add_paragraph(); r = p.add_run("Estado actual: "); r.bold = True; r.font.size = Pt(10); r.font.color.rgb = AZUR2
+    r2 = p.add_run(estado); r2.font.size = Pt(10)
+    p2 = doc.add_paragraph(); r = p2.add_run("Opciones a decidir: "); r.bold = True; r.font.size = Pt(10); r.font.color.rgb = AZUR
+    r2 = p2.add_run(opciones); r2.font.size = Pt(10)
+    t = doc.add_table(rows=1, cols=2); t.style = "Table Grid"
+    for j, x in enumerate(["Decisión de Juan/David", "Comentario"]):
+        c = t.rows[0].cells[j]; shade(c, "BE1723"); cell_text(c, x, bold=True, white=True, size=9, align=WD_ALIGN_PARAGRAPH.CENTER)
+    rc = t.add_row()
+    for j in range(2): cell_text(rc.cells[j], "", size=10)
+    for col, w in zip(t.columns, [Inches(3.2), Inches(3.3)]):
+        for c in col.cells: c.width = w
+    doc.add_paragraph()
+
+decision(
+    "7.1 Nombre de la sección de Cajas",
+    "Hoy se dejó como 'Cajas' (ya muestra arriba 'Estado financiero por proyecto' y debajo 'Cajas chicas'). En la reunión Juan propuso 'Presupuesto del proyecto' y David 'Estado del proyecto'; no se acordó un único nombre.",
+    "Dejar 'Cajas' · 'Presupuesto y cajas' · 'Estado del proyecto' · 'Presupuesto del proyecto'.")
+
+decision(
+    "7.2 Base de la valorización y el cobro: Costo o Precio",
+    "Ya existe el interruptor por proyecto (Resumen → 'Base de valorización / cobro'). Por defecto está en COSTO (itemizado). En 'Precio' aplica el margen del contrato (factor = contrato ÷ costo directo) a valorizado, saldo, cobro e informe.",
+    "Definir cuál usan por defecto (Costo o Precio) y si se fija a nivel empresa o por proyecto.")
+
+decision(
+    "7.3 Desglose del margen sobre lo valorizado (GG/GA/utilidad/IGV)",
+    "El Excel de Juan muestra, debajo de las valorizaciones, el desglose GG/GA/utilidad/IGV aplicado al total valorizado. Hoy NO se muestra ese cuadro en el informe (solo el adelanto/amortización/cobro neto).",
+    "Decidir si se agrega ese cuadro al informe de valorización (depende de 7.2: aplica cuando se cobra 'a precio').")
+
+decision(
+    "7.4 Tipo de cambio (USD)",
+    "Hoy el tipo de cambio lo ingresa el usuario manualmente en la cotización.",
+    "Mantener manual · o auto-completar con el dólar real (API SUNAT) dejando editar el valor.")
+
+decision(
+    "7.5 Armadas por facturar (cuentas por cobrar)",
+    "Las armadas se generan automáticamente al aprobar la cotización y avisan cuando vencen; la factura y el cobro se emiten manualmente. Hoy una armada aparece lista para facturar desde que se crea.",
+    "Mantener así · o que una armada se habilite para facturar SOLO cuando el avance llegue a su % (ej. 'Valorización al 50%' recién al 50%).")
+
+decision(
+    "7.6 Pegado masivo desde MS Project / Excel (Last Planner)",
+    "Pendiente. Choca con la edición en tiempo real, por eso se dejó fuera por ahora.",
+    "Dejar fuera · o construir una IMPORTACIÓN separada (pegar/cargar) que no interfiera con el tiempo real.")
+
+# ───────────────────────── 8. REGISTRO GENERAL ─────────────────────────
+doc.add_page_break()
+h1("8. Registro general de observaciones")
 para("Usa esta tabla para un resumen final de los hallazgos prioritarios.")
 obs(filas=12)
 
