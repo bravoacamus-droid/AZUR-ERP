@@ -82,7 +82,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       row.getCell(2).value = `${'   '.repeat(depth)}${n.data.titulo}`;
       row.getCell(3).value = hoja ? (n.data.unidad ?? '') : '';
       row.getCell(4).value = hoja ? Number(n.data.cantidad ?? 0) : '';
-      row.getCell(5).value = hoja ? Number(n.data.costo_unitario ?? 0) : '';
+      // C. Unitario: si hay fórmula guardada y es segura, la celda lleva la fórmula
+      // (con el valor como resultado); si no, el valor numérico de siempre.
+      if (hoja) {
+        const cu = Number(n.data.costo_unitario ?? 0);
+        const cf = n.data.costo_formula ? String(n.data.costo_formula).replace(/^=/, '').replace(/,/g, '.').trim() : '';
+        row.getCell(5).value = cf && /^[0-9+\-*/(). ]+$/.test(cf) ? { formula: cf, result: cu } : cu;
+      } else {
+        row.getCell(5).value = '';
+      }
       row.getCell(7).value = hoja ? Number(((n.data.margen_pct ?? 0)).toFixed(4)) : '';
       if (hoja) {
         // Celdas referenciadas (fórmulas) para que el Excel recalcule al editar.
