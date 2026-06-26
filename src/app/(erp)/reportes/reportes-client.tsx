@@ -5,7 +5,7 @@ import { useTransition } from 'react';
 import { motion } from 'framer-motion';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell,
+  ResponsiveContainer, PieChart, Pie, Cell, Label,
 } from 'recharts';
 import { Download, TrendingUp, TrendingDown, Wallet, HardHat, Loader2, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -123,14 +123,18 @@ export function ReportesClient({ data }: { data: ReportesData }) {
             {serie.length === 0 ? <EmptyState titulo="Sin movimientos en el periodo" /> : (
               <div className="h-72 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={serie} margin={{ top: 8, right: 12, left: -6, bottom: 0 }}>
+                  <AreaChart data={serie} margin={{ top: 8, right: 16, left: 16, bottom: 24 }}>
                     <defs>
                       <linearGradient id="gIng" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={EMERALD} stopOpacity={0.4} /><stop offset="95%" stopColor={EMERALD} stopOpacity={0} /></linearGradient>
                       <linearGradient id="gEgr" x1="0" y1="0" x2="0" y2="1"><stop offset="5%" stopColor={AZUR} stopOpacity={0.4} /><stop offset="95%" stopColor={AZUR} stopOpacity={0} /></linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke="#eee" />
-                    <XAxis dataKey="label" fontSize={11} />
-                    <YAxis fontSize={11} tickFormatter={(v) => `S/${(v / 1000).toFixed(0)}k`} />
+                    <XAxis dataKey="label" fontSize={11} height={42}>
+                      <Label value="Fecha" position="insideBottom" offset={-2} style={{ fontSize: 11, fill: '#64748b' }} />
+                    </XAxis>
+                    <YAxis fontSize={11} width={62} tickFormatter={(v) => `S/${(v / 1000).toFixed(0)}k`}>
+                      <Label value="Monto (S/)" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fontSize: 11, fill: '#64748b' }} />
+                    </YAxis>
                     <Tooltip formatter={(v: number) => fmtMoney(v)} />
                     <Legend />
                     <Area type="monotone" dataKey="Ingresos" stroke={EMERALD} strokeWidth={2} fill="url(#gIng)" />
