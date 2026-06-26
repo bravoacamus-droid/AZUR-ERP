@@ -30,7 +30,7 @@ import {
   registrarAdicional, resolverAdicional, actualizarProyecto, guardarHito, subirDocumento,
   guardarComponenteApuProyecto, eliminarComponenteApuProyecto, liquidarProyecto,
   generarServiciosMantenimiento, actualizarServicio, eliminarServicio,
-  solicitarCambioMonto, solicitarReaperturaValorizacion, cerrarReaperturaValorizacion,
+  solicitarCambioMonto, solicitarReaperturaValorizacion, cerrarReaperturaValorizacion, reabrirValorizacion,
   aprobarSolicitud, rechazarSolicitud, vaciarItemizadoProyecto, marcarItemizadoPropio,
   guardarPresupuestoTipoGasto, agregarAdelanto, eliminarAdelanto,
 } from '../actions';
@@ -575,6 +575,15 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     router.refresh(); setBusy(false);
   }
   async function pedirReapertura(v: any) {
+    // Gerencia reabre directamente; otros roles solicitan la aprobación de Gerencia.
+    if (userRol === 'gerencia') {
+      if (!window.confirm(`¿Reabrir la Valorización N°${v.numero} para corregirla? Se volverá a bloquear al guardar.`)) return;
+      setBusy(true);
+      const res = await reabrirValorizacion(proy.id, v.id);
+      if (!res.ok) alert(res.error); else setAviso(`Valorización N°${v.numero} reabierta para edición.`);
+      router.refresh(); setBusy(false);
+      return;
+    }
     const motivo = window.prompt(`Solicitar a Gerencia la reapertura de la Valorización N°${v.numero}. Motivo:`);
     if (!motivo) return;
     setBusy(true);
@@ -641,10 +650,10 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       )}
       {canManage && valsSorted.length > 1 && reabiertaIdx < 0 && (
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span>Corregir una valorización ya cobrada (requiere aprobación de Gerencia):</span>
+          <span>Corregir una valorización ya cobrada {userRol === 'gerencia' ? '(reapertura directa de Gerencia)' : '(requiere aprobación de Gerencia)'}:</span>
           {valsSorted.slice(0, -1).map((v) => (
             <button key={v.id} onClick={() => pedirReapertura(v)} disabled={busy} className="rounded border border-azur-200 bg-white px-2 py-0.5 text-azur-700 hover:bg-azur-50">
-              Solicitar corrección N°{v.numero}
+              {userRol === 'gerencia' ? `Reabrir N°${v.numero}` : `Solicitar corrección N°${v.numero}`}
             </button>
           ))}
         </div>

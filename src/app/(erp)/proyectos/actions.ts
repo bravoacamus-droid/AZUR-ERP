@@ -403,6 +403,18 @@ export async function solicitarReaperturaValorizacion(
   return { ok: true };
 }
 
+// Gerencia reabre directamente una valorización (sin solicitud: ella misma es la aprobadora).
+export async function reabrirValorizacion(proyectoId: string, valorizacionId: string): Promise<Res> {
+  const session = await guard();
+  if (session.rol !== 'gerencia') return { ok: false, error: 'Solo Gerencia puede reabrir directamente' };
+  const supabase = createClient();
+  await supabase.from('valorizaciones').update({ reabierta: false } as never).eq('proyecto_id', proyectoId);
+  const { error } = await supabase.from('valorizaciones').update({ reabierta: true } as never).eq('id', valorizacionId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
 export async function aprobarSolicitud(proyectoId: string, solicitudId: string): Promise<Res> {
   const session = await guard();
   const supabase = createClient();
