@@ -120,6 +120,45 @@ para("Versión de pruebas validada: el motor de cálculo (fórmulas de costo, pl
      "compila correctamente.", color=GRIS, size=9.5)
 doc.add_page_break()
 
+# ───────────────────────── NOVEDADES ─────────────────────────
+h1("Novedades de esta versión (resumen)")
+para("Lista corta de todo lo nuevo. El detalle paso a paso está en las secciones siguientes.")
+
+def nov(grupo, items):
+    h2(grupo)
+    for it in items:
+        b = doc.add_paragraph(style="List Bullet"); r = b.add_run(it); r.font.size = Pt(10)
+
+nov("Cotización", [
+    "Moneda en dólares (USD) con tipo de cambio que define el usuario y equivalente en soles (opcional).",
+    "Costo unitario tipo calculadora (fórmulas =40/1.18, (100+50)/2) que se guardan y se ven.",
+    "Colores por nivel en el cuadro de costos; unidades por lista + texto libre.",
+    "Cambios de configuración (mostrar GG/GA/IGV, descuento, moneda) inmediatos, sin recargar.",
+    "PDF con forma de pago y firma del responsable; tipo de plazo (calendario/útiles/semanas/meses).",
+    "Excel con celdas en fórmula (Subtotal, P. Unit, etc.) que recalculan al editar.",
+    "Pantalla inicial: moneda, tipo de cambio, plazo (opcional con check) y recomendado-por.",
+])
+nov("Proyecto / Last Planner", [
+    "Numeración y color por nivel; valorización con % y monto en paralelo (bidireccional) y fila de TOTALES.",
+    "Plazos por calendario + botón 'Recalcular fechas'; corregido el desfase de un día en fechas.",
+    "Base de valorización configurable: Costo o Precio (con margen).",
+    "Aprobaciones de cantidad/costo (Presupuestos) y reapertura de valorización (Gerencia directa).",
+    "Itemizado propio + comparativo Comercial vs Proyecto; presupuesto por tipo de gasto.",
+    "Adelantos adicionales/extraordinarios que se diluyen junto con el del contrato.",
+])
+nov("Informe / Finanzas", [
+    "Informe de valorización con adelanto, valorizaciones acumuladas, detalle por partida y firmas.",
+    "Crear requerimiento de pago desde la web; flujo de pago con roles corregidos (Gerencia paga).",
+    "Estado financiero por proyecto y caja chica por residente con control semanal.",
+    "RUC/CCI, cuenta de detracción y múltiples cuentas bancarias para proveedor y cliente.",
+])
+nov("Reportes y correcciones", [
+    "Proyectado vs Real por tipo de gasto; Curva S e Ingresos vs Egresos con títulos de eje.",
+    "Tarjetas KPI sin solapamiento de íconos en pantallas chicas / doble monitor.",
+])
+nota("Validado: motor de cálculo con 34 pruebas automáticas (34/34 OK) y build de producción sin errores.")
+doc.add_page_break()
+
 # ───────────────────────── CÓMO USAR ─────────────────────────
 h1("Antes de empezar")
 para("Sigue estos requisitos para que las pruebas reflejen la última versión:")
