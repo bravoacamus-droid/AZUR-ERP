@@ -222,8 +222,13 @@ export async function guardarAvances(
     );
   }
 
+  // base de valorización: costo (itemizado) o precio (con margen → factor contrato/costo)
+  const { data: proy } = await supabase.from('proyectos').select('adelanto_pct, contrato_total, base_valorizacion').eq('id', proyectoId).single();
+  const costoDirecto = Array.from(leafTotal.values()).reduce((a, b) => a + b, 0);
+  const factorVal = proy?.base_valorizacion === 'precio' && costoDirecto > 0 ? Number(proy.contrato_total ?? 0) / costoDirecto : 1;
+  montoValorizado = montoValorizado * factorVal;
+
   // dilución del adelanto (B.9)
-  const { data: proy } = await supabase.from('proyectos').select('adelanto_pct').eq('id', proyectoId).single();
   const adelantoPct = Number(proy?.adelanto_pct ?? 0);
   const amortizacion = adelantoPct * montoValorizado;
   await supabase.from('valorizaciones').update({

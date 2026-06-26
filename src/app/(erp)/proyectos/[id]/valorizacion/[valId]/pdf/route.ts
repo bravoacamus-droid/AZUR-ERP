@@ -77,10 +77,14 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   const amortizadoAcum = tasaAmort * valorizadoAcum;
   const saldoAdelanto = adelantoTotal - amortizadoAcum;
 
+  // base de valorización: costo o precio (factor = contrato / costo directo)
+  const costoDirecto = (allItems ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? 0) : 0), 0);
+  const factorVal = proy.base_valorizacion === 'precio' && costoDirecto > 0 ? contrato / costoDirecto : 1;
+
   const rows = ((val.valorizacion_items as any[]) ?? [])
     .map((vi) => {
       const it = itemById.get(vi.proyecto_item_id);
-      const contractual = Number(it?.total_costo ?? 0);
+      const contractual = Number(it?.total_costo ?? 0) * factorVal;
       const pctAcum = acumPct.get(vi.proyecto_item_id) ?? Number(vi.pct_avance);
       const valorizadoAcum = pctAcum * contractual;
       return {
@@ -89,7 +93,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
         unidad: it?.unidad ?? '',
         contractual,
         pct: Number(vi.pct_avance),
-        monto: Number(vi.total),
+        monto: Number(vi.total) * factorVal,
         pctAcum,
         valorizadoAcum,
         saldo: contractual - valorizadoAcum,

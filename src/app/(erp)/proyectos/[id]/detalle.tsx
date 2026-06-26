@@ -292,6 +292,13 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
                 </Select>
               </Field>
               <p className="text-xs text-muted-foreground">Define qué días cuentan para las fechas. Para aplicarlo a las partidas existentes, usa el botón <strong>“Recalcular fechas”</strong> en el Last Planner.</p>
+              <Field label="Base de valorización / cobro">
+                <Select defaultValue={proy.base_valorizacion ?? 'costo'} onChange={async (e) => { await actualizarProyecto(proy.id, { base_valorizacion: e.target.value }); router.refresh(); }}>
+                  <option value="costo">Sobre costo (itemizado)</option>
+                  <option value="precio">Sobre precio (con margen)</option>
+                </Select>
+              </Field>
+              <p className="text-xs text-muted-foreground">“Precio” valoriza y cobra aplicando el margen del contrato (factor = contrato / costo directo). “Costo” usa el itemizado tal cual.</p>
             </CardContent>
           </Card>
         )}
@@ -598,10 +605,17 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     router.refresh(); setBusy(false);
   }
 
-  const montoActivo = activeVal ? Array.from(activeAvances.entries()).reduce((acc, [id, pct]) => {
+  // Base de valorización: 'costo' (itemizado) o 'precio' (con margen → factor contrato/costo).
+  const baseVal = proy.base_valorizacion === 'precio' ? 'precio' : 'costo';
+  const leavesLP = rows.filter((r: any) => r.es_hoja);
+  const totContratoLP = leavesLP.reduce((a, r) => a + Number(r.total_costo ?? 0), 0);
+  const factorVal = baseVal === 'precio' && totContratoLP > 0 ? Number(proy.contrato_total ?? 0) / totContratoLP : 1;
+  const pv = (n: number) => n * factorVal; // a la base elegida (precio o costo)
+
+  const montoActivo = (activeVal ? Array.from(activeAvances.entries()).reduce((acc, [id, pct]) => {
     const leaf = rows.find((r) => r.id === id && r.es_hoja);
     return acc + (leaf ? pct * Number(leaf.total_costo ?? 0) : 0);
-  }, 0) : 0;
+  }, 0) : 0) * factorVal;
   // Adelanto: contractual (%) + adicionales/extraordinarios. Se diluye proporcionalmente.
   const adelantoExtra = (adelantos ?? []).reduce((a: number, x: any) => a + Number(x.monto ?? 0), 0);
   const adelantoContractual = Number(proy.contrato_total) * Number(proy.adelanto_pct);
@@ -612,12 +626,10 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     if (!r.es_hoja) return acc;
     const acumPct = (avancesCalc.get(r.id) ?? []).reduce((x, y) => x + y, 0);
     return acc + acumPct * Number(r.total_costo ?? 0);
-  }, 0);
+  }, 0) * factorVal;
   const saldoAdelantoProy = adelantoTotalProy - tasaAmort * valorizadoAcumProy;
 
   // Totales de columna para el pie de la tabla (estilo Excel: total por valorización).
-  const leavesLP = rows.filter((r: any) => r.es_hoja);
-  const totContratoLP = leavesLP.reduce((a, r) => a + Number(r.total_costo ?? 0), 0);
   const totValAcumLP = leavesLP.reduce((a, r) => { const acum = (avancesCalc.get(r.id) ?? []).reduce((x, y) => x + y, 0); return a + acum * Number(r.total_costo ?? 0); }, 0);
   const totSaldoLP = totContratoLP - totValAcumLP;
   const totPorValLP = valsSorted.map((_, i) => leavesLP.reduce((a, r) => a + (avancesCalc.get(r.id)?.[i] ?? 0) * Number(r.total_costo ?? 0), 0));
@@ -718,8 +730,8 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                       <td className="px-1 py-1.5 text-center">{hoja ? (canManage ? <input list="unidades-lp" className="w-16 rounded border bg-white px-1 text-center" defaultValue={row.unidad ?? ''} onBlur={(e) => save(row.id, { unidad: e.target.value })} /> : row.unidad) : ''}</td>
                       <td className="px-1 py-1.5 text-right">{hoja ? (canManage ? <Num key={`cant-${row.id}-${row.cantidad ?? ''}`} v={row.cantidad} onSave={(x) => aplicarMonto(row, { cantidad: x }, `Cantidad de "${row.titulo}": ${row.cantidad ?? 0} → ${x}`, { cantidad: x, total_costo: x * Number(row.costo_unitario ?? 0) })} /> : fmtNumber(Number(row.cantidad ?? 0), 0)) : ''}</td>
                       <td className="px-1 py-1.5 text-right">{hoja ? (row.tiene_apu ? <span className="block w-16 rounded bg-azur-50 px-1 text-right text-xs tabular-nums text-azur-700" title="Calculado por APU">{fmtNumber(Number(row.costo_unitario ?? 0))}</span> : (canManage ? <FormulaCell value={row.costo_unitario} formula={row.costo_formula} onSave={(v, f) => aplicarMonto(row, { costo_unitario: v, costo_formula: f }, `Costo unitario de "${row.titulo}": ${row.costo_unitario ?? 0} → ${v}`, { costo_unitario: v, costo_formula: f, total_costo: Number(row.cantidad ?? 0) * v })} /> : fmtNumber(Number(row.costo_unitario ?? 0)))) : ''}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums">{row.nivel > 1 ? fmtNumber(cv?.total_partida ?? 0) : ''}</td>
-                      <td className="px-2 py-1.5 text-right font-medium tabular-nums">{row.nivel === 1 ? fmtNumber(cv?.total_partida ?? 0) : ''}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{row.nivel > 1 ? fmtNumber(pv(cv?.total_partida ?? 0)) : ''}</td>
+                      <td className="px-2 py-1.5 text-right font-medium tabular-nums">{row.nivel === 1 ? fmtNumber(pv(cv?.total_partida ?? 0)) : ''}</td>
                       <td className="px-1 py-1.5">
                         {hoja && canManage ? (
                           <select className="w-[150px] max-w-[150px] truncate rounded border bg-white py-0.5 pl-1.5 pr-5" defaultValue={row.contratista_id ?? ''} onChange={(e) => save(row.id, { contratista_id: e.target.value || null })}>
@@ -734,12 +746,12 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                       <td className="px-2 py-1.5 text-center"><Badge variant={et.variant}>{et.label}</Badge></td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={pr.variant}>{pr.label}</Badge></td>
                       <td className="px-2 py-1.5"><PctBar pct={cv?.pct_acumulado ?? 0} /></td>
-                      <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.valorizado_acum ?? 0)}</td>
-                      <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(cv?.saldo ?? 0)}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(pv(cv?.valorizado_acum ?? 0))}</td>
+                      <td className="px-2 py-1.5 text-right tabular-nums">{fmtNumber(pv(cv?.saldo ?? 0))}</td>
                       {valsDesc.flatMap(({ v, idx: i }) => {
                         const isActive = i === editIdx;
                         const pct = (avancesCalc.get(row.id)?.[i] ?? 0);
-                        const totalPartida = Number(cv?.total_partida ?? 0);
+                        const totalPartida = Number(cv?.total_partida ?? 0) * factorVal; // a precio si corresponde
                         const monto = pct * totalPartida;
                         const editable = hoja && isActive && canManage;
                         return [
@@ -778,15 +790,15 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
               {flat.length > 0 && (
                 <tfoot className="border-t-2 border-azur-200 bg-muted/40 font-semibold">
                   <tr>
-                    <td colSpan={6} className="px-2 py-2 text-right">TOTALES</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(totContratoLP)}</td>
+                    <td colSpan={6} className="px-2 py-2 text-right">TOTALES{baseVal === 'precio' ? ' (precio)' : ''}</td>
+                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(pv(totContratoLP))}</td>
                     <td colSpan={6} />
                     <td className="px-2 py-2" />
-                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(totValAcumLP)}</td>
-                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(totSaldoLP)}</td>
+                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(pv(totValAcumLP))}</td>
+                    <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(pv(totSaldoLP))}</td>
                     {valsDesc.flatMap(({ v, idx }) => [
                       <td key={`tf-${v.id}-p`} className="px-2 py-2" />,
-                      <td key={`tf-${v.id}-t`} className="px-2 py-2 text-right tabular-nums text-azur-700">{fmtNumber(totPorValLP[idx])}</td>,
+                      <td key={`tf-${v.id}-t`} className="px-2 py-2 text-right tabular-nums text-azur-700">{fmtNumber(pv(totPorValLP[idx]))}</td>,
                     ])}
                     {canManage && <td className="px-2 py-2" />}
                   </tr>
@@ -800,7 +812,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       {activeVal && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Valorización N{activeVal.numero} · dilución del adelanto</CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">Valorización N{activeVal.numero} · dilución del adelanto <Badge variant={baseVal === 'precio' ? 'info' : 'secondary'}>Base: {baseVal === 'precio' ? 'Precio (con margen)' : 'Costo'}</Badge></CardTitle>
             <p className="text-xs text-muted-foreground">
               Adelanto recibido: <strong>{fmtMoney(adelantoTotalProy)}</strong>
               {' '}(contrato {fmtPct(Number(proy.adelanto_pct), 0)} = {fmtMoney(adelantoContractual)}{adelantoExtra > 0 ? ` + extras ${fmtMoney(adelantoExtra)}` : ''})

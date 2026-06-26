@@ -2046,6 +2046,7 @@ export type Database = {
       proyectos: {
         Row: {
           adelanto_pct: number | null
+          base_valorizacion: string
           caja_maximo: number | null
           cliente_id: string | null
           codigo: string | null
@@ -2073,6 +2074,7 @@ export type Database = {
         }
         Insert: {
           adelanto_pct?: number | null
+          base_valorizacion?: string
           caja_maximo?: number | null
           cliente_id?: string | null
           codigo?: string | null
@@ -2100,6 +2102,7 @@ export type Database = {
         }
         Update: {
           adelanto_pct?: number | null
+          base_valorizacion?: string
           caja_maximo?: number | null
           cliente_id?: string | null
           codigo?: string | null
