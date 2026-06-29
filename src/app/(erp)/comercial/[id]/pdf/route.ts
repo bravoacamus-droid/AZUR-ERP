@@ -89,7 +89,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     serviciosIncluidos: cot.servicios_incluidos ?? undefined,
     serviciosOmitidos: cot.servicios_omitidos ?? undefined,
     garantia: cot.garantia_activa ? (cot.garantia ?? undefined) : undefined,
-    medios: (medios ?? []).map((m) => ({ banco: m.banco, titular: m.titular, cuenta: m.cuenta_soles ?? undefined, detraccion: m.es_detraccion })),
+    medios: (medios ?? []).map((m) => ({
+      banco: m.banco, titular: m.titular,
+      cuentaSoles: m.cuenta_soles ?? undefined, cciSoles: m.cci_soles ?? undefined,
+      cuentaDolares: m.cuenta_dolares ?? undefined, cciDolares: m.cci_dolares ?? undefined,
+      detraccion: m.es_detraccion,
+    })),
     formaPago: (formasPago ?? []).map((f) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), esAdelanto: f.es_adelanto })),
     responsable: (responsable as { nombre?: string; rol?: string } | null)?.nombre ?? undefined,
     responsableRol: (responsable as { nombre?: string; rol?: string } | null)?.rol ?? undefined,

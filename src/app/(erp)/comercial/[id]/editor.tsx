@@ -292,7 +292,7 @@ export function CotizacionEditor({
                     {flat.map(({ row, depth }) => {
                       const c = calc.get(row.id);
                       const hoja = row.es_hoja;
-                      const nivelBg = ['bg-azur-100/70', 'bg-azur-50/70', 'bg-sky-50/60', 'bg-slate-50/60'][Math.min(3, (row.nivel ?? 1) - 1)];
+                      const nivelBg = ['bg-slate-200/80', 'bg-slate-100/80', 'bg-slate-50/80', 'bg-slate-50/40'][Math.min(3, (row.nivel ?? 1) - 1)];
                       return (
                         <tr key={row.id} className={`border-b ${nivelBg} ${!hoja ? 'font-medium' : ''}`}>
                           <td className="whitespace-nowrap px-2 py-1.5 text-xs text-muted-foreground">

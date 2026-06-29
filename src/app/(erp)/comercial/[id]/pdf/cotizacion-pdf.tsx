@@ -1,6 +1,7 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { fmtMoney, fmtNumber } from '@/lib/format';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
+import { FIRMA_DATA_URI } from '@/lib/brand-firma';
 
 const AZUR = '#E20627';
 const AZUR2 = '#BE1723';
@@ -47,7 +48,7 @@ export interface PdfData {
   rows: PdfRow[];
   totales: { subtotal: number; gg?: number; ga?: number; util?: number; costoDirecto: number; igv?: number; total: number; descuento?: number; totalConDescuento: number };
   condiciones?: string; serviciosIncluidos?: string; serviciosOmitidos?: string; garantia?: string;
-  medios: { banco: string; titular: string; cuenta?: string; detraccion: boolean }[];
+  medios: { banco: string; titular: string; cuentaSoles?: string; cciSoles?: string; cuentaDolares?: string; cciDolares?: string; detraccion: boolean }[];
   formaPago?: { concepto: string; porcentaje: number; esAdelanto: boolean }[];
   responsable?: string; responsableRol?: string;
 }
@@ -100,7 +101,7 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
           <Text style={[s.th, s.cSub]}>SUBTOTAL</Text>
         </View>
         {d.rows.map((r, i) => (
-          <View key={i} style={r.esHoja ? s.tr : s.trParent}>
+          <View key={i} style={r.esHoja ? s.tr : [s.trParent, { backgroundColor: ['#e3e5e8', '#edeef0', '#f4f5f6'][Math.min(2, r.depth)] }]}>
             <Text style={s.cItem}>{r.codigo}</Text>
             <Text style={[s.cTit, { paddingLeft: r.depth * 8, fontFamily: r.esHoja ? 'Helvetica' : 'Helvetica-Bold' }]}>{r.titulo}</Text>
             <Text style={s.cUnd}>{r.esHoja ? (r.unidad ?? '') : ''}</Text>
@@ -147,15 +148,22 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
         {d.medios.length ? <>
           <Text style={s.sectionTitle}>MEDIOS DE PAGO</Text>
           {d.medios.map((m, i) => (
-            <Text key={i} style={s.cond}>{m.banco} — {m.titular} · Cta: {m.cuenta ?? ''}{m.detraccion ? ' (Detracción)' : ''}</Text>
+            <View key={i} style={{ marginBottom: 3 }} wrap={false}>
+              <Text style={[s.cond, { fontFamily: 'Helvetica-Bold' }]}>{m.banco} — {m.titular}{m.detraccion ? ' (Detracción)' : ''}</Text>
+              {m.cuentaSoles ? <Text style={s.cond}>   Soles: Cta {m.cuentaSoles}{m.cciSoles ? ` · CCI ${m.cciSoles}` : ''}</Text> : null}
+              {m.cuentaDolares ? <Text style={s.cond}>   Dólares: Cta {m.cuentaDolares}{m.cciDolares ? ` · CCI ${m.cciDolares}` : ''}</Text> : null}
+            </View>
           ))}
         </> : null}
 
-        {/* Firma del responsable */}
-        <View style={{ marginTop: 28, alignItems: 'center' }} wrap={false}>
-          <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 200, marginBottom: 4 }} />
-          <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? '____________________'}</Text>
-          <Text style={{ fontSize: 8, color: '#666' }}>{d.responsableRol ? (ROL_LABEL[d.responsableRol] ?? d.responsableRol) : 'Responsable'} · {d.empresa}</Text>
+        {/* Firma del responsable (abajo a la derecha; con imagen si está registrada) */}
+        <View style={{ marginTop: 30, alignItems: 'flex-end' }} wrap={false}>
+          <View style={{ alignItems: 'center', width: 220 }}>
+            {FIRMA_DATA_URI ? <Image src={FIRMA_DATA_URI} style={{ width: 150, height: 55, objectFit: 'contain', marginBottom: 2 }} /> : <View style={{ height: 40 }} />}
+            <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 200, marginBottom: 4 }} />
+            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? ''}</Text>
+            <Text style={{ fontSize: 8, color: '#666' }}>{d.responsableRol ? (ROL_LABEL[d.responsableRol] ?? d.responsableRol) : 'Responsable'} · {d.empresa}</Text>
+          </View>
         </View>
 
         <Text style={s.footer} fixed>AZUR Constructora e Inmobiliaria · {d.empresa} · Cotización {d.codigo}</Text>
