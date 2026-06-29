@@ -53,8 +53,8 @@ export function CuentasBancarias({ contraparteId, clienteId }: { contraparteId?:
       <div className="grid grid-cols-2 gap-2 rounded-lg border border-dashed p-2">
         <Input placeholder="Banco" value={f.banco} onChange={(e) => setF({ ...f, banco: e.target.value })} />
         <Select value={f.moneda} onChange={(e) => setF({ ...f, moneda: e.target.value })}><option value="PEN">Soles</option><option value="USD">Dólares</option></Select>
-        <Input placeholder="N° de cuenta" value={f.cuenta} onChange={(e) => setF({ ...f, cuenta: e.target.value })} />
-        <Input placeholder="CCI" value={f.cci} onChange={(e) => setF({ ...f, cci: e.target.value })} />
+        <Input placeholder="N° de cuenta" inputMode="numeric" maxLength={20} value={f.cuenta} onChange={(e) => setF({ ...f, cuenta: e.target.value.replace(/\D/g, '') })} />
+        <Input placeholder="CCI" inputMode="numeric" maxLength={20} value={f.cci} onChange={(e) => setF({ ...f, cci: e.target.value.replace(/\D/g, '') })} />
         <label className="col-span-2 flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-azur-600" checked={f.es_detraccion} onChange={(e) => setF({ ...f, es_detraccion: e.target.checked })} /> Cuenta de detracción</label>
         <div className="col-span-2 flex justify-end">
           <Button type="button" size="sm" variant="outline" disabled={busy || !f.banco.trim()} onClick={agregar}>{busy ? <Loader2 className="animate-spin" /> : <Plus />} Agregar cuenta</Button>

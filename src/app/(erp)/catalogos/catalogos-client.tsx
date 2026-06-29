@@ -362,9 +362,9 @@ function ContraparteForm({ contraparte, onClose }: { contraparte: Contraparte | 
         </div>
         <div className="grid grid-cols-3 gap-3">
           <Field label="Banco"><Input value={f.banco} onChange={(e) => setF({ ...f, banco: e.target.value })} /></Field>
-          <Field label="Cuenta"><Input value={f.cuenta} onChange={(e) => setF({ ...f, cuenta: e.target.value })} /></Field>
-          <Field label="CCI"><Input value={f.cci} onChange={(e) => setF({ ...f, cci: e.target.value })} /></Field>
-          <Field label="Cuenta de detracción" className="col-span-3"><Input value={f.cuenta_detraccion} onChange={(e) => setF({ ...f, cuenta_detraccion: e.target.value })} placeholder="N° de cuenta de detracciones (Banco de la Nación)" /></Field>
+          <Field label="Cuenta"><Input inputMode="numeric" maxLength={20} value={f.cuenta} onChange={(e) => setF({ ...f, cuenta: soloDigitos(e.target.value) })} /></Field>
+          <Field label="CCI"><Input inputMode="numeric" maxLength={20} value={f.cci} onChange={(e) => setF({ ...f, cci: soloDigitos(e.target.value) })} /></Field>
+          <Field label="Cuenta de detracción" className="col-span-3"><Input inputMode="numeric" maxLength={20} value={f.cuenta_detraccion} onChange={(e) => setF({ ...f, cuenta_detraccion: soloDigitos(e.target.value) })} placeholder="N° de cuenta de detracciones (Banco de la Nación)" /></Field>
         </div>
         {contraparte?.id ? <div className="border-t pt-3"><CuentasBancarias contraparteId={contraparte.id} /></div>
           : <p className="text-xs text-muted-foreground">Guarda la contraparte para poder agregar más cuentas bancarias.</p>}
@@ -698,10 +698,10 @@ function MedioForm({ medio, onClose }: { medio: Medio | null; onClose: () => voi
           <Field label="Titular" required><Input value={f.titular} onChange={(e) => setF({ ...f, titular: e.target.value })} required /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Cuenta soles"><Input value={f.cuenta_soles} onChange={(e) => setF({ ...f, cuenta_soles: e.target.value })} /></Field>
-          <Field label="CCI soles"><Input value={f.cci_soles} onChange={(e) => setF({ ...f, cci_soles: e.target.value })} /></Field>
-          <Field label="Cuenta dólares"><Input value={f.cuenta_dolares} onChange={(e) => setF({ ...f, cuenta_dolares: e.target.value })} /></Field>
-          <Field label="CCI dólares"><Input value={f.cci_dolares} onChange={(e) => setF({ ...f, cci_dolares: e.target.value })} /></Field>
+          <Field label="Cuenta soles"><Input inputMode="numeric" maxLength={20} value={f.cuenta_soles} onChange={(e) => setF({ ...f, cuenta_soles: soloDigitos(e.target.value) })} /></Field>
+          <Field label="CCI soles"><Input inputMode="numeric" maxLength={20} value={f.cci_soles} onChange={(e) => setF({ ...f, cci_soles: soloDigitos(e.target.value) })} /></Field>
+          <Field label="Cuenta dólares"><Input inputMode="numeric" maxLength={20} value={f.cuenta_dolares} onChange={(e) => setF({ ...f, cuenta_dolares: soloDigitos(e.target.value) })} /></Field>
+          <Field label="CCI dólares"><Input inputMode="numeric" maxLength={20} value={f.cci_dolares} onChange={(e) => setF({ ...f, cci_dolares: soloDigitos(e.target.value) })} /></Field>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium">
           <input type="checkbox" className="size-4 accent-azur-600" checked={f.es_detraccion} onChange={(e) => setF({ ...f, es_detraccion: e.target.checked })} />

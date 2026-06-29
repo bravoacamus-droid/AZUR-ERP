@@ -121,9 +121,9 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
             <Field label="Origen"><Select value={edit.origen} onChange={(e) => setEdit({ ...edit, origen: e.target.value })}><option value="">—</option><option value="directo">Contacto directo</option><option value="recomendacion">Recomendación</option><option value="oficina">Visita a oficina</option><option value="llamada">Llamada/reunión</option></Select></Field>
             <Field label="Ubicación (referencial)" hint="Dirección o referencia en texto libre." className="sm:col-span-2"><Input value={edit.ubicacion} onChange={(e) => setEdit({ ...edit, ubicacion: e.target.value })} /></Field>
             <Field label="Banco"><Input value={edit.banco} onChange={(e) => setEdit({ ...edit, banco: e.target.value })} /></Field>
-            <Field label="Cuenta"><Input value={edit.cuenta} onChange={(e) => setEdit({ ...edit, cuenta: e.target.value })} /></Field>
-            <Field label="CCI"><Input value={edit.cci} onChange={(e) => setEdit({ ...edit, cci: e.target.value })} /></Field>
-            <Field label="Cuenta de detracción"><Input value={edit.cuenta_detraccion} onChange={(e) => setEdit({ ...edit, cuenta_detraccion: e.target.value })} placeholder="Banco de la Nación" /></Field>
+            <Field label="Cuenta"><Input inputMode="numeric" maxLength={20} value={edit.cuenta} onChange={(e) => setEdit({ ...edit, cuenta: soloDigitos(e.target.value) })} /></Field>
+            <Field label="CCI"><Input inputMode="numeric" maxLength={20} value={edit.cci} onChange={(e) => setEdit({ ...edit, cci: soloDigitos(e.target.value) })} /></Field>
+            <Field label="Cuenta de detracción"><Input inputMode="numeric" maxLength={20} value={edit.cuenta_detraccion} onChange={(e) => setEdit({ ...edit, cuenta_detraccion: soloDigitos(e.target.value) })} placeholder="Banco de la Nación" /></Field>
             {edit.id ? <div className="border-t pt-3 sm:col-span-2"><CuentasBancarias clienteId={edit.id} /></div>
               : <p className="text-xs text-muted-foreground sm:col-span-2">Guarda el cliente para poder agregar más cuentas bancarias.</p>}
             {error && <p className="text-sm text-azur-700 sm:col-span-2">{error}</p>}

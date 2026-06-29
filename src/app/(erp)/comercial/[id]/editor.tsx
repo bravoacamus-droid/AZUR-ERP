@@ -693,6 +693,7 @@ function TotalesPanel({ cot, totales, onToggle, editable }: { cot: any; totales:
                 <Toggle label="Mostrar utilidad" v={cot.mostrar_utilidad} onClick={(v) => onToggle({ mostrar_utilidad: v })} />
                 <Toggle label="Mostrar IGV" v={cot.mostrar_igv} onClick={(v) => onToggle({ mostrar_igv: v })} />
               </div>
+              <PorcentajesControl cot={cot} onToggle={onToggle} />
               <DescuentoControl cot={cot} onToggle={onToggle} />
               <MonedaControl cot={cot} onToggle={onToggle} />
             </div>
@@ -720,6 +721,29 @@ function DescuentoControl({ cot, onToggle }: { cot: any; onToggle: (p: any) => v
           <Button size="sm" variant="ghost" onClick={() => onToggle({ descuento_activo: false, descuento_pct: 0 })}>Quitar</Button>
         </div>
       )}
+    </div>
+  );
+}
+
+function PorcentajesControl({ cot, onToggle }: { cot: any; onToggle: (p: any) => void }) {
+  const pct = (v: any) => Math.round(Number(v ?? 0) * 1000) / 10; // decimal -> %
+  const campos: { k: string; label: string }[] = [
+    { k: 'gg_pct', label: 'Gastos generales %' },
+    { k: 'ga_pct', label: 'Gastos administrativos %' },
+    { k: 'utilidad_pct', label: 'Utilidad %' },
+    { k: 'igv_pct', label: 'IGV %' },
+  ];
+  return (
+    <div className="mt-2 space-y-2 border-t pt-2">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Porcentajes del bloque de totales</p>
+      <div className="grid grid-cols-2 gap-2">
+        {campos.map((c) => (
+          <Field key={c.k} label={c.label}>
+            <Input type="number" step="0.1" defaultValue={pct(cot[c.k])} key={`${c.k}-${cot[c.k]}`}
+              onBlur={(e) => { const v = Number(e.target.value) / 100; if (v !== Number(cot[c.k] ?? 0)) onToggle({ [c.k]: v }); }} />
+          </Field>
+        ))}
+      </div>
     </div>
   );
 }

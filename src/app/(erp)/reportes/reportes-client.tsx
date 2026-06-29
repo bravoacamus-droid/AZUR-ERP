@@ -5,7 +5,7 @@ import { useTransition } from 'react';
 import { motion } from 'framer-motion';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  ResponsiveContainer, PieChart, Pie, Cell, Label,
+  ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList,
 } from 'recharts';
 import { Download, TrendingUp, TrendingDown, Wallet, HardHat, Loader2, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,7 @@ const EMERALD = '#10b981';
 const AMBER = '#f59e0b';
 const VIOLET = '#8b5cf6';
 const PIE_COLORS = [AZUR, SKY, EMERALD, AMBER, VIOLET];
+const kfmt = (v: number) => (v ? `S/${(Number(v) / 1000).toFixed(0)}k` : '');
 
 const PERIODOS = [
   { v: '7', l: '7 días' }, { v: '15', l: '15 días' }, { v: '30', l: '30 días' },
@@ -162,9 +163,9 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                       <YAxis fontSize={11} tickFormatter={(v) => `S/${(v / 1000).toFixed(0)}k`} />
                       <Tooltip formatter={(v: number) => fmtMoney(v)} />
                       <Legend />
-                      <Bar dataKey="proyectado" name="Proyectado" fill="#cbd5e1" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="pagos" name="Cobrado" fill={SKY} radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="gasto" name="Gasto" fill={AZUR} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="proyectado" name="Proyectado" fill="#cbd5e1" radius={[4, 4, 0, 0]}><LabelList dataKey="proyectado" position="top" formatter={kfmt} style={{ fontSize: 9, fill: '#64748b' }} /></Bar>
+                      <Bar dataKey="pagos" name="Cobrado" fill={SKY} radius={[4, 4, 0, 0]}><LabelList dataKey="pagos" position="top" formatter={kfmt} style={{ fontSize: 9, fill: SKY }} /></Bar>
+                      <Bar dataKey="gasto" name="Gasto" fill={AZUR} radius={[4, 4, 0, 0]}><LabelList dataKey="gasto" position="top" formatter={kfmt} style={{ fontSize: 9, fill: AZUR }} /></Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -182,7 +183,8 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                 <div className="h-72 w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
-                      <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={3}>
+                      <Pie data={catData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={95} paddingAngle={3}
+                        label={(e: any) => kfmt(e.value)} labelLine={false} style={{ fontSize: 10 }}>
                         {catData.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
                       </Pie>
                       <Tooltip formatter={(v: number) => fmtMoney(v)} />
@@ -214,8 +216,8 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                       <YAxis fontSize={11} tickFormatter={(v) => `S/ ${(v / 1000).toFixed(0)}k`} />
                       <Tooltip formatter={(v: number) => fmtMoney(v)} />
                       <Legend />
-                      <Bar dataKey="Proyectado" fill={SKY} radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Real" fill={AZUR} radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="Proyectado" fill={SKY} radius={[4, 4, 0, 0]}><LabelList dataKey="Proyectado" position="top" formatter={kfmt} style={{ fontSize: 9, fill: SKY }} /></Bar>
+                      <Bar dataKey="Real" fill={AZUR} radius={[4, 4, 0, 0]}><LabelList dataKey="Real" position="top" formatter={kfmt} style={{ fontSize: 9, fill: AZUR }} /></Bar>
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
