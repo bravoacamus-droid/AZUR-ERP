@@ -20,7 +20,7 @@ import { CuentasBancarias } from '@/components/finanzas/cuentas-bancarias';
 import {
   guardarCliente,
   importarClientes,
-  guardarContraparte,
+  guardarContraparte, consultarRucDni,
   guardarPartida,
   guardarInsumo,
   guardarPlantilla,
@@ -329,6 +329,15 @@ function ContraparteForm({ contraparte, onClose }: { contraparte: Contraparte | 
     e.preventDefault();
     run(() => guardarContraparte({ id: contraparte?.id, ...f, tipo: f.tipo as never }), onClose);
   };
+  const [buscando, setBuscando] = React.useState(false);
+  const [docErr, setDocErr] = React.useState<string | null>(null);
+  async function buscarDoc() {
+    setBuscando(true); setDocErr(null);
+    const res = await consultarRucDni(f.ruc_dni);
+    setBuscando(false);
+    if (!res.ok) { setDocErr(res.error ?? 'No se encontró'); return; }
+    setF({ ...f, razon_social: res.nombre ?? f.razon_social });
+  }
   return (
     <Modal open onClose={onClose} title={contraparte ? 'Editar contraparte' : 'Nueva contraparte'}>
       <form onSubmit={submit} className="space-y-4">
@@ -341,7 +350,12 @@ function ContraparteForm({ contraparte, onClose }: { contraparte: Contraparte | 
               <option value="ambos">Ambos</option>
             </Select>
           </Field>
-          <Field label="RUC/DNI"><Input inputMode="numeric" maxLength={11} value={f.ruc_dni} onChange={(e) => setF({ ...f, ruc_dni: soloDigitos(e.target.value) })} /></Field>
+          <Field label="RUC/DNI" hint={docErr ?? undefined}>
+            <div className="flex gap-2">
+              <Input inputMode="numeric" maxLength={11} value={f.ruc_dni} onChange={(e) => setF({ ...f, ruc_dni: soloDigitos(e.target.value) })} />
+              <Button type="button" variant="outline" size="sm" disabled={buscando || !f.ruc_dni} onClick={buscarDoc} title="Buscar en SUNAT/RENIEC">{buscando ? '…' : 'Buscar'}</Button>
+            </div>
+          </Field>
           <Field label="Especialidad" className="col-span-2"><Input value={f.especialidad} onChange={(e) => setF({ ...f, especialidad: e.target.value })} /></Field>
           <Field label="Contacto"><Input value={f.contacto} onChange={(e) => setF({ ...f, contacto: e.target.value })} /></Field>
           <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={f.telefono} onChange={(e) => setF({ ...f, telefono: soloDigitos(e.target.value) })} /></Field>

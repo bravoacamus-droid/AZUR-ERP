@@ -13,7 +13,7 @@ import { Modal } from '@/components/ui/dialog';
 import { Field, EmptyState } from '@/components/ui/misc';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { soloDigitos } from '@/lib/utils';
-import { guardarCliente, importarClientes } from '../catalogos/actions';
+import { guardarCliente, importarClientes, consultarRucDni } from '../catalogos/actions';
 import { CuentasBancarias } from '@/components/finanzas/cuentas-bancarias';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -42,6 +42,16 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
     setBusy(false);
     if (!res.ok) { setError(res.error ?? 'Error'); return; }
     setEdit(null); router.refresh();
+  }
+
+  const [buscando, setBuscando] = useState(false);
+  async function buscarDoc() {
+    if (!edit) return;
+    setBuscando(true); setError(null);
+    const res = await consultarRucDni(edit.ruc_dni);
+    setBuscando(false);
+    if (!res.ok) { setError(res.error ?? 'No se encontró'); return; }
+    setEdit({ ...edit, razon_social: res.nombre ?? edit.razon_social, ubicacion: res.direccion || edit.ubicacion });
   }
 
   async function importar() {
@@ -100,7 +110,10 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
             <Field label="Razón social" required className="sm:col-span-2"><Input value={edit.razon_social} onChange={(e) => setEdit({ ...edit, razon_social: e.target.value })} /></Field>
             <Field label="Tipo doc"><Select value={edit.tipo_doc} onChange={(e) => setEdit({ ...edit, tipo_doc: e.target.value })}><option>RUC</option><option>DNI</option><option>CE</option></Select></Field>
             <Field label="RUC / DNI" hint={edit.tipo_doc === 'RUC' ? '11 dígitos' : edit.tipo_doc === 'DNI' ? '8 dígitos' : ''}>
-              <Input inputMode="numeric" maxLength={edit.tipo_doc === 'DNI' ? 8 : 11} value={edit.ruc_dni} onChange={(e) => setEdit({ ...edit, ruc_dni: soloDigitos(e.target.value) })} />
+              <div className="flex gap-2">
+                <Input inputMode="numeric" maxLength={edit.tipo_doc === 'DNI' ? 8 : 11} value={edit.ruc_dni} onChange={(e) => setEdit({ ...edit, ruc_dni: soloDigitos(e.target.value) })} />
+                <Button type="button" variant="outline" size="sm" disabled={buscando || !edit.ruc_dni} onClick={buscarDoc} title="Buscar en SUNAT/RENIEC">{buscando ? <Loader2 className="animate-spin" /> : <Search className="size-4" />}</Button>
+              </div>
             </Field>
             <Field label="Contacto"><Input value={edit.contacto_nombre} onChange={(e) => setEdit({ ...edit, contacto_nombre: e.target.value })} /></Field>
             <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={edit.contacto_telefono} onChange={(e) => setEdit({ ...edit, contacto_telefono: soloDigitos(e.target.value) })} /></Field>
