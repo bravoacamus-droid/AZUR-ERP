@@ -205,6 +205,33 @@ export async function movimientoCaja(input: { caja_id: string; proyecto_id?: str
   return { ok: true };
 }
 
+// Editar una solicitud (solo mientras está Solicitada; Gerencia puede siempre).
+export async function editarSolicitud(id: string, patch: Record<string, unknown>): Promise<Res> {
+  const session = await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);
+  const admin = createAdminClient();
+  const { data: s } = await admin.from('solicitudes_pago').select('status').eq('id', id).single();
+  if (!s) return { ok: false, error: 'Solicitud no encontrada' };
+  if (s.status !== 'solicitada' && session.rol !== 'gerencia') return { ok: false, error: 'Solo se puede editar mientras está Solicitada.' };
+  const { error } = await admin.from('solicitudes_pago').update(patch as never).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/finanzas');
+  return { ok: true };
+}
+
+// Eliminar una solicitud (Solicitada para todos; Gerencia/Administración siempre).
+export async function eliminarSolicitud(id: string): Promise<Res> {
+  const session = await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);
+  const admin = createAdminClient();
+  const { data: s } = await admin.from('solicitudes_pago').select('status').eq('id', id).single();
+  if (!s) return { ok: false, error: 'Solicitud no encontrada' };
+  const libre = session.rol === 'gerencia' || session.rol === 'administrador';
+  if (s.status !== 'solicitada' && !libre) return { ok: false, error: 'Solo se puede eliminar mientras está Solicitada.' };
+  const { error } = await admin.from('solicitudes_pago').delete().eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/finanzas');
+  return { ok: true };
+}
+
 // Crea una caja chica adicional para el proyecto, asignada a un residente/coordinador.
 export async function crearCajaChica(input: { proyecto_id: string; nombre: string; responsable_id?: string; asignacion_semanal?: number; monto_maximo?: number }): Promise<Res> {
   await requireRol(['administrador', 'gerencia']);

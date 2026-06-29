@@ -21,7 +21,9 @@ const schema = z.object({
   cta_bancaria: z.string().trim().nullable(),
   ruc_dni: z.string().trim().nullable(),
   razon_social: z.string().trim().nullable(),
-  num_comprobante: z.string().trim().nullable(),
+  num_comprobante: z.string().trim().nullable().optional(),
+  moneda: z.enum(['PEN', 'USD']).optional(),
+  detraccion_monto: z.coerce.number().optional().nullable(),
 });
 
 export type SolicitudInput = z.infer<typeof schema>;
@@ -64,6 +66,8 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
       ruc_dni: d.ruc_dni || null,
       razon_social: d.razon_social || null,
       num_comprobante: d.num_comprobante || null,
+      moneda: d.moneda ?? 'PEN',
+      detraccion_monto: d.detraccion_monto ?? 0,
       linea_id,
       solicitado_por: session.id,
       status: 'solicitada',

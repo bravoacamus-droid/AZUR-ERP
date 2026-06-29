@@ -42,7 +42,9 @@ export function SolicitudForm({
   const [ctaBancaria, setCtaBancaria] = useState('');
   const [rucDni, setRucDni] = useState('');
   const [razonSocial, setRazonSocial] = useState('');
-  const [numComprobante, setNumComprobante] = useState('');
+  const [moneda, setMoneda] = useState('PEN');
+  const [tieneDetraccion, setTieneDetraccion] = useState(false);
+  const [detraccion, setDetraccion] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -68,12 +70,13 @@ export function SolicitudForm({
       cta_bancaria: ctaBancaria || null,
       ruc_dni: rucDni || null,
       razon_social: razonSocial || null,
-      num_comprobante: numComprobante || null,
+      moneda: moneda as 'PEN' | 'USD',
+      detraccion_monto: tieneDetraccion ? Number(detraccion) || 0 : 0,
     };
     function limpiar() {
       setPartidaPpto(''); setBeneficiario(''); setEspecialidad(''); setCategoria('');
       setMonto(''); setConstancia(''); setDescripcion(''); setCtaBancaria('');
-      setRucDni(''); setRazonSocial(''); setNumComprobante('');
+      setRucDni(''); setRazonSocial(''); setMoneda('PEN'); setTieneDetraccion(false); setDetraccion('');
     }
 
     if (!isOnline()) {
@@ -188,16 +191,29 @@ export function SolicitudForm({
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="RUC / DNI">
-          <Input value={rucDni} onChange={(e) => setRucDni(e.target.value)} inputMode="numeric" />
+          <Input value={rucDni} onChange={(e) => setRucDni(e.target.value.replace(/\D/g, ''))} inputMode="numeric" maxLength={11} />
         </Field>
-        <Field label="N° comprobante">
-          <Input value={numComprobante} onChange={(e) => setNumComprobante(e.target.value)} />
+        <Field label="Moneda">
+          <Select value={moneda} onChange={(e) => setMoneda(e.target.value)}>
+            <option value="PEN">Soles (S/)</option>
+            <option value="USD">Dólares ($)</option>
+          </Select>
         </Field>
       </div>
 
       <Field label="Razón social">
         <Input value={razonSocial} onChange={(e) => setRazonSocial(e.target.value)} />
       </Field>
+
+      <label className="flex items-center gap-2 text-sm">
+        <input type="checkbox" className="size-4 accent-azur-600" checked={tieneDetraccion} onChange={(e) => setTieneDetraccion(e.target.checked)} />
+        Este pago tiene detracción
+      </label>
+      {tieneDetraccion && (
+        <Field label="Monto de detracción (S/)">
+          <Input type="number" inputMode="decimal" value={detraccion} onChange={(e) => setDetraccion(e.target.value)} placeholder="0.00" />
+        </Field>
+      )}
 
       <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>
         {loading && <Loader2 className="animate-spin" />} Enviar solicitud

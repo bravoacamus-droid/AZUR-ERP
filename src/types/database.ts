@@ -2445,6 +2445,7 @@ export type Database = {
           id: string
           linea_id: string | null
           metodo: Database["public"]["Enums"]["metodo_pago"] | null
+          moneda: string
           monto: number
           motivo_rechazo: string | null
           num_comprobante: string | null
@@ -2487,6 +2488,7 @@ export type Database = {
           id?: string
           linea_id?: string | null
           metodo?: Database["public"]["Enums"]["metodo_pago"] | null
+          moneda?: string
           monto?: number
           motivo_rechazo?: string | null
           num_comprobante?: string | null
@@ -2529,6 +2531,7 @@ export type Database = {
           id?: string
           linea_id?: string | null
           metodo?: Database["public"]["Enums"]["metodo_pago"] | null
+          moneda?: string
           monto?: number
           motivo_rechazo?: string | null
           num_comprobante?: string | null

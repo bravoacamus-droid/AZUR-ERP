@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   CheckCircle2, XCircle, CalendarClock, Banknote, MessageCircle, FilePlus,
-  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye, Loader2,
+  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye, Loader2, Pencil, Trash2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 import {
   aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
   emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja, crearCajaChica,
+  editarSolicitud, eliminarSolicitud,
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
 
@@ -33,7 +34,7 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards }: any) {
+export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios }: any) {
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
@@ -43,7 +44,7 @@ export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, cli
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
       ]} />
-      {tab === 'solicitudes' && <Solicitudes rol={rol} solicitudes={solicitudes} proyectos={proyectos} />}
+      {tab === 'solicitudes' && <Solicitudes rol={rol} solicitudes={solicitudes} proyectos={proyectos} medios={medios} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'cxc' && <CxC rol={rol} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
       {tab === 'cajas' && <Cajas rol={rol} cajas={cajas} proyectos={proyectos} perfiles={perfiles} dashboards={dashboards} />}
@@ -52,9 +53,9 @@ export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, cli
 }
 
 const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
-const SOL_VACIA = { tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', ruc_dni: '', razon_social: '', cta_bancaria: '', num_comprobante: '', partida_ppto: '', descripcion: '' };
+const SOL_VACIA = { id: '', tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', ruc_dni: '', razon_social: '', cta_bancaria: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
 
-function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
+function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
   const router = useRouter();
   const [nueva, setNueva] = useState(false);
   const [ns, setNs] = useState<any>(SOL_VACIA);
@@ -83,16 +84,32 @@ function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
     setNsMsg(null);
     if (!ns.monto || Number(ns.monto) <= 0) { setNsMsg('Ingresa un monto válido.'); return; }
     setBusy(true);
-    const res = await crearSolicitud({
-      tipo: ns.tipo, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
-      beneficiario_nombre: ns.beneficiario_nombre || null, especialidad: null, categoria_etapa: null,
-      monto: Number(ns.monto), constancia: (ns.constancia || null) as any, descripcion: ns.descripcion || null,
-      cta_bancaria: ns.cta_bancaria || null, ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null,
-      num_comprobante: ns.num_comprobante || null,
-    });
+    const detr = ns.tiene_detraccion ? Number(ns.detraccion_monto) || 0 : 0;
+    const res = ns.id
+      ? await editarSolicitud(ns.id, {
+          tipo: ns.tipo, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
+          beneficiario_nombre: ns.beneficiario_nombre || null, monto: Number(ns.monto),
+          constancia: ns.constancia || null, descripcion: ns.descripcion || null, cta_bancaria: ns.cta_bancaria || null,
+          ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null, moneda: ns.moneda, detraccion_monto: detr,
+        })
+      : await crearSolicitud({
+          tipo: ns.tipo, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
+          beneficiario_nombre: ns.beneficiario_nombre || null, especialidad: null, categoria_etapa: null,
+          monto: Number(ns.monto), constancia: (ns.constancia || null) as any, descripcion: ns.descripcion || null,
+          cta_bancaria: ns.cta_bancaria || null, ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null,
+          moneda: ns.moneda as 'PEN' | 'USD', detraccion_monto: detr,
+        });
     setBusy(false);
     if (res.ok) { setNueva(false); setNs(SOL_VACIA); router.refresh(); }
-    else setNsMsg(res.error ?? 'No se pudo crear.');
+    else setNsMsg(res.error ?? 'No se pudo guardar.');
+  }
+  function abrirEditar(s: any) {
+    setNs({ id: s.id, tipo: s.tipo, proyecto_id: s.proyecto_id || '', beneficiario_nombre: s.beneficiario_nombre || '', monto: String(s.monto ?? ''), constancia: s.constancia || '', ruc_dni: s.ruc_dni || '', razon_social: s.razon_social || '', cta_bancaria: s.cta_bancaria || '', moneda: s.moneda || 'PEN', tiene_detraccion: Number(s.detraccion_monto) > 0, detraccion_monto: String(s.detraccion_monto || ''), partida_ppto: s.partida_ppto || '', descripcion: s.descripcion || '' });
+    setNsMsg(null); setNueva(true);
+  }
+  async function borrarSolicitud(s: any) {
+    if (!window.confirm(`¿Eliminar la solicitud ${s.codigo}? Esta acción no se puede deshacer.`)) return;
+    setBusy(true); await eliminarSolicitud(s.id); router.refresh(); setBusy(false);
   }
 
   return (
@@ -153,6 +170,12 @@ function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
                           </a>
                         )}
                         <Button size="sm" variant="ghost" onClick={() => setDetalle(s)}><Eye /></Button>
+                        {s.status === 'solicitada' && (
+                          <>
+                            <Button size="sm" variant="ghost" title="Editar" onClick={() => abrirEditar(s)}><Pencil className="size-4" /></Button>
+                            <Button size="sm" variant="ghost" title="Eliminar" onClick={() => borrarSolicitud(s)}><Trash2 className="size-4 text-azur-600" /></Button>
+                          </>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -169,7 +192,16 @@ function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
           <Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await programarPago(prog.id, banco, fecha); setProg(null); router.refresh(); setBusy(false); }}>Programar</Button></>}>
         <div className="space-y-3">
           {prog && <DetalleSolicitud s={prog} />}
-          <Field label="Cuenta bancaria de origen"><Input value={banco} onChange={(e) => setBanco(e.target.value)} placeholder="Caja central / Interbank / BBVA…" /></Field>
+          <Field label="Cuenta bancaria de origen">
+            <Select value={banco} onChange={(e) => setBanco(e.target.value)}>
+              <option value="">— Selecciona una cuenta —</option>
+              {medios.flatMap((m: any) => [
+                m.cuenta_soles ? <option key={`${m.id}-s`} value={`${m.banco} S/ ${m.cuenta_soles}`}>{m.banco} · S/ {m.cuenta_soles}</option> : null,
+                m.cuenta_dolares ? <option key={`${m.id}-d`} value={`${m.banco} US$ ${m.cuenta_dolares}`}>{m.banco} · US$ {m.cuenta_dolares}</option> : null,
+              ]).filter(Boolean)}
+              <option value="Caja central">Caja central</option>
+            </Select>
+          </Field>
           <Field label="Fecha programada"><Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} /></Field>
         </div>
       </Modal>
@@ -205,25 +237,27 @@ function Solicitudes({ rol, solicitudes, proyectos = [] }: any) {
     </Card>
 
     {/* Nueva solicitud de pago (desde la web) */}
-    <Modal open={nueva} onClose={() => setNueva(false)} title="Nueva solicitud de pago"
+    <Modal open={nueva} onClose={() => setNueva(false)} title={ns.id ? 'Editar solicitud de pago' : 'Nueva solicitud de pago'}
       footer={<><Button variant="outline" onClick={() => setNueva(false)}>Cancelar</Button>
-        <Button variant="gradient" disabled={busy} onClick={crearNueva}>{busy ? <Loader2 className="animate-spin" /> : null} Enviar</Button></>}>
+        <Button variant="gradient" disabled={busy} onClick={crearNueva}>{busy ? <Loader2 className="animate-spin" /> : null} {ns.id ? 'Guardar' : 'Enviar'}</Button></>}>
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-2">
           <Field label="Tipo"><Select value={ns.tipo} onChange={(e) => setNs((f: any) => ({ ...f, tipo: e.target.value }))}>{TIPOS_SOL.map((t) => <option key={t} value={t}>{TIPO_SOLICITUD_LABEL[t] ?? t}</option>)}</Select></Field>
           <Field label="Proyecto"><Select value={ns.proyecto_id} onChange={(e) => setNs((f: any) => ({ ...f, proyecto_id: e.target.value }))}><option value="">Sin proyecto</option>{proyectos.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select></Field>
         </div>
         <Field label="Beneficiario"><Input value={ns.beneficiario_nombre} onChange={(e) => setNs((f: any) => ({ ...f, beneficiario_nombre: e.target.value }))} placeholder="Nombre del beneficiario" /></Field>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="Monto (S/)"><Input type="number" value={ns.monto} onChange={(e) => setNs((f: any) => ({ ...f, monto: e.target.value }))} placeholder="0.00" /></Field>
+        <div className="grid grid-cols-3 gap-2">
+          <Field label="Monto"><Input type="number" value={ns.monto} onChange={(e) => setNs((f: any) => ({ ...f, monto: e.target.value }))} placeholder="0.00" /></Field>
+          <Field label="Moneda"><Select value={ns.moneda} onChange={(e) => setNs((f: any) => ({ ...f, moneda: e.target.value }))}><option value="PEN">Soles</option><option value="USD">Dólares</option></Select></Field>
           <Field label="Constancia"><Select value={ns.constancia} onChange={(e) => setNs((f: any) => ({ ...f, constancia: e.target.value }))}><option value="">— Ninguna —</option><option value="factura">Factura</option><option value="boleta">Boleta</option><option value="rhe">RHE</option></Select></Field>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          <Field label="RUC / DNI"><Input value={ns.ruc_dni} onChange={(e) => setNs((f: any) => ({ ...f, ruc_dni: e.target.value }))} inputMode="numeric" /></Field>
-          <Field label="N° comprobante"><Input value={ns.num_comprobante} onChange={(e) => setNs((f: any) => ({ ...f, num_comprobante: e.target.value }))} /></Field>
-        </div>
+        <Field label="RUC / DNI"><Input value={ns.ruc_dni} onChange={(e) => setNs((f: any) => ({ ...f, ruc_dni: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" maxLength={11} /></Field>
         <Field label="Razón social"><Input value={ns.razon_social} onChange={(e) => setNs((f: any) => ({ ...f, razon_social: e.target.value }))} /></Field>
-        <Field label="Cuenta bancaria / CCI"><Input value={ns.cta_bancaria} onChange={(e) => setNs((f: any) => ({ ...f, cta_bancaria: e.target.value }))} /></Field>
+        <Field label="Cuenta bancaria / CCI"><Input value={ns.cta_bancaria} onChange={(e) => setNs((f: any) => ({ ...f, cta_bancaria: e.target.value }))} inputMode="numeric" /></Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="size-4 accent-azur-600" checked={ns.tiene_detraccion} onChange={(e) => setNs((f: any) => ({ ...f, tiene_detraccion: e.target.checked }))} /> Este pago tiene detracción
+        </label>
+        {ns.tiene_detraccion && <Field label="Monto de detracción"><Input type="number" value={ns.detraccion_monto} onChange={(e) => setNs((f: any) => ({ ...f, detraccion_monto: e.target.value }))} placeholder="0.00" /></Field>}
         <Field label="Partida presupuestal (opcional)"><Input value={ns.partida_ppto} onChange={(e) => setNs((f: any) => ({ ...f, partida_ppto: e.target.value }))} /></Field>
         <Field label="Descripción"><Input value={ns.descripcion} onChange={(e) => setNs((f: any) => ({ ...f, descripcion: e.target.value }))} /></Field>
         {nsMsg && <p className="text-sm text-azur-600">{nsMsg}</p>}

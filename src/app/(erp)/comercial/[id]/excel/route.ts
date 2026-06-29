@@ -73,6 +73,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   // ── Filas del árbol ────────────────────────────────────────────────
   let r = headRow + 1;
   const money = '#,##0.00';
+  const leafRows: number[] = []; // filas hoja (para sumar en el bloque de totales)
   const walk = (nodos: any[], depth: number) => {
     nodos.forEach((n: any) => {
       const c = calc.get(n.data.id);
@@ -93,6 +94,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       }
       row.getCell(7).value = hoja ? Number(((n.data.margen_pct ?? 0)).toFixed(4)) : '';
       if (hoja) {
+        leafRows.push(r); // para sumar en el bloque de totales
         // Celdas referenciadas (fórmulas) para que el Excel recalcule al editar.
         row.getCell(6).value = { formula: `D${r}*E${r}`, result: Number((c?.costo_subtotal ?? 0).toFixed(2)) }; // costo = cant × C.U.
         row.getCell(8).value = { formula: `IF(G${r}>=1,0,E${r}/(1-G${r}))`, result: Number((c?.precio_unitario ?? 0).toFixed(2)) }; // P.U. = C.U./(1−margen)
@@ -116,32 +118,37 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   };
   walk(arbol as never, 0);
 
-  // ── Totales ────────────────────────────────────────────────────────
+  // ── Totales (con FÓRMULAS para que recalculen al editar) ───────────
   r += 1;
-  const totRow = (label: string, value: number, bold = false, hi = false) => {
+  const gg = Number(cot.gg_pct), ga = Number(cot.ga_pct), util = Number(cot.utilidad_pct);
+  const igvP = Number(cot.igv_pct), descP = Number(cot.descuento_pct);
+  const sumJ = leafRows.length ? `SUM(${leafRows.map((x) => `J${x}`).join(',')})` : '0';
+  const sumI = leafRows.length ? `SUM(${leafRows.map((x) => `I${x}`).join(',')})` : '0';
+  // escribe una fila de total; formula = expresión Excel, result = valor calculado. Devuelve la fila.
+  const totRow = (label: string, formula: string, result: number, bold = false, hi = false): number => {
     const row = ws.getRow(r);
     ws.mergeCells(`B${r}:I${r}`);
     row.getCell(2).value = label;
     row.getCell(2).alignment = { horizontal: 'right' };
     row.getCell(2).font = { bold };
-    row.getCell(10).value = Number(value.toFixed(2));
+    row.getCell(10).value = { formula, result: Number(result.toFixed(2)) };
     row.getCell(10).numFmt = money;
     row.getCell(10).font = { bold: bold || hi, color: hi ? { argb: AZUR } : undefined };
-    r++;
+    const used = r; r++; return used;
   };
-  totRow('SUBTOTAL', totales.subtotal);
-  if (cot.mostrar_gg) totRow('Gastos generales', totales.gastos_generales);
-  if (cot.mostrar_ga) totRow('Gastos administrativos', totales.gastos_administrativos);
-  if (cot.mostrar_utilidad) totRow('Utilidad', totales.utilidad);
-  totRow('COSTO DIRECTO', totales.costo_directo, true);
-  if (cot.mostrar_igv) totRow('I.G.V.', totales.igv);
-  totRow('TOTAL', totales.total, true, true);
+  const rSub = totRow('SUBTOTAL', sumJ, totales.subtotal);
+  if (cot.mostrar_gg) totRow('Gastos generales', `J${rSub}*${gg}`, totales.gastos_generales);
+  if (cot.mostrar_ga) totRow('Gastos administrativos', `J${rSub}*${ga}`, totales.gastos_administrativos);
+  if (cot.mostrar_utilidad) totRow('Utilidad', `J${rSub}*${util}`, totales.utilidad);
+  const rCD = totRow('COSTO DIRECTO', `J${rSub}*(1+${gg}+${ga}+${util})`, totales.costo_directo, true);
+  if (cot.mostrar_igv) totRow('I.G.V.', `J${rCD}*${igvP}`, totales.igv);
+  const rTot = totRow('TOTAL', `J${rCD}*(1+${igvP})`, totales.total, true, true);
   if (cot.descuento_activo) {
-    totRow('Descuento comercial', -totales.descuento);
-    totRow('TOTAL CON DESCUENTO', totales.total_con_descuento, true, true);
+    const rDesc = totRow('Descuento comercial', `-J${rTot}*${descP}`, -totales.descuento);
+    totRow('TOTAL CON DESCUENTO', `J${rTot}+J${rDesc}`, totales.total_con_descuento, true, true);
   }
   r += 1;
-  totRow('MARGEN TOTAL (interno)', totales.margen_subtotal, true, true);
+  totRow('MARGEN TOTAL (interno)', sumI, totales.margen_subtotal, true, true);
 
   const buffer = await wb.xlsx.writeBuffer();
   const filename = nombreArchivoCotizacion(cot.proyecto_nombre, cot.codigo ?? 'SN');

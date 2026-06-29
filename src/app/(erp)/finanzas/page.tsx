@@ -21,6 +21,7 @@ export default async function FinanzasPage() {
     supabase.from('profiles').select('id, nombre, rol').eq('activo', true).order('nombre'),
     supabase.from('v_dashboard_proyecto').select('proyecto_id, codigo, nombre, estado, proyectado, pagos, gasto, valorizado'),
   ]);
+  const medios = await supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares').order('orden');
 
   const solicitudes = sols.data ?? [];
   const pendientes = solicitudes.filter((s) => ['solicitada', 'aprobada', 'programada'].includes(s.status));
@@ -49,6 +50,7 @@ export default async function FinanzasPage() {
         proyectos={proyectos.data ?? []}
         perfiles={perfiles.data ?? []}
         dashboards={dashboards.data ?? []}
+        medios={medios.data ?? []}
       />
     </div>
   );
