@@ -426,6 +426,14 @@ export async function aprobarCotizacion(cotizacionId: string): Promise<Res> {
   if (!cot) return { ok: false, error: 'Cotización no encontrada' };
   if (cot.proyecto_id) return { ok: false, error: 'Ya tiene proyecto asociado' };
 
+  // RUC/DNI obligatorio del cliente para poder facturar más adelante.
+  const cli = cot.cliente_id
+    ? (await supabase.from('clientes').select('ruc_dni').eq('id', cot.cliente_id).single()).data
+    : null;
+  if (!cli?.ruc_dni || !String(cli.ruc_dni).trim()) {
+    return { ok: false, error: 'El cliente no tiene RUC/DNI. Agrégalo en el cliente para poder facturar antes de aprobar.' };
+  }
+
   const { data: items } = await supabase
     .from('cotizacion_items')
     .select('*')

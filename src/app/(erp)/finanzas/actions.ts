@@ -205,6 +205,25 @@ export async function movimientoCaja(input: { caja_id: string; proyecto_id?: str
   return { ok: true };
 }
 
+// Verifica si la cuenta de una solicitud coincide con las registradas del proveedor (por RUC/DNI).
+export async function validarCuentaProveedor(rucDni: string, cta: string): Promise<{ encontrado: boolean; coincide: boolean; cuentas: string[] }> {
+  await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);
+  const soloN = (s: string | null | undefined) => String(s ?? '').replace(/\D/g, '');
+  const ruc = soloN(rucDni);
+  const ctaN = soloN(cta);
+  if (!ruc) return { encontrado: false, coincide: true, cuentas: [] };
+  const admin = createAdminClient();
+  const { data: cps } = await admin.from('contrapartes').select('id, cuenta, cci, cuenta_detraccion').eq('ruc_dni', rucDni);
+  if (!cps || cps.length === 0) return { encontrado: false, coincide: true, cuentas: [] };
+  const ids = cps.map((c) => c.id);
+  const { data: extra } = await admin.from('cuentas_bancarias').select('cuenta, cci').in('contraparte_id', ids);
+  const cuentas = new Set<string>();
+  cps.forEach((c) => { [c.cuenta, c.cci, c.cuenta_detraccion].forEach((x) => { if (soloN(x)) cuentas.add(soloN(x)); }); });
+  (extra ?? []).forEach((e) => { [e.cuenta, e.cci].forEach((x) => { if (soloN(x)) cuentas.add(soloN(x)); }); });
+  const coincide = !ctaN || cuentas.has(ctaN);
+  return { encontrado: true, coincide, cuentas: Array.from(cuentas) };
+}
+
 // Editar una solicitud (solo mientras está Solicitada; Gerencia puede siempre).
 export async function editarSolicitud(id: string, patch: Record<string, unknown>): Promise<Res> {
   const session = await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);

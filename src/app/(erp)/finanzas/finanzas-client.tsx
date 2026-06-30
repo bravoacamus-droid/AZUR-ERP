@@ -22,7 +22,7 @@ import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 import {
   aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
   emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja, crearCajaChica,
-  editarSolicitud, eliminarSolicitud,
+  editarSolicitud, eliminarSolicitud, validarCuentaProveedor,
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
 
@@ -61,6 +61,11 @@ function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
   const [ns, setNs] = useState<any>(SOL_VACIA);
   const [nsMsg, setNsMsg] = useState<string | null>(null);
   const [prog, setProg] = useState<any>(null);
+  const [ctaChk, setCtaChk] = useState<{ encontrado: boolean; coincide: boolean } | null>(null);
+  async function abrirProgramar(s: any) {
+    setProg(s); setBanco(''); setCtaChk(null);
+    if (s.ruc_dni && s.cta_bancaria) setCtaChk(await validarCuentaProveedor(s.ruc_dni, s.cta_bancaria));
+  }
   const [pago, setPago] = useState<any>(null);
   const [rech, setRech] = useState<any>(null);
   const [banco, setBanco] = useState('');
@@ -156,7 +161,7 @@ function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
                           </>
                         )}
                         {s.status === 'aprobada' && puedeProgramar && (
-                          <Button size="sm" variant="outline" onClick={() => { setProg(s); setBanco(''); }}><CalendarClock /> Programar</Button>
+                          <Button size="sm" variant="outline" onClick={() => abrirProgramar(s)}><CalendarClock /> Programar</Button>
                         )}
                         {s.status === 'programada' && puedePagar && (
                           <Button size="sm" variant="gradient" onClick={() => { setPago(s); setVoucher(''); setDetr(0); }}><Banknote /> Pagar</Button>
@@ -192,6 +197,12 @@ function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
           <Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await programarPago(prog.id, banco, fecha); setProg(null); router.refresh(); setBusy(false); }}>Programar</Button></>}>
         <div className="space-y-3">
           {prog && <DetalleSolicitud s={prog} />}
+          {ctaChk && ctaChk.encontrado && !ctaChk.coincide && (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">⚠ La cuenta de destino ({prog?.cta_bancaria}) NO coincide con las cuentas registradas del proveedor. Verifica antes de programar.</p>
+          )}
+          {ctaChk && ctaChk.encontrado && ctaChk.coincide && (
+            <p className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">✓ La cuenta de destino coincide con la registrada del proveedor.</p>
+          )}
           <Field label="Cuenta bancaria de origen">
             <Select value={banco} onChange={(e) => setBanco(e.target.value)}>
               <option value="">— Selecciona una cuenta —</option>
