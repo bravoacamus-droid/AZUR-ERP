@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, ChevronRight, Send, Handshake, CheckCircle2, FileDown,
-  MessageCircle, History, Loader2, Percent, Save, Layers, X, Undo2,
+  MessageCircle, History, Loader2, Percent, Save, Layers, X, Undo2, Copy, BookmarkPlus,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
   cambiarEstado, guardarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
-  eliminarCotizacion,
+  eliminarCotizacion, duplicarCotizacion,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -195,6 +195,12 @@ export function CotizacionEditor({
               )}
               <DropdownItem onClick={() => setShowVersion(true)}>
                 <History /> Guardar versión
+              </DropdownItem>
+              <DropdownItem onClick={async () => { setBusy(true); const r = await duplicarCotizacion(cot.id); setBusy(false); if (r.ok && r.id) router.push(`/comercial/${r.id}`); else alert(r.error); }}>
+                <Copy /> Duplicar cotización
+              </DropdownItem>
+              <DropdownItem onClick={async () => { setBusy(true); const r = await duplicarCotizacion(cot.id, { comoPlantilla: true }); setBusy(false); alert(r.ok ? 'Guardada como plantilla ✅' : (r.error ?? 'Error')); }}>
+                <BookmarkPlus /> Guardar como plantilla
               </DropdownItem>
               <a href={`/comercial/${cot.id}/pdf`} target="_blank" rel="noreferrer">
                 <DropdownItem>

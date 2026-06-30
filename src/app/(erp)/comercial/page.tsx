@@ -26,12 +26,20 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
 
   let query = supabase
     .from('cotizaciones')
-    .select('id, codigo, proyecto_nombre, estado, fecha, tipo_proyecto, cliente:clientes(razon_social), linea:lineas_negocio(codigo, nombre)', { count: 'exact' });
+    .select('id, codigo, proyecto_nombre, estado, fecha, tipo_proyecto, cliente:clientes(razon_social), linea:lineas_negocio(codigo, nombre)', { count: 'exact' })
+    .eq('es_plantilla', false);
   if (q) query = query.or(`proyecto_nombre.ilike.%${q}%,codigo.ilike.%${q}%,asunto.ilike.%${q}%`);
   const { data: cots, count } = await query.order('created_at', { ascending: false }).range(desde, desde + PAGE_SIZE - 1);
 
   const cotizaciones = cots ?? [];
   const total = count ?? 0;
+
+  // Plantillas reutilizables (cotizaciones marcadas como plantilla)
+  const { data: plantillas } = await supabase
+    .from('cotizaciones')
+    .select('id, codigo, proyecto_nombre, estado, fecha, cliente:clientes(razon_social), linea:lineas_negocio(codigo)')
+    .eq('es_plantilla', true)
+    .order('created_at', { ascending: false });
   const porEstado = (e: string) => cotizaciones.filter((c) => c.estado === e).length;
 
   return (
@@ -47,6 +55,32 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
           </Link>
         }
       />
+
+      {(plantillas ?? []).length > 0 && (
+        <Card>
+          <CardContent className="p-0">
+            <div className="flex items-center gap-2 border-b px-4 py-2.5 text-sm font-medium">
+              <FileText className="size-4 text-azur-600" /> Plantillas ({plantillas!.length})
+              <span className="text-xs font-normal text-muted-foreground">— úsalas para crear una cotización ya armada</span>
+            </div>
+            <Table>
+              <TableHeader>
+                <TableRow><TableHead>Plantilla</TableHead><TableHead>Cliente</TableHead><TableHead>Línea</TableHead><TableHead></TableHead></TableRow>
+              </TableHeader>
+              <TableBody>
+                {(plantillas ?? []).map((p) => (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-medium"><Link href={`/comercial/${p.id}`} className="hover:underline">{p.proyecto_nombre}</Link></TableCell>
+                    <TableCell className="text-muted-foreground">{(p.cliente as { razon_social?: string } | null)?.razon_social ?? '—'}</TableCell>
+                    <TableCell><Badge variant="outline">{(p.linea as { codigo?: string } | null)?.codigo ?? '—'}</Badge></TableCell>
+                    <TableCell><CotizacionRowActions id={p.id} estado={p.estado} esPlantilla /></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
+      )}
 
       <SearchBox placeholder="Buscar por proyecto, código o asunto…" />
 

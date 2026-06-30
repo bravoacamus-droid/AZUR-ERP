@@ -892,6 +892,7 @@ export type Database = {
           descripcion: string | null
           descuento_activo: boolean
           descuento_pct: number | null
+          es_plantilla: boolean
           estado: Database["public"]["Enums"]["estado_cotizacion"]
           fecha: string
           ga_pct: number | null
@@ -940,6 +941,7 @@ export type Database = {
           descripcion?: string | null
           descuento_activo?: boolean
           descuento_pct?: number | null
+          es_plantilla?: boolean
           estado?: Database["public"]["Enums"]["estado_cotizacion"]
           fecha?: string
           ga_pct?: number | null
@@ -988,6 +990,7 @@ export type Database = {
           descripcion?: string | null
           descuento_activo?: boolean
           descuento_pct?: number | null
+          es_plantilla?: boolean
           estado?: Database["public"]["Enums"]["estado_cotizacion"]
           fecha?: string
           ga_pct?: number | null

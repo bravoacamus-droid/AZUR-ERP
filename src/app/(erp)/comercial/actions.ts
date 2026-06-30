@@ -364,6 +364,59 @@ export async function guardarVersion(cotizacionId: string, justificacion: string
 }
 
 // ── Aprobar → crea Proyecto (sin margen) ────────────────────────────────
+// Duplica una cotización (cabecera + partidas + formas de pago). Si comoPlantilla,
+// la nueva queda marcada como plantilla (reutilizable). Devuelve el id de la copia.
+export async function duplicarCotizacion(id: string, opts?: { comoPlantilla?: boolean; nombre?: string }): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const admin = createAdminClient();
+  const { data: cot } = await supabase.from('cotizaciones').select('*').eq('id', id).single();
+  if (!cot) return { ok: false, error: 'Cotización no encontrada' };
+  const [{ data: items }, { data: formas }] = await Promise.all([
+    supabase.from('cotizacion_items').select('*').eq('cotizacion_id', id).order('orden'),
+    supabase.from('cotizacion_formas_pago').select('*').eq('cotizacion_id', id).order('orden'),
+  ]);
+  const comoPlantilla = !!opts?.comoPlantilla;
+  const nombre = opts?.nombre || (comoPlantilla ? `Plantilla — ${cot.proyecto_nombre}` : `${cot.proyecto_nombre} (copia)`);
+
+  const { data: nueva, error } = await admin.from('cotizaciones').insert({
+    linea_id: cot.linea_id, cliente_id: cot.cliente_id, proyecto_nombre: nombre,
+    asunto: cot.asunto, ubicacion: cot.ubicacion, tipo_cotizacion: cot.tipo_cotizacion, tipo_proyecto: cot.tipo_proyecto,
+    origen: cot.origen, vigencia_dias: cot.vigencia_dias, plazo_valor: cot.plazo_valor, plazo_tipo: cot.plazo_tipo,
+    moneda: cot.moneda, tipo_cambio: cot.tipo_cambio, mostrar_equiv_pen: cot.mostrar_equiv_pen,
+    gg_pct: cot.gg_pct, ga_pct: cot.ga_pct, utilidad_pct: cot.utilidad_pct, igv_pct: cot.igv_pct,
+    descuento_pct: cot.descuento_pct, descuento_activo: cot.descuento_activo, margen_min_pct: cot.margen_min_pct,
+    mostrar_gg: cot.mostrar_gg, mostrar_ga: cot.mostrar_ga, mostrar_utilidad: cot.mostrar_utilidad, mostrar_igv: cot.mostrar_igv,
+    garantia_activa: cot.garantia_activa, condiciones: cot.condiciones, servicios_incluidos: cot.servicios_incluidos,
+    servicios_omitidos: cot.servicios_omitidos, garantia: cot.garantia, plantilla_id: cot.plantilla_id,
+    estado: 'borrador', es_plantilla: comoPlantilla, responsable_id: session.id,
+  } as never).select('id, correlativo').single();
+  if (error || !nueva) return { ok: false, error: error?.message ?? 'No se pudo duplicar' };
+  await admin.from('cotizaciones').update({ codigo: formatCodigo('COT', nueva.correlativo) } as never).eq('id', nueva.id);
+
+  if (items?.length) {
+    const byParent = (pid: string | null) => items.filter((i) => i.parent_id === pid);
+    const copyLevel = async (origParent: string | null, newParent: string | null) => {
+      for (const it of byParent(origParent)) {
+        const { data: ni } = await admin.from('cotizacion_items').insert({
+          cotizacion_id: nueva!.id, parent_id: newParent, nivel: it.nivel, orden: it.orden,
+          item_codigo: it.item_codigo, titulo: it.titulo, unidad: it.unidad, cantidad: it.cantidad,
+          costo_unitario: it.costo_unitario, costo_formula: it.costo_formula, margen_pct: it.margen_pct, es_hoja: it.es_hoja,
+        } as never).select('id').single();
+        if (ni) await copyLevel(it.id, ni.id);
+      }
+    };
+    await copyLevel(null, null);
+  }
+  if (formas?.length) {
+    await admin.from('cotizacion_formas_pago').insert(formas.map((f) => ({
+      cotizacion_id: nueva!.id, orden: f.orden, concepto: f.concepto, porcentaje: f.porcentaje, es_adelanto: f.es_adelanto,
+    })) as never);
+  }
+  revalidatePath('/comercial');
+  return { ok: true, id: nueva.id };
+}
+
 export async function aprobarCotizacion(cotizacionId: string): Promise<Res> {
   const session = await guard();
   const supabase = createClient();
