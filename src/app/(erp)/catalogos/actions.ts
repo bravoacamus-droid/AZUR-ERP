@@ -17,7 +17,7 @@ async function guard() {
 const opt = (s: z.ZodTypeAny = z.string()) => s.optional().or(z.literal('')).transform((v) => (v ? v : null));
 const optUuid = z.string().uuid().optional().or(z.literal('')).transform((v) => (v ? v : null));
 
-// ─────────────────────────── Consulta RUC / DNI (apis.net.pe) ───────────────────────────
+// ─────────────────────────── Consulta RUC / DNI (decolecta.com) ───────────────────────────
 export async function consultarRucDni(numero: string): Promise<{ ok: boolean; nombre?: string; direccion?: string; error?: string }> {
   await guard();
   const token = process.env.SUNAT_TOKEN;
@@ -27,15 +27,15 @@ export async function consultarRucDni(numero: string): Promise<{ ok: boolean; no
   const esDni = n.length === 8;
   if (!esRuc && !esDni) return { ok: false, error: 'Ingresa un RUC (11 dígitos) o DNI (8 dígitos).' };
   const url = esRuc
-    ? `https://api.apis.net.pe/v2/sunat/ruc?numero=${n}`
-    : `https://api.apis.net.pe/v2/reniec/dni?numero=${n}`;
+    ? `https://api.decolecta.com/v1/sunat/ruc?numero=${n}`
+    : `https://api.decolecta.com/v1/reniec/dni?numero=${n}`;
   try {
     const r = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' }, cache: 'no-store' });
     if (!r.ok) return { ok: false, error: r.status === 404 ? 'No se encontró el documento.' : `Servicio no disponible (${r.status}).` };
     const d = await r.json() as Record<string, string>;
     const nombre = esRuc
-      ? (d.razonSocial || d.nombre || '')
-      : ([d.nombres || d.nombre, d.apellidoPaterno, d.apellidoMaterno].filter(Boolean).join(' ') || d.nombreCompleto || '');
+      ? (d.razon_social || d.razonSocial || d.nombre || '')
+      : (d.full_name || [d.first_name, d.first_last_name, d.second_last_name].filter(Boolean).join(' ') || '');
     if (!nombre) return { ok: false, error: 'La consulta no devolvió nombre.' };
     return { ok: true, nombre, direccion: d.direccion || undefined };
   } catch {
