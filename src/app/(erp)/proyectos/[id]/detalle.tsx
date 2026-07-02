@@ -361,9 +361,9 @@ function PresupuestoTipoGasto({ proyectoId, data, canManage }: { proyectoId: str
               <tr className="border-b">
                 <th className="py-1.5 text-left">Tipo de gasto</th>
                 <th className="py-1.5 text-right">Proyectado</th>
-                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Real <InfoTip side="bottom" text={<>Suma de las solicitudes de pago en estado <strong>pagada</strong> o <strong>conciliada</strong>. Conciliada = ya se cruzó con el movimiento del banco/caja, así que es gasto confirmado. Las solicitudes solo programadas o pendientes aún no cuentan aquí.</>} /></span></th>
-                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Gap <InfoTip side="bottom" text={<>Proyectado − Real. <span className="text-emerald-600 font-medium">Verde (+)</span> = aún queda presupuesto por gastar; <span className="text-red-600 font-medium">rojo (−)</span> = ya se gastó más de lo asignado a ese tipo.</>} /></span></th>
-                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">% real <InfoTip side="bottom" text="Cuánto del presupuesto proyectado de ese tipo ya se ejecutó (Real / Proyectado)." /></span></th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Real <InfoTip text={<>Suma de las solicitudes de pago en estado <strong>pagada</strong> o <strong>conciliada</strong>. Conciliada = ya se cruzó con el movimiento del banco/caja, así que es gasto confirmado. Las solicitudes solo programadas o pendientes aún no cuentan aquí.</>} /></span></th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Gap <InfoTip text={<>Proyectado − Real. <span className="text-emerald-600 font-medium">Verde (+)</span> = aún queda presupuesto por gastar; <span className="text-red-600 font-medium">rojo (−)</span> = ya se gastó más de lo asignado a ese tipo.</>} /></span></th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">% real <InfoTip text="Cuánto del presupuesto proyectado de ese tipo ya se ejecutó (Real / Proyectado)." /></span></th>
               </tr>
             </thead>
             <tbody>
@@ -421,7 +421,7 @@ function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercia
           <InfoTip text={<>Compara el <strong>costo directo</strong> con el que se vendió (cotización) contra el <strong>costo planificado</strong> en el Last Planner, sobre el mismo contrato. Todo se muestra en <strong>soles</strong>: si la cotización estaba en dólares, el costo comercial ya viene convertido con el T.C. Al crear el proyecto se copia 1:1 desde la cotización, así que al inicio ambas filas coinciden y la desviación es ~0. Empieza a moverse cuando cambias cantidades o costos en el proyecto.</>} />
           {enUSD && (
             <Badge variant="info" className="ml-auto">USD → S/ · T.C. {fmtNumber(Number(c.tipoCambio), 3)}
-              <InfoTip side="bottom" text={<>La cotización estaba en <strong>dólares</strong>. Al pasarla a proyecto se convirtió a soles con este tipo de cambio (el que tenía la cotización al aprobarse). Este valor queda <strong>fijo</strong>: no se revalúa con el T.C. del día.</>} />
+              <InfoTip text={<>La cotización estaba en <strong>dólares</strong>. Al pasarla a proyecto se convirtió a soles con este tipo de cambio (el que tenía la cotización al aprobarse). Este valor queda <strong>fijo</strong>: no se revalúa con el T.C. del día.</>} />
             </Badge>
           )}
         </CardTitle>
@@ -434,8 +434,8 @@ function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercia
               <tr className="border-b">
                 <th className="py-1.5 text-left"></th>
                 <th className="py-1.5 text-right">Venta (contrato)</th>
-                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Costo directo <InfoTip side="bottom" text="Suma de las partidas hoja (cantidad × costo unitario), sin margen, GG/GA, utilidad ni IGV. Es el costo puro de ejecutar la obra." /></span></th>
-                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Margen <InfoTip side="bottom" text={<>Margen <strong>bruto sobre la venta</strong> = (Contrato − Costo directo) / Contrato. Ojo: el contrato incluye IGV, GG, GA y utilidad, así que este % es más alto que el margen neto real del negocio. Sirve para comparar comercial vs proyecto en igualdad de condiciones y detectar desviaciones.</>} /></span></th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Costo directo <InfoTip text="Suma de las partidas hoja (cantidad × costo unitario), sin margen, GG/GA, utilidad ni IGV. Es el costo puro de ejecutar la obra." /></span></th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Margen <InfoTip text={<>Margen <strong>bruto sobre la venta</strong> = (Contrato − Costo directo) / Contrato. Ojo: el contrato incluye IGV, GG, GA y utilidad, así que este % es más alto que el margen neto real del negocio. Sirve para comparar comercial vs proyecto en igualdad de condiciones y detectar desviaciones.</>} /></span></th>
               </tr>
             </thead>
             <tbody>
@@ -452,7 +452,7 @@ function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercia
                 <td className="py-1.5 text-right tabular-nums">{fmtNumber(mP * 100, 1)}%</td>
               </tr>
               <tr>
-                <td className="py-1.5 font-medium text-muted-foreground"><span className="inline-flex items-center gap-1">Desviación de costo <InfoTip side="bottom" text={<>Costo del proyecto − costo comercial. En <span className="text-red-600 font-medium">rojo</span> = el proyecto cuesta más de lo cotizado (comes margen); en <span className="text-emerald-600 font-medium">verde</span> = cuesta menos. El "pp" son puntos porcentuales de margen ganados o perdidos.</>} /></span></td>
+                <td className="py-1.5 font-medium text-muted-foreground"><span className="inline-flex items-center gap-1">Desviación de costo <InfoTip text={<>Costo del proyecto − costo comercial. En <span className="text-red-600 font-medium">rojo</span> = el proyecto cuesta más de lo cotizado (comes margen); en <span className="text-emerald-600 font-medium">verde</span> = cuesta menos. El "pp" son puntos porcentuales de margen ganados o perdidos.</>} /></span></td>
                 <td className="py-1.5"></td>
                 <td className={`py-1.5 text-right font-semibold tabular-nums ${desv != null && desv > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{desv != null ? (desv > 0 ? '+' : '') + fmtMoney(desv) : '—'}</td>
                 <td className={`py-1.5 text-right font-semibold tabular-nums ${mC != null && mP < mC ? 'text-red-600' : 'text-emerald-600'}`}>{mC != null ? fmtNumber((mP - mC) * 100, 1) + ' pp' : '—'}</td>
