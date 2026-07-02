@@ -13,12 +13,12 @@ const s = StyleSheet.create({
   brandSub: { fontSize: 7, color: '#666', letterSpacing: 2 },
   title: { fontSize: 13, fontFamily: 'Helvetica-Bold', textAlign: 'right' },
   meta: { fontSize: 8, color: '#444', textAlign: 'right', marginTop: 2 },
-  box: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 4, padding: 10, marginBottom: 12 },
+  box: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 4, padding: 8, marginBottom: 8 },
   rowB: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
   k: { color: '#555' },
   vb: { fontFamily: 'Helvetica-Bold' },
   hi: { color: AZUR },
-  sectionTitle: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: AZUR, marginBottom: 6 },
+  sectionTitle: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: AZUR, marginBottom: 4 },
   thead: { flexDirection: 'row', backgroundColor: AZUR, paddingVertical: 4, paddingHorizontal: 4 },
   th: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7.5 },
   tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingVertical: 3, paddingHorizontal: 4 },
@@ -47,7 +47,7 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
   return (
     <Document title={`Valorización N${d.numero} — ${d.codigo}`}>
       <Page size="A4" orientation="landscape" style={s.page}>
-        <View style={s.header}>
+        <View style={s.header} fixed>
           <View style={s.brandRow}>
             <View style={s.logoBox}><Image src={LOGO_DATA_URI} style={s.logo} /></View>
             <View>
@@ -123,34 +123,38 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
             <Text style={[s.cell, s.cSaldo]}>{fmtMoney(r.saldo)}</Text>
           </View>
         ))}
-        <View style={[s.tr, { borderTopWidth: 1, borderTopColor: AZUR }]}>
-          <Text style={[s.cell, s.cCod]}></Text>
-          <Text style={[s.cell, s.cTit, s.vb]}>TOTALES</Text>
-          <Text style={[s.cell, s.cUnd]}></Text>
-          <Text style={[s.cell, s.cContr, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.contractual, 0))}</Text>
-          <Text style={[s.cell, s.cPct]}></Text>
-          <Text style={[s.cell, s.cMon, s.vb]}>{fmtMoney(d.valorizadoPeriodo)}</Text>
-          <Text style={[s.cell, s.cAcumPct]}></Text>
-          <Text style={[s.cell, s.cAcum, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.valorizadoAcum, 0))}</Text>
-          <Text style={[s.cell, s.cSaldo, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.saldo, 0))}</Text>
-        </View>
-
-        {/* Bloque de conformidad + firmas: se mantiene junto (nunca la firma sola) */}
-        <View wrap={false} style={{ marginTop: 22 }}>
-          <View style={[s.box, { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }]}>
-            <Text style={[s.k, s.vb]}>Conformidad · Valorización N° {d.numero} — {d.proyecto}</Text>
-            <Text style={[s.vb, s.hi]}>Cobro neto del periodo: {fmtMoney(d.cobroNeto)}</Text>
+        {/* TOTALES + conformidad + firmas viajan como un solo bloque: la firma NUNCA
+            queda sola. Si no cabe al pie, salta a la página siguiente acompañada de los
+            totales y la conformidad, con la cabecera fija repetida arriba. */}
+        <View wrap={false} minPresenceAhead={40}>
+          <View style={[s.tr, { borderTopWidth: 1, borderTopColor: AZUR }]}>
+            <Text style={[s.cell, s.cCod]}></Text>
+            <Text style={[s.cell, s.cTit, s.vb]}>TOTALES</Text>
+            <Text style={[s.cell, s.cUnd]}></Text>
+            <Text style={[s.cell, s.cContr, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.contractual, 0))}</Text>
+            <Text style={[s.cell, s.cPct]}></Text>
+            <Text style={[s.cell, s.cMon, s.vb]}>{fmtMoney(d.valorizadoPeriodo)}</Text>
+            <Text style={[s.cell, s.cAcumPct]}></Text>
+            <Text style={[s.cell, s.cAcum, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.valorizadoAcum, 0))}</Text>
+            <Text style={[s.cell, s.cSaldo, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.saldo, 0))}</Text>
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
-            <View style={{ alignItems: 'center', width: 200 }}>
-              <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
-              <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? '____________________'}</Text>
-              <Text style={{ fontSize: 8, color: '#666' }}>Elaborado por · Jefe de Proyectos</Text>
+
+          <View style={{ marginTop: 14 }}>
+            <View style={[s.box, { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }]}>
+              <Text style={[s.k, s.vb]}>Conformidad · Valorización N° {d.numero} — {d.proyecto}</Text>
+              <Text style={[s.vb, s.hi]}>Cobro neto del periodo: {fmtMoney(d.cobroNeto)}</Text>
             </View>
-            <View style={{ alignItems: 'center', width: 200 }}>
-              <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
-              <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>____________________</Text>
-              <Text style={{ fontSize: 8, color: '#666' }}>Aprobado por · Gerencia</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+              <View style={{ alignItems: 'center', width: 200 }}>
+                <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
+                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? '____________________'}</Text>
+                <Text style={{ fontSize: 8, color: '#666' }}>Elaborado por · Jefe de Proyectos</Text>
+              </View>
+              <View style={{ alignItems: 'center', width: 200 }}>
+                <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
+                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>____________________</Text>
+                <Text style={{ fontSize: 8, color: '#666' }}>Aprobado por · Gerencia</Text>
+              </View>
             </View>
           </View>
         </View>

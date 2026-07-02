@@ -37,7 +37,7 @@ export function LiquidacionPDF({ d }: { d: LiqPdfData }) {
   return (
     <Document title={`Liquidación — ${d.codigo}`}>
       <Page size="A4" style={s.page}>
-        <View style={s.header}>
+        <View style={s.header} fixed>
           <View style={s.brandRow}>
             <View style={s.logoBox}><Image src={LOGO_DATA_URI} style={s.logo} /></View>
             <View><Text style={s.brand}>AZUR</Text><Text style={s.brandSub}>CONSTRUCTORA E INMOBILIARIA</Text></View>
