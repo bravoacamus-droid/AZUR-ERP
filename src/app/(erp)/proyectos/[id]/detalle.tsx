@@ -175,14 +175,15 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
         </CardContent>
       </Card>
     )}
+    {/* KPIs en su propia fila completa (para que no se compriman los íconos) */}
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <KpiCard label="Contrato" value={fmtMoney(Number(proy.contrato_total))} icon={<FileBarChart />} />
+      <KpiCard label="Cobrado" value={fmtMoney(d.pagos)} tone="success" icon={<TrendingUp />} />
+      <KpiCard label="Gasto" value={fmtMoney(d.gasto)} tone="azur" icon={<Banknote />} />
+      <KpiCard label="Caja chica" value={fmtMoney(Number(cajaSaldo))} icon={<Banknote />} />
+    </div>
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <KpiCard label="Contrato" value={fmtMoney(Number(proy.contrato_total))} icon={<FileBarChart />} />
-          <KpiCard label="Cobrado" value={fmtMoney(d.pagos)} tone="success" icon={<TrendingUp />} />
-          <KpiCard label="Gasto" value={fmtMoney(d.gasto)} tone="azur" icon={<Banknote />} />
-          <KpiCard label="Caja chica" value={fmtMoney(Number(cajaSaldo))} icon={<Banknote />} />
-        </div>
         <BarraTresTramos p={d} />
         {comparativo && <ComparativoComercial c={comparativo} propio={!!proy.itemizado_propio} />}
         {presupuestoGasto && <PresupuestoTipoGasto proyectoId={proy.id} data={presupuestoGasto} canManage={canManage} />}
