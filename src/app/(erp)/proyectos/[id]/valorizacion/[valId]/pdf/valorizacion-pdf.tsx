@@ -44,6 +44,32 @@ export interface ValPdfData {
 }
 
 export function ValorizacionPDF({ d }: { d: ValPdfData }) {
+  // Paginación controlada del detalle: se reparte en bloques y se repite el
+  // encabezado de columnas al inicio de cada página. Capacidades conservadoras
+  // (medidas por render) para que ningún bloque desborde sin su encabezado.
+  const hasHist = d.historial.length > 1;
+  const firstCap = hasHist ? 8 : 12;
+  const contCap = 20;
+  const chunks: ValPdfData['rows'][] = [];
+  if (d.rows.length === 0) {
+    chunks.push([]);
+  } else {
+    chunks.push(d.rows.slice(0, firstCap));
+    for (let i = firstCap; i < d.rows.length; i += contCap) chunks.push(d.rows.slice(i, i + contCap));
+  }
+  const Thead = () => (
+    <View style={s.thead}>
+      <Text style={[s.th, s.cCod]}>ÍTEM</Text>
+      <Text style={[s.th, s.cTit]}>PARTIDA</Text>
+      <Text style={[s.th, s.cUnd]}>UND</Text>
+      <Text style={[s.th, s.cContr]}>CONTRACTUAL</Text>
+      <Text style={[s.th, s.cPct]}>% PER.</Text>
+      <Text style={[s.th, s.cMon]}>VAL. PERIODO</Text>
+      <Text style={[s.th, s.cAcumPct]}>% ACUM.</Text>
+      <Text style={[s.th, s.cAcum]}>VAL. ACUM.</Text>
+      <Text style={[s.th, s.cSaldo]}>SALDO</Text>
+    </View>
+  );
   return (
     <Document title={`Valorización N${d.numero} — ${d.codigo}`}>
       <Page size="A4" orientation="landscape" style={s.page}>
@@ -98,34 +124,27 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
           </>
         )}
 
-        <Text style={s.sectionTitle}>Detalle por partida</Text>
-        <View style={s.thead}>
-          <Text style={[s.th, s.cCod]}>ÍTEM</Text>
-          <Text style={[s.th, s.cTit]}>PARTIDA</Text>
-          <Text style={[s.th, s.cUnd]}>UND</Text>
-          <Text style={[s.th, s.cContr]}>CONTRACTUAL</Text>
-          <Text style={[s.th, s.cPct]}>% PER.</Text>
-          <Text style={[s.th, s.cMon]}>VAL. PERIODO</Text>
-          <Text style={[s.th, s.cAcumPct]}>% ACUM.</Text>
-          <Text style={[s.th, s.cAcum]}>VAL. ACUM.</Text>
-          <Text style={[s.th, s.cSaldo]}>SALDO</Text>
-        </View>
-        {d.rows.map((r, i) => (
-          <View key={i} style={s.tr} wrap={false}>
-            <Text style={[s.cell, s.cCod]}>{r.codigo}</Text>
-            <Text style={[s.cell, s.cTit]}>{r.titulo}</Text>
-            <Text style={[s.cell, s.cUnd]}>{r.unidad}</Text>
-            <Text style={[s.cell, s.cContr]}>{fmtMoney(r.contractual)}</Text>
-            <Text style={[s.cell, s.cPct]}>{fmtNumber(r.pct * 100, 0)}%</Text>
-            <Text style={[s.cell, s.cMon]}>{fmtMoney(r.monto)}</Text>
-            <Text style={[s.cell, s.cAcumPct]}>{fmtNumber(r.pctAcum * 100, 0)}%</Text>
-            <Text style={[s.cell, s.cAcum]}>{fmtMoney(r.valorizadoAcum)}</Text>
-            <Text style={[s.cell, s.cSaldo]}>{fmtMoney(r.saldo)}</Text>
-          </View>
-        ))}
-        {/* TOTALES + conformidad + firmas viajan como un solo bloque: la firma NUNCA
-            queda sola. Si no cabe al pie, salta a la página siguiente acompañada de los
-            totales y la conformidad, con la cabecera fija repetida arriba. */}
+        {chunks.map((chunk, ci) => (
+          <View key={ci} break={ci > 0}>
+            <Text style={s.sectionTitle}>Detalle por partida{ci > 0 ? ' (continuación)' : ''}</Text>
+            <Thead />
+            {chunk.map((r, i) => (
+              <View key={i} style={s.tr} wrap={false}>
+                <Text style={[s.cell, s.cCod]}>{r.codigo}</Text>
+                <Text style={[s.cell, s.cTit]}>{r.titulo}</Text>
+                <Text style={[s.cell, s.cUnd]}>{r.unidad}</Text>
+                <Text style={[s.cell, s.cContr]}>{fmtMoney(r.contractual)}</Text>
+                <Text style={[s.cell, s.cPct]}>{fmtNumber(r.pct * 100, 0)}%</Text>
+                <Text style={[s.cell, s.cMon]}>{fmtMoney(r.monto)}</Text>
+                <Text style={[s.cell, s.cAcumPct]}>{fmtNumber(r.pctAcum * 100, 0)}%</Text>
+                <Text style={[s.cell, s.cAcum]}>{fmtMoney(r.valorizadoAcum)}</Text>
+                <Text style={[s.cell, s.cSaldo]}>{fmtMoney(r.saldo)}</Text>
+              </View>
+            ))}
+            {ci === chunks.length - 1 && (
+        /* TOTALES + conformidad + firmas viajan como un solo bloque: la firma NUNCA
+           queda sola. Si no cabe al pie, salta a la página siguiente acompañada de los
+           totales y la conformidad, con la cabecera fija repetida arriba. */
         <View wrap={false} minPresenceAhead={40}>
           <View style={[s.tr, { borderTopWidth: 1, borderTopColor: AZUR }]}>
             <Text style={[s.cell, s.cCod]}></Text>
@@ -158,6 +177,9 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
             </View>
           </View>
         </View>
+            )}
+          </View>
+        ))}
 
         <Text style={s.footer} fixed>AZUR Constructora e Inmobiliaria · Valorización N{d.numero} · {d.codigo}</Text>
       </Page>
