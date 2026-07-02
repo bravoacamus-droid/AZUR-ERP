@@ -164,7 +164,17 @@ export function CotizacionEditor({
         <CardContent className="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold">{cot.proyecto_nombre}</h1>
+              {editable ? (
+                <input
+                  key={cot.proyecto_nombre}
+                  defaultValue={cot.proyecto_nombre}
+                  title="Editar nombre de la cotización"
+                  className="min-w-0 rounded border border-transparent bg-transparent px-1 text-xl font-bold hover:border-slate-300 focus:border-azur-400 focus:outline-none"
+                  onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== cot.proyecto_nombre) toggleParam({ proyecto_nombre: v }); }}
+                />
+              ) : (
+                <h1 className="text-xl font-bold">{cot.proyecto_nombre}</h1>
+              )}
               <Badge variant={est.variant}>{est.label}</Badge>
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
