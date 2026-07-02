@@ -737,8 +737,8 @@ function TotalesPanel({ cot, totales, onToggle, editable }: { cot: any; totales:
         <div className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Vista interna (oculta al cliente)</p>
           <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-            <Row3 label="Costo directo real" value={totales.costo_directo_real} />
-            <Row3 label="Margen total" value={totales.margen_subtotal} azur />
+            <Row3 label="Costo directo real" value={totales.costo_directo_real} currency={cur} />
+            <Row3 label="Margen total" value={totales.margen_subtotal} azur currency={cur} />
           </div>
           {editable && (
             <div className="space-y-2 rounded-lg border p-3">
