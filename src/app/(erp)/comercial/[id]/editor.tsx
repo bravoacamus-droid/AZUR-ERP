@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, useCallback } from 'react';
+import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, ChevronRight, Send, Handshake, CheckCircle2, FileDown,
@@ -43,6 +43,12 @@ export function CotizacionEditor({
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
+  // Refresh agrupado (para que los cambios en vivo no recarguen en cada acción).
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const debouncedRefresh = useCallback(() => {
+    if (refreshTimer.current) clearTimeout(refreshTimer.current);
+    refreshTimer.current = setTimeout(() => router.refresh(), 600);
+  }, [router]);
   // Estado local de la cabecera → updates optimistas (toggles/moneda/descuento al instante).
   const [cot, setCot] = useState<any>(cotProp);
   useEffect(() => setCot(cotProp), [cotProp]);
@@ -69,14 +75,14 @@ export function CotizacionEditor({
       const nombres = Object.values(state).flat().map((p) => p.nombre);
       setPresentes([...new Set(nombres)]);
     })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cotizacion_items', filter: `cotizacion_id=eq.${cot.id}` }, () => router.refresh())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'cotizacion_items', filter: `cotizacion_id=eq.${cot.id}` }, () => debouncedRefresh())
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') await ch.track({ nombre: userNombre });
       });
     return () => {
       void supabase.removeChannel(ch);
     };
-  }, [supabase, cot.id, userId, userNombre, router]);
+  }, [supabase, cot.id, userId, userNombre, debouncedRefresh]);
 
   // Árbol + cálculos
   const { flat, calc, codigos, totales } = useMemo(() => {
@@ -119,11 +125,20 @@ export function CotizacionEditor({
     router.refresh();
     setBusy(false);
   }
-  async function del(id: string) {
-    setBusy(true);
-    await eliminarItem(cot.id, id);
-    router.refresh();
-    setBusy(false);
+  function del(id: string) {
+    // Borrado optimista: quita la partida y sus descendientes al instante.
+    const ids = new Set<string>([id]);
+    for (let changed = true; changed;) {
+      changed = false;
+      rows.forEach((r) => { if (r.parent_id && ids.has(r.parent_id) && !ids.has(r.id)) { ids.add(r.id); changed = true; } });
+    }
+    const parentId = rows.find((r) => r.id === id)?.parent_id ?? null;
+    setRows((rs) => {
+      let next = rs.filter((r) => !ids.has(r.id));
+      if (parentId && !next.some((r) => r.parent_id === parentId)) next = next.map((r) => (r.id === parentId ? { ...r, es_hoja: true } : r));
+      return next;
+    });
+    eliminarItem(cot.id, id).then((r) => { if (r && r.ok === false) router.refresh(); }).catch(() => router.refresh());
   }
   async function setEstado(estado: any, m?: string) {
     setBusy(true);
@@ -408,16 +423,16 @@ export function CotizacionEditor({
                   <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                     <div>
                       <p className="font-medium">Versión {v.version}</p>
-                      <p className="text-xs text-muted-foreground">{v.justificacion || 'Sin justificación'} · {v.snapshot?.items?.length ?? 0} partidas</p>
+                      <p className="text-xs text-muted-foreground">{v.justificacion || 'Sin justificación'}</p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground">{fmtDateTime(v.created_at)}</span>
                       {editable && (
                         <Button size="sm" variant="outline" disabled={busy} onClick={async () => {
                           if (!confirm(`¿Restaurar la Versión ${v.version}? Se reemplazará la cotización actual (se guardará un respaldo automático de lo que tienes ahora).`)) return;
-                          setBusy(true); const r = await restaurarVersion(cot.id, v.id); setBusy(false);
-                          if (r.ok) router.refresh(); else alert(r.error);
-                        }}><Undo2 /> Restaurar</Button>
+                          setBusy(true); const r = await restaurarVersion(cot.id, v.id);
+                          if (r.ok) router.refresh(); else { setBusy(false); alert(r.error); }
+                        }}>{busy ? <><Loader2 className="animate-spin" /> Restaurando…</> : <><Undo2 /> Restaurar</>}</Button>
                       )}
                     </div>
                   </li>

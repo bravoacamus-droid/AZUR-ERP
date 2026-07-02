@@ -48,7 +48,9 @@ export function ProyectoDetalle(props: any) {
   useEffect(() => {
     const supabase = createClient();
     const ch = supabase.channel(`proy-${proy.id}`, { config: { presence: { key: userId } } });
-    const refrescar = () => router.refresh();
+    // refresh agrupado: cambios en vivo no recargan en cada acción
+    let t: ReturnType<typeof setTimeout> | null = null;
+    const refrescar = () => { if (t) clearTimeout(t); t = setTimeout(() => router.refresh(), 600); };
     ch.on('presence', { event: 'sync' }, () => {
       const state = ch.presenceState() as Record<string, { nombre: string }[]>;
       setPresentes([...new Set(Object.values(state).flat().map((p) => p.nombre))]);
@@ -524,7 +526,21 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     setAddTarget(null);
     router.refresh(); setBusy(false);
   }
-  async function del(id: string) { setBusy(true); await eliminarItemProyecto(proy.id, id); router.refresh(); setBusy(false); }
+  function del(id: string) {
+    // Borrado optimista: quita la partida y sus descendientes al instante.
+    const ids = new Set<string>([id]);
+    for (let changed = true; changed;) {
+      changed = false;
+      rows.forEach((r) => { if (r.parent_id && ids.has(r.parent_id) && !ids.has(r.id)) { ids.add(r.id); changed = true; } });
+    }
+    const parentId = rows.find((r) => r.id === id)?.parent_id ?? null;
+    setRows((rs) => {
+      let next = rs.filter((r) => !ids.has(r.id));
+      if (parentId && !next.some((r) => r.parent_id === parentId)) next = next.map((r) => (r.id === parentId ? { ...r, es_hoja: true } : r));
+      return next;
+    });
+    eliminarItemProyecto(proy.id, id).then((r) => { if (r && r.ok === false) router.refresh(); }).catch(() => router.refresh());
+  }
   async function save(id: string, patch: any) { await actualizarItemProyecto(proy.id, id, patch); }
   const [aviso, setAviso] = useState<string | null>(null);
   // Cambios de cantidad/monto: directo (Presupuestos/Gerencia) o a aprobación (Jefe de proyectos).
