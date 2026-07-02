@@ -56,6 +56,9 @@ export function CotizacionEditor({
   const [tab, setTab] = useState('presupuesto');
   const [presentes, setPresentes] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  // Restauración de versiones: id en curso + id recién restaurada (para "Restaurado ✓").
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [restoredId, setRestoredId] = useState<string | null>(null);
   const [showAprobar, setShowAprobar] = useState(false);
   const [showVersion, setShowVersion] = useState(false);
   const [showRechazo, setShowRechazo] = useState(false);
@@ -445,11 +448,17 @@ export function CotizacionEditor({
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground">{fmtDateTime(v.created_at)}</span>
                       {editable && (
-                        <Button size="sm" variant="outline" disabled={busy} onClick={async () => {
+                        <Button size="sm" variant="outline" disabled={restoringId !== null} onClick={async () => {
                           if (!confirm(`¿Restaurar la Versión ${v.version}? Se reemplazará la cotización actual (se guardará un respaldo automático de lo que tienes ahora).`)) return;
-                          setBusy(true); const r = await restaurarVersion(cot.id, v.id);
-                          if (r.ok) router.refresh(); else { setBusy(false); alert(r.error); }
-                        }}>{busy ? <><Loader2 className="animate-spin" /> Restaurando…</> : <><Undo2 /> Restaurar</>}</Button>
+                          setRestoredId(null); setRestoringId(v.id);
+                          const r = await restaurarVersion(cot.id, v.id);
+                          if (r.ok) { setRestoringId(null); setRestoredId(v.id); router.refresh(); setTimeout(() => setRestoredId((cur) => (cur === v.id ? null : cur)), 3500); }
+                          else { setRestoringId(null); alert(r.error); }
+                        }}>
+                          {restoringId === v.id ? <><Loader2 className="animate-spin" /> Restaurando…</>
+                            : restoredId === v.id ? <><CheckCircle2 className="text-emerald-600" /> Restaurado</>
+                            : <><Undo2 /> Restaurar</>}
+                        </Button>
                       )}
                     </div>
                   </li>
