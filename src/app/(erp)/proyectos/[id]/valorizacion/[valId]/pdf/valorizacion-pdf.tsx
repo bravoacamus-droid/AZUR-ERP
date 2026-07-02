@@ -14,7 +14,7 @@ const s = StyleSheet.create({
   title: { fontSize: 13, fontFamily: 'Helvetica-Bold', textAlign: 'right' },
   meta: { fontSize: 8, color: '#444', textAlign: 'right', marginTop: 2 },
   box: { borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 4, padding: 8, marginBottom: 8 },
-  rowB: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
+  rowB: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
   k: { color: '#555' },
   vb: { fontFamily: 'Helvetica-Bold' },
   hi: { color: AZUR },
@@ -158,20 +158,23 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
             <Text style={[s.cell, s.cSaldo, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.saldo, 0))}</Text>
           </View>
 
-          <View style={{ marginTop: 14 }}>
-            <View style={[s.box, { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }]}>
+          <View style={{ marginTop: 10 }}>
+            <View style={[s.box, { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }]}>
               <Text style={[s.k, s.vb]}>Conformidad · Valorización N° {d.numero} — {d.proyecto}</Text>
               <Text style={[s.vb, s.hi]}>Cobro neto del periodo: {fmtMoney(d.cobroNeto)}</Text>
             </View>
             <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
               <View style={{ alignItems: 'center', width: 200 }}>
+                {/* Espacio en blanco para firmar (encima de la línea) */}
+                <View style={{ height: 34 }} />
                 <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
-                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? '____________________'}</Text>
+                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? ''}</Text>
                 <Text style={{ fontSize: 8, color: '#666' }}>Elaborado por · Jefe de Proyectos</Text>
               </View>
               <View style={{ alignItems: 'center', width: 200 }}>
+                <View style={{ height: 34 }} />
                 <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
-                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>____________________</Text>
+                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}> </Text>
                 <Text style={{ fontSize: 8, color: '#666' }}>Aprobado por · Gerencia</Text>
               </View>
             </View>
