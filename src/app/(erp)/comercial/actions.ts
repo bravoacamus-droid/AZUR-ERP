@@ -363,6 +363,57 @@ export async function guardarVersion(cotizacionId: string, justificacion: string
   return { ok: true };
 }
 
+// Restaura una versión guardada (reemplaza cabecera + partidas). Antes guarda el
+// estado actual como versión automática para no perder nada.
+export async function restaurarVersion(cotizacionId: string, versionId: string): Promise<Res> {
+  const session = await guard();
+  const supabase = createClient();
+  const admin = createAdminClient();
+  const { data: ver } = await supabase.from('cotizacion_versiones').select('snapshot, version').eq('id', versionId).single();
+  const snap = ver?.snapshot as { cotizacion?: Record<string, unknown>; items?: Record<string, unknown>[] } | undefined;
+  if (!snap?.cotizacion) return { ok: false, error: 'La versión no tiene datos para restaurar' };
+
+  // 1) respaldar el estado ACTUAL como versión
+  const { data: cotActual } = await supabase.from('cotizaciones').select('*').eq('id', cotizacionId).single();
+  const { data: itemsActual } = await supabase.from('cotizacion_items').select('*').eq('cotizacion_id', cotizacionId).order('orden');
+  const { data: ult } = await supabase.from('cotizacion_versiones').select('version').eq('cotizacion_id', cotizacionId).order('version', { ascending: false }).limit(1);
+  const nuevaV = (ult?.[0]?.version ?? 0) + 1;
+  await admin.from('cotizacion_versiones').insert({
+    cotizacion_id: cotizacionId, version: nuevaV, usuario_id: session.id,
+    justificacion: `Auto-respaldo antes de restaurar la Versión ${ver?.version}`,
+    snapshot: { cotizacion: cotActual, items: itemsActual },
+  } as never);
+  await admin.from('cotizaciones').update({ version: nuevaV + 1 } as never).eq('id', cotizacionId);
+
+  // 2) restaurar cabecera (solo campos editables)
+  const c = snap.cotizacion as Record<string, unknown>;
+  const campos = ['proyecto_nombre', 'asunto', 'ubicacion', 'condiciones', 'servicios_incluidos', 'servicios_omitidos',
+    'garantia', 'garantia_activa', 'gg_pct', 'ga_pct', 'utilidad_pct', 'igv_pct', 'descuento_pct', 'descuento_activo',
+    'mostrar_gg', 'mostrar_ga', 'mostrar_utilidad', 'mostrar_igv', 'moneda', 'tipo_cambio', 'mostrar_equiv_pen',
+    'vigencia_dias', 'plazo_valor', 'plazo_tipo'];
+  const patch: Record<string, unknown> = {};
+  campos.forEach((k) => { if (k in c) patch[k] = c[k]; });
+  await admin.from('cotizaciones').update(patch as never).eq('id', cotizacionId);
+
+  // 3) reemplazar partidas desde el snapshot (remapeando jerarquía)
+  await admin.from('cotizacion_items').delete().eq('cotizacion_id', cotizacionId);
+  const snapItems = (snap.items ?? []) as Record<string, unknown>[];
+  const byParent = (pid: unknown) => snapItems.filter((i) => (i.parent_id ?? null) === (pid ?? null));
+  const copyLevel = async (origParent: unknown, newParent: string | null) => {
+    for (const it of byParent(origParent)) {
+      const { data: ni } = await admin.from('cotizacion_items').insert({
+        cotizacion_id: cotizacionId, parent_id: newParent, nivel: it.nivel, orden: it.orden,
+        item_codigo: it.item_codigo, titulo: it.titulo, unidad: it.unidad, cantidad: it.cantidad,
+        costo_unitario: it.costo_unitario, costo_formula: it.costo_formula ?? null, margen_pct: it.margen_pct, es_hoja: it.es_hoja,
+      } as never).select('id').single();
+      if (ni) await copyLevel(it.id, ni.id);
+    }
+  };
+  await copyLevel(null, null);
+  revalidatePath(`/comercial/${cotizacionId}`);
+  return { ok: true };
+}
+
 // ── Aprobar → crea Proyecto (sin margen) ────────────────────────────────
 // Duplica una cotización (cabecera + partidas + formas de pago). Si comoPlantilla,
 // la nueva queda marcada como plantilla (reutilizable). Devuelve el id de la copia.

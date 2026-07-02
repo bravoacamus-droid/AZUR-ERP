@@ -26,7 +26,7 @@ import {
 import { evalFormula, esFormula } from '@/lib/formula';
 import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
-  cambiarEstado, guardarVersion, aprobarCotizacion, guardarCabecera,
+  cambiarEstado, guardarVersion, restaurarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
   eliminarCotizacion, duplicarCotizacion,
 } from '../actions';
@@ -395,12 +395,21 @@ export function CotizacionEditor({
             ) : (
               <ul className="divide-y">
                 {versiones.map((v) => (
-                  <li key={v.id} className="flex items-center justify-between px-4 py-3">
+                  <li key={v.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                     <div>
                       <p className="font-medium">Versión {v.version}</p>
-                      <p className="text-xs text-muted-foreground">{v.justificacion || 'Sin justificación'}</p>
+                      <p className="text-xs text-muted-foreground">{v.justificacion || 'Sin justificación'} · {v.snapshot?.items?.length ?? 0} partidas</p>
                     </div>
-                    <span className="text-xs text-muted-foreground">{fmtDateTime(v.created_at)}</span>
+                    <div className="flex items-center gap-3">
+                      <span className="text-xs text-muted-foreground">{fmtDateTime(v.created_at)}</span>
+                      {editable && (
+                        <Button size="sm" variant="outline" disabled={busy} onClick={async () => {
+                          if (!confirm(`¿Restaurar la Versión ${v.version}? Se reemplazará la cotización actual (se guardará un respaldo automático de lo que tienes ahora).`)) return;
+                          setBusy(true); const r = await restaurarVersion(cot.id, v.id); setBusy(false);
+                          if (r.ok) router.refresh(); else alert(r.error);
+                        }}><Undo2 /> Restaurar</Button>
+                      )}
+                    </div>
                   </li>
                 ))}
               </ul>
