@@ -521,10 +521,37 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   }
   async function confirmAdd(prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string }) {
     if (!addTarget) return;
-    setBusy(true);
-    await agregarItemProyecto(proy.id, addTarget.parent?.id ?? null, addTarget.nivel, prefill);
+    const parent = addTarget.parent; const nivel = addTarget.nivel;
     setAddTarget(null);
-    router.refresh(); setBusy(false);
+    // Con APU de catálogo se hace en servidor (crea componentes) y se recarga.
+    if (prefill?.catalogoPartidaId) {
+      setBusy(true);
+      await agregarItemProyecto(proy.id, parent?.id ?? null, nivel, prefill);
+      router.refresh(); setBusy(false);
+      return;
+    }
+    // Agregado optimista: se pinta la fila al instante y se persiste en segundo plano.
+    const id = globalThis.crypto.randomUUID();
+    const orden = rows.filter((r) => (r.parent_id ?? null) === (parent?.id ?? null)).length + 1;
+    const tituloDefault = nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad';
+    const cu = prefill?.costo_unitario ?? null;
+    const nuevo: any = {
+      id, proyecto_id: proy.id, parent_id: parent?.id ?? null, nivel, orden,
+      titulo: prefill?.titulo || tituloDefault,
+      unidad: prefill?.unidad ?? null,
+      costo_unitario: cu,
+      cantidad: cu != null ? 1 : null,
+      total_costo: cu != null ? cu : 0,
+      es_hoja: true, estado_tarea: 'pendiente', prioridad: 'media', avance_pct: 0,
+    };
+    setRows((rs) => {
+      let next = [...rs, nuevo];
+      if (parent?.id) next = next.map((r) => (r.id === parent.id ? { ...r, es_hoja: false } : r));
+      return next;
+    });
+    agregarItemProyecto(proy.id, parent?.id ?? null, nivel, prefill, id)
+      .then((r) => { if (r && r.ok === false) router.refresh(); })
+      .catch(() => router.refresh());
   }
   function del(id: string) {
     // Borrado optimista: quita la partida y sus descendientes al instante.

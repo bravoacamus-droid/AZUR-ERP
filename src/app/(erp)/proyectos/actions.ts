@@ -35,6 +35,7 @@ export async function agregarItemProyecto(
   parentId: string | null,
   nivel: number,
   prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string },
+  idPreset?: string,
 ): Promise<Res> {
   await guard();
   const supabase = createClient();
@@ -46,6 +47,7 @@ export async function agregarItemProyecto(
   const tituloDefault = nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad';
   const cu = prefill?.costo_unitario ?? null;
   const { data: nuevo, error } = await supabase.from('proyecto_items').insert({
+    ...(idPreset ? { id: idPreset } : {}),
     proyecto_id: proyectoId, parent_id: parentId, nivel, orden: (count ?? 0) + 1,
     titulo: prefill?.titulo || tituloDefault,
     unidad: prefill?.unidad ?? null,
@@ -53,7 +55,7 @@ export async function agregarItemProyecto(
     cantidad: cu != null ? 1 : null,
     total_costo: cu != null ? cu : 0,
     es_hoja: true, estado_tarea: 'pendiente', prioridad: 'media',
-  }).select('id').single();
+  } as never).select('id').single();
   if (error || !nuevo) return { ok: false, error: error?.message ?? 'Error' };
 
   // copiar APU plantilla del catálogo si corresponde

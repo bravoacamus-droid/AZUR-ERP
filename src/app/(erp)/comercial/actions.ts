@@ -112,6 +112,7 @@ export async function agregarItem(
   parentId: string | null,
   nivel: number,
   prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string },
+  idPreset?: string,
 ): Promise<Res> {
   await guard();
   const supabase = createClient();
@@ -128,6 +129,7 @@ export async function agregarItem(
 
   const tituloDefault = nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad';
   const { data: nuevo, error } = await supabase.from('cotizacion_items').insert({
+    ...(idPreset ? { id: idPreset } : {}),
     cotizacion_id: cotizacionId,
     parent_id: parentId,
     nivel,
@@ -138,7 +140,7 @@ export async function agregarItem(
     cantidad: prefill?.costo_unitario != null ? 1 : null,
     es_hoja: true,
     margen_pct: 0.3,
-  }).select('id').single();
+  } as never).select('id').single();
   if (error || !nuevo) return { ok: false, error: error?.message ?? 'Error' };
 
   // Si la partida del catálogo tiene APU plantilla, copiarlo al nuevo ítem

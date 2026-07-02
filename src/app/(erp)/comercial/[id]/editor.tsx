@@ -119,11 +119,28 @@ export function CotizacionEditor({
   }
   async function confirmAdd(prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string }) {
     if (!addTarget) return;
-    setBusy(true);
-    await agregarItem(cot.id, addTarget.parent?.id ?? null, addTarget.nivel, prefill);
+    const parent = addTarget.parent; const nivel = addTarget.nivel;
     setAddTarget(null);
-    router.refresh();
-    setBusy(false);
+    // Con APU de catálogo el costo lo calcula el servidor → esperamos y refrescamos.
+    if (prefill?.catalogoPartidaId) {
+      setBusy(true);
+      await agregarItem(cot.id, parent?.id ?? null, nivel, prefill);
+      router.refresh(); setBusy(false);
+      return;
+    }
+    // Optimista: la partida aparece al instante.
+    const id = globalThis.crypto.randomUUID();
+    const orden = rows.filter((r) => (r.parent_id ?? null) === (parent?.id ?? null)).length + 1;
+    const titulo = prefill?.titulo || (nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad');
+    const nuevo = { id, cotizacion_id: cot.id, parent_id: parent?.id ?? null, nivel, orden, titulo,
+      unidad: prefill?.unidad ?? null, costo_unitario: prefill?.costo_unitario ?? null,
+      cantidad: prefill?.costo_unitario != null ? 1 : null, es_hoja: true, margen_pct: 0.3 } as unknown as Row;
+    setRows((rs) => {
+      let next = [...rs, nuevo];
+      if (parent?.id) next = next.map((r) => (r.id === parent.id ? { ...r, es_hoja: false } : r));
+      return next;
+    });
+    agregarItem(cot.id, parent?.id ?? null, nivel, prefill, id).then((r) => { if (r && r.ok === false) router.refresh(); }).catch(() => router.refresh());
   }
   function del(id: string) {
     // Borrado optimista: quita la partida y sus descendientes al instante.
