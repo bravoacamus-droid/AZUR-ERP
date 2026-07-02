@@ -395,21 +395,22 @@ export async function restaurarVersion(cotizacionId: string, versionId: string):
   campos.forEach((k) => { if (k in c) patch[k] = c[k]; });
   await admin.from('cotizaciones').update(patch as never).eq('id', cotizacionId);
 
-  // 3) reemplazar partidas desde el snapshot (remapeando jerarquía)
+  // 3) reemplazar partidas desde el snapshot en UNA sola inserción (rápido):
+  //    generamos ids nuevos y remapeamos parent_id para conservar la jerarquía.
   await admin.from('cotizacion_items').delete().eq('cotizacion_id', cotizacionId);
   const snapItems = (snap.items ?? []) as Record<string, unknown>[];
-  const byParent = (pid: unknown) => snapItems.filter((i) => (i.parent_id ?? null) === (pid ?? null));
-  const copyLevel = async (origParent: unknown, newParent: string | null) => {
-    for (const it of byParent(origParent)) {
-      const { data: ni } = await admin.from('cotizacion_items').insert({
-        cotizacion_id: cotizacionId, parent_id: newParent, nivel: it.nivel, orden: it.orden,
-        item_codigo: it.item_codigo, titulo: it.titulo, unidad: it.unidad, cantidad: it.cantidad,
-        costo_unitario: it.costo_unitario, costo_formula: it.costo_formula ?? null, margen_pct: it.margen_pct, es_hoja: it.es_hoja,
-      } as never).select('id').single();
-      if (ni) await copyLevel(it.id, ni.id);
-    }
-  };
-  await copyLevel(null, null);
+  if (snapItems.length) {
+    const idMap = new Map<string, string>();
+    snapItems.forEach((it) => idMap.set(it.id as string, globalThis.crypto.randomUUID()));
+    const filas = snapItems.map((it) => ({
+      id: idMap.get(it.id as string), cotizacion_id: cotizacionId,
+      parent_id: it.parent_id ? (idMap.get(it.parent_id as string) ?? null) : null,
+      nivel: it.nivel, orden: it.orden, item_codigo: it.item_codigo, titulo: it.titulo, unidad: it.unidad,
+      cantidad: it.cantidad, costo_unitario: it.costo_unitario, costo_formula: it.costo_formula ?? null,
+      margen_pct: it.margen_pct, es_hoja: it.es_hoja,
+    }));
+    await admin.from('cotizacion_items').insert(filas as never);
+  }
   revalidatePath(`/comercial/${cotizacionId}`);
   return { ok: true };
 }
@@ -446,18 +447,15 @@ export async function duplicarCotizacion(id: string, opts?: { comoPlantilla?: bo
   await admin.from('cotizaciones').update({ codigo: formatCodigo('COT', nueva.correlativo) } as never).eq('id', nueva.id);
 
   if (items?.length) {
-    const byParent = (pid: string | null) => items.filter((i) => i.parent_id === pid);
-    const copyLevel = async (origParent: string | null, newParent: string | null) => {
-      for (const it of byParent(origParent)) {
-        const { data: ni } = await admin.from('cotizacion_items').insert({
-          cotizacion_id: nueva!.id, parent_id: newParent, nivel: it.nivel, orden: it.orden,
-          item_codigo: it.item_codigo, titulo: it.titulo, unidad: it.unidad, cantidad: it.cantidad,
-          costo_unitario: it.costo_unitario, costo_formula: it.costo_formula, margen_pct: it.margen_pct, es_hoja: it.es_hoja,
-        } as never).select('id').single();
-        if (ni) await copyLevel(it.id, ni.id);
-      }
-    };
-    await copyLevel(null, null);
+    const idMap = new Map<string, string>();
+    items.forEach((it) => idMap.set(it.id, globalThis.crypto.randomUUID()));
+    const filas = items.map((it) => ({
+      id: idMap.get(it.id), cotizacion_id: nueva!.id,
+      parent_id: it.parent_id ? (idMap.get(it.parent_id) ?? null) : null,
+      nivel: it.nivel, orden: it.orden, item_codigo: it.item_codigo, titulo: it.titulo, unidad: it.unidad,
+      cantidad: it.cantidad, costo_unitario: it.costo_unitario, costo_formula: it.costo_formula, margen_pct: it.margen_pct, es_hoja: it.es_hoja,
+    }));
+    await admin.from('cotizacion_items').insert(filas as never);
   }
   if (formas?.length) {
     await admin.from('cotizacion_formas_pago').insert(formas.map((f) => ({

@@ -264,7 +264,7 @@ function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
         </div>
         <Field label="RUC / DNI"><Input value={ns.ruc_dni} onChange={(e) => setNs((f: any) => ({ ...f, ruc_dni: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" maxLength={11} /></Field>
         <Field label="Razón social"><Input value={ns.razon_social} onChange={(e) => setNs((f: any) => ({ ...f, razon_social: e.target.value }))} /></Field>
-        <Field label="Cuenta bancaria / CCI"><Input value={ns.cta_bancaria} onChange={(e) => setNs((f: any) => ({ ...f, cta_bancaria: e.target.value }))} inputMode="numeric" /></Field>
+        <Field label="Cuenta bancaria / CCI"><Input value={ns.cta_bancaria} onChange={(e) => setNs((f: any) => ({ ...f, cta_bancaria: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" maxLength={20} /></Field>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" className="size-4 accent-azur-600" checked={ns.tiene_detraccion} onChange={(e) => setNs((f: any) => ({ ...f, tiene_detraccion: e.target.checked }))} /> Este pago tiene detracción
         </label>

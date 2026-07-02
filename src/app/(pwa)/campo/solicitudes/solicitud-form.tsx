@@ -186,7 +186,7 @@ export function SolicitudForm({
       </Field>
 
       <Field label="Cuenta bancaria">
-        <Input value={ctaBancaria} onChange={(e) => setCtaBancaria(e.target.value)} placeholder="N° de cuenta / CCI" />
+        <Input value={ctaBancaria} inputMode="numeric" maxLength={20} onChange={(e) => setCtaBancaria(e.target.value.replace(/\D/g, ''))} placeholder="N° de cuenta / CCI" />
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
