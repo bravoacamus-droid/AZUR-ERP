@@ -13,7 +13,7 @@ import { Select } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Tabs } from '@/components/ui/tabs';
 import { Modal } from '@/components/ui/dialog';
-import { Field, EmptyState, Avatar } from '@/components/ui/misc';
+import { Field, EmptyState, Avatar, InfoTip } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { CurvaS } from '@/components/proyectos/curva-s';
@@ -179,10 +179,10 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
     )}
     {/* KPIs en su propia fila completa (para que no se compriman los íconos) */}
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <KpiCard label="Contrato" value={fmtMoney(Number(proy.contrato_total))} icon={<FileBarChart />} />
-      <KpiCard label="Cobrado" value={fmtMoney(d.pagos)} tone="success" icon={<TrendingUp />} />
-      <KpiCard label="Gasto" value={fmtMoney(d.gasto)} tone="azur" icon={<Banknote />} />
-      <KpiCard label="Caja chica" value={fmtMoney(Number(cajaSaldo))} icon={<Banknote />} />
+      <KpiCard label="Contrato" value={fmtMoney(Number(proy.contrato_total))} icon={<FileBarChart />} tip="Monto total del contrato con el cliente (precio de venta con IGV), en soles. Sale de la cotización aprobada." />
+      <KpiCard label="Cobrado" value={fmtMoney(d.pagos)} tone="success" icon={<TrendingUp />} tip="Suma de los abonos del cliente recibidos (adelanto + valorizaciones cobradas)." />
+      <KpiCard label="Gasto" value={fmtMoney(d.gasto)} tone="azur" icon={<Banknote />} tip="Suma de las solicitudes de pago pagadas/conciliadas del proyecto (lo que realmente ha salido)." />
+      <KpiCard label="Caja chica" value={fmtMoney(Number(cajaSaldo))} icon={<Banknote />} tip="Saldo disponible en la caja chica del proyecto (entregado a residentes − gastado)." />
     </div>
     <div className="grid gap-4 lg:grid-cols-3">
       <div className="space-y-4 lg:col-span-2">
@@ -267,6 +267,12 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
             <Dato k="Fin" v={fmtDate(proy.fecha_fin)} />
             <Dato k="Modalidad" v={proy.modalidad_cobro} />
             <Dato k="Adelanto" v={`${fmtPct(Number(proy.adelanto_pct))} · ${fmtMoney(adelanto)}`} />
+            {comparativo?.monedaCotizacion === 'USD' && Number(comparativo?.tipoCambio) > 0 && (
+              <div className="flex justify-between gap-2">
+                <span className="text-muted-foreground inline-flex items-center gap-1">Moneda de origen <InfoTip text={<>La cotización se hizo en <strong>dólares</strong> y se convirtió a soles con este T.C. al crear el proyecto. Queda fijo; el proyecto y finanzas operan en soles.</>} /></span>
+                <span className="text-right font-medium">USD · T.C. {fmtNumber(Number(comparativo.tipoCambio), 3)}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
         {canManage && (
@@ -343,7 +349,9 @@ function PresupuestoTipoGasto({ proyectoId, data, canManage }: { proyectoId: str
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2"><Banknote className="size-4 text-azur-600" /> Presupuesto por tipo de gasto</CardTitle>
+        <CardTitle className="text-base flex items-center gap-2"><Banknote className="size-4 text-azur-600" /> Presupuesto por tipo de gasto
+          <InfoTip text={<>Reparte el costo directo del proyecto entre los tipos de gasto (contratistas, proveedores, caja chica, etc.) y lo confronta con lo realmente ejecutado. El reparto es <strong>manual</strong>: tú decides cuánto asignas a cada tipo, y abajo se avisa si la suma cuadra con el costo del proyecto.</>} />
+        </CardTitle>
         <p className="text-xs text-muted-foreground">Proyectado (reparto del costo) vs Real (solicitudes pagadas/conciliadas).</p>
       </CardHeader>
       <CardContent>
@@ -353,9 +361,9 @@ function PresupuestoTipoGasto({ proyectoId, data, canManage }: { proyectoId: str
               <tr className="border-b">
                 <th className="py-1.5 text-left">Tipo de gasto</th>
                 <th className="py-1.5 text-right">Proyectado</th>
-                <th className="py-1.5 text-right">Real</th>
-                <th className="py-1.5 text-right">Gap</th>
-                <th className="py-1.5 text-right">% real</th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Real <InfoTip side="bottom" text={<>Suma de las solicitudes de pago en estado <strong>pagada</strong> o <strong>conciliada</strong>. Conciliada = ya se cruzó con el movimiento del banco/caja, así que es gasto confirmado. Las solicitudes solo programadas o pendientes aún no cuentan aquí.</>} /></span></th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Gap <InfoTip side="bottom" text={<>Proyectado − Real. <span className="text-emerald-600 font-medium">Verde (+)</span> = aún queda presupuesto por gastar; <span className="text-red-600 font-medium">rojo (−)</span> = ya se gastó más de lo asignado a ese tipo.</>} /></span></th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">% real <InfoTip side="bottom" text="Cuánto del presupuesto proyectado de ese tipo ya se ejecutó (Real / Proyectado)." /></span></th>
               </tr>
             </thead>
             <tbody>
@@ -399,8 +407,9 @@ function PresupuestoTipoGasto({ proyectoId, data, canManage }: { proyectoId: str
 }
 
 // Comparativo Comercial vs Proyecto: solo totales y márgenes (no por categorías).
-function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercial: number | null; costoProyecto: number }; propio: boolean }) {
+function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercial: number | null; costoProyecto: number; monedaCotizacion?: string; tipoCambio?: number }; propio: boolean }) {
   const venta = Number(c.venta || 0);
+  const enUSD = c.monedaCotizacion === 'USD' && Number(c.tipoCambio) > 0;
   const margen = (costo: number) => (venta > 0 ? (venta - costo) / venta : 0);
   const mC = c.costoComercial != null ? margen(c.costoComercial) : null;
   const mP = margen(c.costoProyecto);
@@ -408,7 +417,14 @@ function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercia
   return (
     <Card>
       <CardHeader className="pb-2">
-        <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="size-4 text-azur-600" /> Comparativo Comercial vs Proyecto</CardTitle>
+        <CardTitle className="text-base flex items-center gap-2"><TrendingUp className="size-4 text-azur-600" /> Comparativo Comercial vs Proyecto
+          <InfoTip text={<>Compara el <strong>costo directo</strong> con el que se vendió (cotización) contra el <strong>costo planificado</strong> en el Last Planner, sobre el mismo contrato. Todo se muestra en <strong>soles</strong>: si la cotización estaba en dólares, el costo comercial ya viene convertido con el T.C. Al crear el proyecto se copia 1:1 desde la cotización, así que al inicio ambas filas coinciden y la desviación es ~0. Empieza a moverse cuando cambias cantidades o costos en el proyecto.</>} />
+          {enUSD && (
+            <Badge variant="info" className="ml-auto">USD → S/ · T.C. {fmtNumber(Number(c.tipoCambio), 3)}
+              <InfoTip side="bottom" text={<>La cotización estaba en <strong>dólares</strong>. Al pasarla a proyecto se convirtió a soles con este tipo de cambio (el que tenía la cotización al aprobarse). Este valor queda <strong>fijo</strong>: no se revalúa con el T.C. del día.</>} />
+            </Badge>
+          )}
+        </CardTitle>
         <p className="text-xs text-muted-foreground">{propio ? 'Itemizado propio: la comparación es solo por totales y margen.' : 'Totales y margen (las categorías pueden no coincidir).'}</p>
       </CardHeader>
       <CardContent>
@@ -418,8 +434,8 @@ function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercia
               <tr className="border-b">
                 <th className="py-1.5 text-left"></th>
                 <th className="py-1.5 text-right">Venta (contrato)</th>
-                <th className="py-1.5 text-right">Costo directo</th>
-                <th className="py-1.5 text-right">Margen</th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Costo directo <InfoTip side="bottom" text="Suma de las partidas hoja (cantidad × costo unitario), sin margen, GG/GA, utilidad ni IGV. Es el costo puro de ejecutar la obra." /></span></th>
+                <th className="py-1.5 text-right"><span className="inline-flex items-center gap-1">Margen <InfoTip side="bottom" text={<>Margen <strong>bruto sobre la venta</strong> = (Contrato − Costo directo) / Contrato. Ojo: el contrato incluye IGV, GG, GA y utilidad, así que este % es más alto que el margen neto real del negocio. Sirve para comparar comercial vs proyecto en igualdad de condiciones y detectar desviaciones.</>} /></span></th>
               </tr>
             </thead>
             <tbody>
@@ -436,7 +452,7 @@ function ComparativoComercial({ c, propio }: { c: { venta: number; costoComercia
                 <td className="py-1.5 text-right tabular-nums">{fmtNumber(mP * 100, 1)}%</td>
               </tr>
               <tr>
-                <td className="py-1.5 font-medium text-muted-foreground">Desviación de costo</td>
+                <td className="py-1.5 font-medium text-muted-foreground"><span className="inline-flex items-center gap-1">Desviación de costo <InfoTip side="bottom" text={<>Costo del proyecto − costo comercial. En <span className="text-red-600 font-medium">rojo</span> = el proyecto cuesta más de lo cotizado (comes margen); en <span className="text-emerald-600 font-medium">verde</span> = cuesta menos. El "pp" son puntos porcentuales de margen ganados o perdidos.</>} /></span></td>
                 <td className="py-1.5"></td>
                 <td className={`py-1.5 text-right font-semibold tabular-nums ${desv != null && desv > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{desv != null ? (desv > 0 ? '+' : '') + fmtMoney(desv) : '—'}</td>
                 <td className={`py-1.5 text-right font-semibold tabular-nums ${mC != null && mP < mC ? 'text-red-600' : 'text-emerald-600'}`}>{mC != null ? fmtNumber((mP - mC) * 100, 1) + ' pp' : '—'}</td>
@@ -856,7 +872,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       {activeVal && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">Valorización N{activeVal.numero} · dilución del adelanto <Badge variant={baseVal === 'precio' ? 'info' : 'secondary'}>Base: {baseVal === 'precio' ? 'Precio (con margen)' : 'Costo'}</Badge></CardTitle>
+            <CardTitle className="text-base flex items-center gap-2">Valorización N{activeVal.numero} · dilución del adelanto <Badge variant={baseVal === 'precio' ? 'info' : 'secondary'}>Base: {baseVal === 'precio' ? 'Precio (con margen)' : 'Costo'}</Badge>
+              <InfoTip text={<>Define sobre qué monto se valoriza el avance. <strong>Precio (con margen)</strong> = se cobra al cliente el precio con margen (la valorización suma hasta el contrato). <strong>Costo</strong> = se valoriza al costo directo. Se cambia en Resumen → Configuración rápida → Base de valorización.</>} />
+            </CardTitle>
             <p className="text-xs text-muted-foreground">
               Adelanto recibido: <strong>{fmtMoney(adelantoTotalProy)}</strong>
               {' '}(contrato {fmtPct(Number(proy.adelanto_pct), 0)} = {fmtMoney(adelantoContractual)}{adelantoExtra > 0 ? ` + extras ${fmtMoney(adelantoExtra)}` : ''})

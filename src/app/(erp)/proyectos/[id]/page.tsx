@@ -63,21 +63,26 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
   const sumHojas = (arr: { es_hoja?: boolean | null; total_costo?: number | null; cantidad?: number | null; costo_unitario?: number | null }[]) =>
     (arr ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? (Number(i.cantidad ?? 0) * Number(i.costo_unitario ?? 0))) : 0), 0);
   let costoComercial: number | null = null;
+  let cotMoneda = 'PEN';
+  let cotTc = 1;
   if (proy.cotizacion_id) {
     const [{ data: cotItems }, { data: cotMon }] = await Promise.all([
       supabase.from('cotizacion_items').select('es_hoja, cantidad, costo_unitario').eq('cotizacion_id', proy.cotizacion_id),
       supabase.from('cotizaciones').select('moneda, tipo_cambio').eq('id', proy.cotizacion_id).single(),
     ]);
+    cotMoneda = cotMon?.moneda ?? 'PEN';
     // El proyecto opera en soles: si la cotización está en USD, convertir el costo
     // comercial con el mismo T.C. para comparar en la misma moneda que venta/costoProyecto.
-    const tc = cotMon?.moneda === 'USD' ? Number(cotMon.tipo_cambio ?? 1) : 1;
-    costoComercial = sumHojas(cotItems ?? []) * tc;
+    cotTc = cotMoneda === 'USD' ? Number(cotMon?.tipo_cambio ?? 1) : 1;
+    costoComercial = sumHojas(cotItems ?? []) * cotTc;
   }
   const costoProyecto = sumHojas((items.data ?? []) as never);
   const comparativo = {
     venta: Number(proy.contrato_total),
     costoComercial,
     costoProyecto,
+    monedaCotizacion: cotMoneda,
+    tipoCambio: cotTc,
   };
 
   // Presupuesto por tipo de gasto: Proyectado (reparto manual) vs Real (solicitudes pagadas/conciliadas)

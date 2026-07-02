@@ -1,6 +1,7 @@
 import * as React from 'react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './card';
+import { InfoTip } from './misc';
 
 export function PageHeader({
   title,
@@ -28,12 +29,14 @@ export function KpiCard({
   sub,
   icon,
   tone = 'default',
+  tip,
 }: {
   label: string;
   value: React.ReactNode;
   sub?: string;
   icon?: React.ReactNode;
   tone?: 'default' | 'azur' | 'success' | 'warning';
+  tip?: React.ReactNode;
 }) {
   const toneCls = {
     default: 'text-foreground',
@@ -45,7 +48,7 @@ export function KpiCard({
     <Card>
       <CardContent className="flex items-center justify-between gap-2 overflow-hidden p-4">
         <div className="min-w-0 flex-1">
-          <p className="truncate text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+          <p className="flex items-center gap-1 text-xs font-medium uppercase tracking-wide text-muted-foreground"><span className="truncate">{label}</span>{tip && <InfoTip side="bottom" text={tip} />}</p>
           <p className={cn('mt-1 truncate text-lg font-bold leading-tight tabular-nums sm:text-xl lg:text-2xl', toneCls)} title={typeof value === 'string' ? value : undefined}>{value}</p>
           {sub && <p className="mt-0.5 truncate text-xs text-muted-foreground">{sub}</p>}
         </div>

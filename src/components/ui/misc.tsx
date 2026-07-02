@@ -1,8 +1,45 @@
 import * as React from 'react';
+import { HelpCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export function Separator({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return <div className={cn('h-px w-full bg-border', className)} {...props} />;
+}
+
+/**
+ * Ícono de ayuda con popover explicativo al pasar el mouse (o mantener en móvil).
+ * Uso: <InfoTip text="..." /> junto a un título/etiqueta.
+ */
+export function InfoTip({
+  text,
+  className,
+  side = 'top',
+}: {
+  text: React.ReactNode;
+  className?: string;
+  side?: 'top' | 'bottom';
+}) {
+  return (
+    <span className={cn('group relative inline-flex align-middle', className)}>
+      <button
+        type="button"
+        tabIndex={0}
+        aria-label="Más información"
+        className="inline-flex text-muted-foreground/60 transition-colors hover:text-azur-600 focus:text-azur-600 focus:outline-none"
+      >
+        <HelpCircle className="size-3.5" />
+      </button>
+      <span
+        role="tooltip"
+        className={cn(
+          'pointer-events-none absolute left-1/2 z-50 w-64 -translate-x-1/2 rounded-lg border bg-popover px-3 py-2 text-xs font-normal leading-relaxed text-popover-foreground opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100',
+          side === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5',
+        )}
+      >
+        {text}
+      </span>
+    </span>
+  );
 }
 
 export function Skeleton({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
