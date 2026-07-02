@@ -22,7 +22,7 @@ import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 import {
   aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
   emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja, crearCajaChica,
-  editarSolicitud, eliminarSolicitud, validarCuentaProveedor,
+  editarSolicitud, eliminarSolicitud, validarCuentaProveedor, validarCuentaCliente,
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
 
@@ -358,10 +358,16 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
   const router = useRouter();
   const [abono, setAbono] = useState<any>(null);
   const [monto, setMonto] = useState(0);
+  const [ctaOrigen, setCtaOrigen] = useState('');
+  const [ctaCliChk, setCtaCliChk] = useState<{ encontrado: boolean; coincide: boolean } | null>(null);
   const [nueva, setNueva] = useState(false);
   const [fNew, setFNew] = useState({ cliente_id: '', proyecto_id: '', numero: '', monto: 0, fecha_vencimiento: '' });
   const [busy, setBusy] = useState(false);
   const puede = rol === 'administrador' || rol === 'gerencia';
+  async function chkCta(val: string) {
+    setCtaOrigen(val); setCtaCliChk(null);
+    if (abono?.cliente_id && val.trim()) setCtaCliChk(await validarCuentaCliente(abono.cliente_id, val));
+  }
 
   // Aging de cuentas por cobrar (Sección 5.4)
   const hoy = Date.now();
@@ -421,7 +427,7 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
                     <TableCell className="tabular-nums">{fmtMoney(Number(f.monto))}</TableCell>
                     <TableCell className="tabular-nums">{fmtMoney(Number(f.monto_cobrado))}</TableCell>
                     <TableCell><Badge variant={f.estado === 'cobrada' ? 'success' : f.estado === 'parcial' ? 'warning' : f.estado === 'vencida' ? 'danger' : 'info'}>{f.estado}</Badge></TableCell>
-                    <TableCell>{puede && f.estado !== 'cobrada' && <Button size="sm" variant="outline" onClick={() => { setAbono(f); setMonto(Number(f.monto) - Number(f.monto_cobrado)); }}><HandCoins /> Cobrar</Button>}</TableCell>
+                    <TableCell>{puede && f.estado !== 'cobrada' && <Button size="sm" variant="outline" onClick={() => { setAbono(f); setMonto(Number(f.monto) - Number(f.monto_cobrado)); setCtaOrigen(''); setCtaCliChk(null); }}><HandCoins /> Cobrar</Button>}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -431,8 +437,17 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
       </Card>
 
       <Modal open={!!abono} onClose={() => setAbono(null)} title="Registrar cobro"
-        footer={<><Button variant="outline" onClick={() => setAbono(null)}>Cancelar</Button><Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await registrarAbono(abono.id, monto); setAbono(null); router.refresh(); setBusy(false); }}>Registrar</Button></>}>
-        <Field label="Monto cobrado"><Input type="number" value={monto} onChange={(e) => setMonto(Number(e.target.value))} /></Field>
+        footer={<><Button variant="outline" onClick={() => setAbono(null)}>Cancelar</Button><Button variant="gradient" disabled={busy} onClick={async () => { setBusy(true); await registrarAbono(abono.id, monto, ctaOrigen); setAbono(null); router.refresh(); setBusy(false); }}>Registrar</Button></>}>
+        <div className="space-y-2">
+          <Field label="Monto cobrado"><Input type="number" value={monto} onChange={(e) => setMonto(Number(e.target.value))} /></Field>
+          <Field label="Cuenta de origen del depósito (del cliente)"><Input inputMode="numeric" maxLength={20} value={ctaOrigen} onChange={(e) => chkCta(e.target.value.replace(/\D/g, ''))} placeholder="N° de cuenta desde donde depositó el cliente" /></Field>
+          {ctaCliChk && ctaCliChk.encontrado && !ctaCliChk.coincide && (
+            <p className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-800">⚠ La cuenta de origen NO coincide con las cuentas registradas del cliente. Verifica el depósito (puede venir de un tercero).</p>
+          )}
+          {ctaCliChk && ctaCliChk.encontrado && ctaCliChk.coincide && (
+            <p className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">✓ La cuenta de origen coincide con la registrada del cliente.</p>
+          )}
+        </div>
       </Modal>
 
       <Modal open={nueva} onClose={() => setNueva(false)} title="Factura manual"

@@ -171,7 +171,7 @@ export async function crearFacturaManual(input: { cliente_id: string; proyecto_i
 }
 
 // ── CxC: registrar abono/cobro del cliente ──────────────────────────────
-export async function registrarAbono(facturaId: string, monto: number): Promise<Res> {
+export async function registrarAbono(facturaId: string, monto: number, ctaOrigen?: string): Promise<Res> {
   const session = await requireRol(['administrador', 'gerencia']);
   const supabase = createClient();
   const admin = createAdminClient();
@@ -182,8 +182,9 @@ export async function registrarAbono(facturaId: string, monto: number): Promise<
   const estado = nuevoCobrado >= Number(fac.monto) ? 'cobrada' : 'parcial';
   await admin.from('facturas').update({ monto_cobrado: nuevoCobrado, estado }).eq('id', facturaId);
   await admin.from('abonos_cliente').insert({
-    factura_id: facturaId, proyecto_id: fac.proyecto_id, monto, metodo: 'Cobranza', created_by: session.id,
-  });
+    factura_id: facturaId, proyecto_id: fac.proyecto_id, monto, metodo: 'Cobranza',
+    cuenta_origen: ctaOrigen || null, created_by: session.id,
+  } as never);
   if (estado === 'cobrada' && fac.armada_id) {
     await admin.from('cronograma_cobros').update({ estado: 'cobrado' }).eq('id', fac.armada_id);
   }
@@ -203,6 +204,22 @@ export async function movimientoCaja(input: { caja_id: string; proyecto_id?: str
   if (error) return { ok: false, error: error.message };
   revalidatePath('/finanzas');
   return { ok: true };
+}
+
+// Verifica si una cuenta coincide con las registradas de un CLIENTE (por su id).
+export async function validarCuentaCliente(clienteId: string, cta: string): Promise<{ encontrado: boolean; coincide: boolean }> {
+  await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);
+  const soloN = (s: string | null | undefined) => String(s ?? '').replace(/\D/g, '');
+  const ctaN = soloN(cta);
+  if (!clienteId || !ctaN) return { encontrado: false, coincide: true };
+  const admin = createAdminClient();
+  const { data: cli } = await admin.from('clientes').select('cuenta, cci, cuenta_detraccion').eq('id', clienteId).single();
+  const { data: extra } = await admin.from('cuentas_bancarias').select('cuenta, cci').eq('cliente_id', clienteId);
+  const cuentas = new Set<string>();
+  if (cli) [cli.cuenta, cli.cci, cli.cuenta_detraccion].forEach((x) => { if (soloN(x)) cuentas.add(soloN(x)); });
+  (extra ?? []).forEach((e) => { [e.cuenta, e.cci].forEach((x) => { if (soloN(x)) cuentas.add(soloN(x)); }); });
+  if (cuentas.size === 0) return { encontrado: false, coincide: true };
+  return { encontrado: true, coincide: cuentas.has(ctaN) };
 }
 
 // Verifica si la cuenta de una solicitud coincide con las registradas del proveedor (por RUC/DNI).

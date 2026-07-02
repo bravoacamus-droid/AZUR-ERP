@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           created_by: string | null
+          cuenta_origen: string | null
           es_adelanto: boolean
           factura_id: string | null
           fecha: string
@@ -29,6 +30,7 @@ export type Database = {
         Insert: {
           created_at?: string
           created_by?: string | null
+          cuenta_origen?: string | null
           es_adelanto?: boolean
           factura_id?: string | null
           fecha?: string
@@ -40,6 +42,7 @@ export type Database = {
         Update: {
           created_at?: string
           created_by?: string | null
+          cuenta_origen?: string | null
           es_adelanto?: boolean
           factura_id?: string | null
           fecha?: string
