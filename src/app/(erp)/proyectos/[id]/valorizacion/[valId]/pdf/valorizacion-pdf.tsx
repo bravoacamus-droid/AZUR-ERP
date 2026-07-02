@@ -57,8 +57,10 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
           </View>
           <View>
             <Text style={s.title}>VALORIZACIÓN N° {d.numero}</Text>
+            <Text style={[s.meta, { fontFamily: 'Helvetica-Bold', color: '#1a1a1a' }]}>{d.proyecto}</Text>
             <Text style={s.meta}>{d.codigo} · {d.fecha}</Text>
-            <Text style={s.meta}>{d.cliente}</Text>
+            <Text style={s.meta}>Cliente: {d.cliente}</Text>
+            {d.responsable ? <Text style={s.meta}>Jefe de Proyectos: {d.responsable}</Text> : null}
           </View>
         </View>
 
@@ -133,17 +135,23 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
           <Text style={[s.cell, s.cSaldo, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.saldo, 0))}</Text>
         </View>
 
-        {/* Firmas: elaborado (Jefe de Proyectos) y aprobado (Gerencia) */}
-        <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 30 }} wrap={false}>
-          <View style={{ alignItems: 'center', width: 200 }}>
-            <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
-            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? '____________________'}</Text>
-            <Text style={{ fontSize: 8, color: '#666' }}>Elaborado por · Jefe de Proyectos</Text>
+        {/* Bloque de conformidad + firmas: se mantiene junto (nunca la firma sola) */}
+        <View wrap={false} style={{ marginTop: 22 }}>
+          <View style={[s.box, { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }]}>
+            <Text style={[s.k, s.vb]}>Conformidad · Valorización N° {d.numero} — {d.proyecto}</Text>
+            <Text style={[s.vb, s.hi]}>Cobro neto del periodo: {fmtMoney(d.cobroNeto)}</Text>
           </View>
-          <View style={{ alignItems: 'center', width: 200 }}>
-            <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
-            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>____________________</Text>
-            <Text style={{ fontSize: 8, color: '#666' }}>Aprobado por · Gerencia</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+            <View style={{ alignItems: 'center', width: 200 }}>
+              <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
+              <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? '____________________'}</Text>
+              <Text style={{ fontSize: 8, color: '#666' }}>Elaborado por · Jefe de Proyectos</Text>
+            </View>
+            <View style={{ alignItems: 'center', width: 200 }}>
+              <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
+              <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>____________________</Text>
+              <Text style={{ fontSize: 8, color: '#666' }}>Aprobado por · Gerencia</Text>
+            </View>
           </View>
         </View>
 
