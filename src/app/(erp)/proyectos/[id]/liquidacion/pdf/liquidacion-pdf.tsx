@@ -31,6 +31,7 @@ export interface LiqPdfData {
   costoPresupuestado: number; gastado: number;
   margenPresupuesto: number; utilidadReal: number; margenPct: number;
   adelantoInicial: number; amortizado: number; adelantoSaldo: number;
+  medios?: { banco: string; titular: string; cuentaSoles?: string; cciSoles?: string; cuentaDolares?: string; cciDolares?: string; detraccion: boolean }[];
 }
 
 export function LiquidacionPDF({ d }: { d: LiqPdfData }) {
@@ -82,6 +83,22 @@ export function LiquidacionPDF({ d }: { d: LiqPdfData }) {
           <View style={s.tot}><Text style={s.vb}>Margen vs. presupuesto</Text><Text style={[s.vb, d.margenPresupuesto >= 0 ? s.pos : s.hi]}>{fmtMoney(d.margenPresupuesto)}</Text></View>
           <View style={s.row}><Text style={[s.vb, { fontSize: 11 }]}>Utilidad real (cobrado − gastado)</Text><Text style={[s.vb, { fontSize: 11 }, d.utilidadReal >= 0 ? s.pos : s.hi]}>{fmtMoney(d.utilidadReal)} ({fmtPct(d.margenPct, 1)})</Text></View>
         </View>
+
+        {d.medios && d.medios.length ? (
+          <View wrap={false}>
+            <Text style={s.sectionTitle}>Medios de pago — depositar a nombre de {d.medios[0].titular}</Text>
+            <View style={s.box}>
+              {d.medios.map((m, i) => (
+                <Text key={i} style={{ fontSize: 8, color: '#333', marginBottom: 2 }}>
+                  {m.banco}{m.detraccion ? ' (Detracción)' : ''}:
+                  {m.cuentaSoles ? ` S/ ${m.cuentaSoles}${m.cciSoles ? ` · CCI ${m.cciSoles}` : ''}` : ''}
+                  {m.cuentaSoles && m.cuentaDolares ? '   |  ' : ''}
+                  {m.cuentaDolares ? ` US$ ${m.cuentaDolares}${m.cciDolares ? ` · CCI ${m.cciDolares}` : ''}` : ''}
+                </Text>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         <Text style={s.footer} fixed>AZUR Constructora e Inmobiliaria · Liquidación de obra · {d.codigo}</Text>
       </Page>

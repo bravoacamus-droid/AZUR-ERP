@@ -41,6 +41,7 @@ export interface ValPdfData {
     pct: number; monto: number; pctAcum: number; valorizadoAcum: number; saldo: number;
   }[];
   historial: { numero: number; fecha: string; monto: number }[];
+  medios?: { banco: string; titular: string; cuentaSoles?: string; cciSoles?: string; cuentaDolares?: string; cciDolares?: string; detraccion: boolean }[];
 }
 
 export function ValorizacionPDF({ d }: { d: ValPdfData }) {
@@ -163,6 +164,19 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
               <Text style={[s.k, s.vb]}>Conformidad · Valorización N° {d.numero} — {d.proyecto}</Text>
               <Text style={[s.vb, s.hi]}>Cobro neto del periodo: {fmtMoney(d.cobroNeto)}</Text>
             </View>
+            {d.medios && d.medios.length ? (
+              <View style={{ marginBottom: 8 }}>
+                <Text style={[s.k, s.vb, { fontSize: 8, marginBottom: 2 }]}>Medios de pago — depositar a nombre de {d.medios[0].titular}</Text>
+                {d.medios.map((m, i) => (
+                  <Text key={i} style={{ fontSize: 7.5, color: '#333', marginBottom: 1 }}>
+                    {m.banco}{m.detraccion ? ' (Detracción)' : ''}:
+                    {m.cuentaSoles ? ` S/ ${m.cuentaSoles}${m.cciSoles ? ` · CCI ${m.cciSoles}` : ''}` : ''}
+                    {m.cuentaSoles && m.cuentaDolares ? '   |  ' : ''}
+                    {m.cuentaDolares ? ` US$ ${m.cuentaDolares}${m.cciDolares ? ` · CCI ${m.cciDolares}` : ''}` : ''}
+                  </Text>
+                ))}
+              </View>
+            ) : null}
             <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
               <View style={{ alignItems: 'center', width: 200 }}>
                 {/* Espacio en blanco para firmar (encima de la línea) */}

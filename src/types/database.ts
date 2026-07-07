@@ -1494,6 +1494,9 @@ export type Database = {
           es_detraccion: boolean
           id: string
           logo_url: string | null
+          mostrar_cotizacion: boolean
+          mostrar_liquidacion: boolean
+          mostrar_valorizacion: boolean
           orden: number
           titular: string
         }
@@ -1507,6 +1510,9 @@ export type Database = {
           es_detraccion?: boolean
           id?: string
           logo_url?: string | null
+          mostrar_cotizacion?: boolean
+          mostrar_liquidacion?: boolean
+          mostrar_valorizacion?: boolean
           orden?: number
           titular: string
         }
@@ -1520,6 +1526,9 @@ export type Database = {
           es_detraccion?: boolean
           id?: string
           logo_url?: string | null
+          mostrar_cotizacion?: boolean
+          mostrar_liquidacion?: boolean
+          mostrar_valorizacion?: boolean
           orden?: number
           titular?: string
         }

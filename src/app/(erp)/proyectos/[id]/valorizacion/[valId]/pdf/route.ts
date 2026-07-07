@@ -77,6 +77,13 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   const amortizadoAcum = tasaAmort * valorizadoAcum;
   const saldoAdelanto = adelantoTotal - amortizadoAcum;
 
+  // medios de pago de la empresa (dónde deposita el cliente)
+  const { data: medios } = await supabase
+    .from('medios_pago_empresa')
+    .select('banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion, mostrar_valorizacion')
+    .eq('mostrar_valorizacion', true)
+    .order('orden');
+
   // base de valorización: costo o precio (factor = contrato / costo directo)
   const costoDirecto = (allItems ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? 0) : 0), 0);
   const factorVal = proy.base_valorizacion === 'precio' && costoDirecto > 0 ? contrato / costoDirecto : 1;
@@ -121,6 +128,12 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     responsable,
     rows,
     historial,
+    medios: (medios ?? []).map((m) => ({
+      banco: m.banco, titular: m.titular,
+      cuentaSoles: m.cuenta_soles ?? undefined, cciSoles: m.cci_soles ?? undefined,
+      cuentaDolares: m.cuenta_dolares ?? undefined, cciDolares: m.cci_dolares ?? undefined,
+      detraccion: m.es_detraccion,
+    })),
   };
 
   const buffer = await renderToBuffer(createElement(ValorizacionPDF as any, { d }) as any);

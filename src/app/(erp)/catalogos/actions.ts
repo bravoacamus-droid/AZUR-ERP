@@ -276,6 +276,9 @@ const medioSchema = z.object({
   cuenta_dolares: opt(),
   cci_dolares: opt(),
   es_detraccion: z.coerce.boolean().default(false),
+  mostrar_cotizacion: z.coerce.boolean().default(true),
+  mostrar_valorizacion: z.coerce.boolean().default(true),
+  mostrar_liquidacion: z.coerce.boolean().default(true),
 });
 
 export async function guardarMedioPago(input: z.input<typeof medioSchema>): Promise<Res> {

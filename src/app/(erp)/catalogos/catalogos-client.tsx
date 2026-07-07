@@ -15,7 +15,7 @@ import { Field, EmptyState } from '@/components/ui/misc';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { PageHeader } from '@/components/ui/page';
 import { fmtMoney } from '@/lib/format';
-import { soloDigitos } from '@/lib/utils';
+import { soloDigitos, digitosGuiones } from '@/lib/utils';
 import { CuentasBancarias } from '@/components/finanzas/cuentas-bancarias';
 import {
   guardarCliente,
@@ -53,6 +53,7 @@ export type Plantilla = {
 export type Medio = {
   id: string; banco: string; titular: string; cuenta_soles: string | null; cci_soles: string | null;
   cuenta_dolares: string | null; cci_dolares: string | null; es_detraccion: boolean;
+  mostrar_cotizacion?: boolean; mostrar_valorizacion?: boolean; mostrar_liquidacion?: boolean;
 };
 
 type Data = {
@@ -652,6 +653,7 @@ function MediosTab({ rows }: { rows: Medio[] }) {
                 <TableHead>Soles</TableHead>
                 <TableHead>Dólares</TableHead>
                 <TableHead>Detracción</TableHead>
+                <TableHead>Visible en</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -663,6 +665,14 @@ function MediosTab({ rows }: { rows: Medio[] }) {
                   <TableCell className="text-xs tabular-nums">{m.cuenta_soles ?? '—'}{m.cci_soles && <div className="text-muted-foreground">CCI {m.cci_soles}</div>}</TableCell>
                   <TableCell className="text-xs tabular-nums">{m.cuenta_dolares ?? '—'}{m.cci_dolares && <div className="text-muted-foreground">CCI {m.cci_dolares}</div>}</TableCell>
                   <TableCell>{m.es_detraccion ? <Badge variant="warning">Detracción</Badge> : '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {(m.mostrar_cotizacion ?? true) && <Badge variant="muted">Cot</Badge>}
+                      {(m.mostrar_valorizacion ?? true) && <Badge variant="muted">Val</Badge>}
+                      {(m.mostrar_liquidacion ?? true) && <Badge variant="muted">Liq</Badge>}
+                      {!(m.mostrar_cotizacion ?? true) && !(m.mostrar_valorizacion ?? true) && !(m.mostrar_liquidacion ?? true) && <span className="text-xs text-muted-foreground">Oculta</span>}
+                    </div>
+                  </TableCell>
                   <TableCell><RowActions onEdit={() => { setEditing(m); setOpen(true); }} onDelete={() => deleteRow('medios', m.id, m.banco)} /></TableCell>
                 </TableRow>
               ))}
@@ -685,6 +695,9 @@ function MedioForm({ medio, onClose }: { medio: Medio | null; onClose: () => voi
     cuenta_dolares: medio?.cuenta_dolares ?? '',
     cci_dolares: medio?.cci_dolares ?? '',
     es_detraccion: medio?.es_detraccion ?? false,
+    mostrar_cotizacion: medio?.mostrar_cotizacion ?? true,
+    mostrar_valorizacion: medio?.mostrar_valorizacion ?? true,
+    mostrar_liquidacion: medio?.mostrar_liquidacion ?? true,
   });
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -698,15 +711,24 @@ function MedioForm({ medio, onClose }: { medio: Medio | null; onClose: () => voi
           <Field label="Titular" required><Input value={f.titular} onChange={(e) => setF({ ...f, titular: e.target.value })} required /></Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Cuenta soles"><Input inputMode="numeric" maxLength={20} value={f.cuenta_soles} onChange={(e) => setF({ ...f, cuenta_soles: soloDigitos(e.target.value) })} /></Field>
-          <Field label="CCI soles"><Input inputMode="numeric" maxLength={20} value={f.cci_soles} onChange={(e) => setF({ ...f, cci_soles: soloDigitos(e.target.value) })} /></Field>
-          <Field label="Cuenta dólares"><Input inputMode="numeric" maxLength={20} value={f.cuenta_dolares} onChange={(e) => setF({ ...f, cuenta_dolares: soloDigitos(e.target.value) })} /></Field>
-          <Field label="CCI dólares"><Input inputMode="numeric" maxLength={20} value={f.cci_dolares} onChange={(e) => setF({ ...f, cci_dolares: soloDigitos(e.target.value) })} /></Field>
+          <Field label="Cuenta soles"><Input inputMode="numeric" maxLength={25} value={f.cuenta_soles} onChange={(e) => setF({ ...f, cuenta_soles: digitosGuiones(e.target.value) })} /></Field>
+          <Field label="CCI soles"><Input inputMode="numeric" maxLength={25} value={f.cci_soles} onChange={(e) => setF({ ...f, cci_soles: digitosGuiones(e.target.value) })} /></Field>
+          <Field label="Cuenta dólares"><Input inputMode="numeric" maxLength={25} value={f.cuenta_dolares} onChange={(e) => setF({ ...f, cuenta_dolares: digitosGuiones(e.target.value) })} /></Field>
+          <Field label="CCI dólares"><Input inputMode="numeric" maxLength={25} value={f.cci_dolares} onChange={(e) => setF({ ...f, cci_dolares: digitosGuiones(e.target.value) })} /></Field>
         </div>
         <label className="flex items-center gap-2 text-sm font-medium">
           <input type="checkbox" className="size-4 accent-azur-600" checked={f.es_detraccion} onChange={(e) => setF({ ...f, es_detraccion: e.target.checked })} />
           Cuenta de detracción
         </label>
+        <div className="rounded-lg border p-3">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mostrar esta cuenta en</p>
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-azur-600" checked={f.mostrar_cotizacion} onChange={(e) => setF({ ...f, mostrar_cotizacion: e.target.checked })} /> Cotización</label>
+            <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-azur-600" checked={f.mostrar_valorizacion} onChange={(e) => setF({ ...f, mostrar_valorizacion: e.target.checked })} /> Valorización</label>
+            <label className="flex items-center gap-2"><input type="checkbox" className="size-4 accent-azur-600" checked={f.mostrar_liquidacion} onChange={(e) => setF({ ...f, mostrar_liquidacion: e.target.checked })} /> Liquidación</label>
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">Controla en qué documentos que recibe el cliente aparece esta cuenta. (No afecta el desplegable interno de “programar pago”.)</p>
+        </div>
         <ErrorMsg msg={error} />
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>

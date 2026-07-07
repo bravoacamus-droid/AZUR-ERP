@@ -21,7 +21,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
 
   const [{ data: items }, { data: medios }, { data: formasPago }, { data: responsable }] = await Promise.all([
     supabase.from('cotizacion_items').select('*').eq('cotizacion_id', params.id).order('orden'),
-    supabase.from('medios_pago_empresa').select('*').order('orden'),
+    supabase.from('medios_pago_empresa').select('*').eq('mostrar_cotizacion', true).order('orden'),
     supabase.from('cotizacion_formas_pago').select('*').eq('cotizacion_id', params.id).order('orden'),
     cot.responsable_id
       ? supabase.from('profiles').select('nombre, rol').eq('id', cot.responsable_id).single()

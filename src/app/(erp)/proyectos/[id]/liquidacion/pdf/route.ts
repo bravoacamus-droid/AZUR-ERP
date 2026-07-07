@@ -12,11 +12,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const { data: proy } = await supabase.from('proyectos').select('*, cliente:clientes(razon_social)').eq('id', params.id).single();
   if (!proy) return new Response('No encontrado', { status: 404 });
 
-  const [{ data: items }, { data: vals }, { data: dash }, { data: ads }] = await Promise.all([
+  const [{ data: items }, { data: vals }, { data: dash }, { data: ads }, { data: medios }] = await Promise.all([
     supabase.from('proyecto_items').select('total_costo, es_hoja').eq('proyecto_id', params.id),
     supabase.from('valorizaciones').select('amortizacion_adelanto').eq('proyecto_id', params.id),
     supabase.from('v_dashboard_proyecto').select('*').eq('proyecto_id', params.id).single(),
     supabase.from('adicionales_deductivos').select('tipo, monto, estado').eq('proyecto_id', params.id).eq('estado', 'aprobado'),
+    supabase.from('medios_pago_empresa').select('banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion, mostrar_liquidacion').eq('mostrar_liquidacion', true).order('orden'),
   ]);
 
   const contrato = Number(proy.contrato_total);
@@ -38,6 +39,12 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     costoPresupuestado, gastado: Number(dash?.gasto ?? 0),
     margenPresupuesto: liq.margenPresupuesto, utilidadReal: liq.utilidadReal, margenPct: liq.margenPct,
     adelantoInicial: liq.adelantoInicial, amortizado, adelantoSaldo: liq.adelantoSaldo,
+    medios: (medios ?? []).map((m) => ({
+      banco: m.banco, titular: m.titular,
+      cuentaSoles: m.cuenta_soles ?? undefined, cciSoles: m.cci_soles ?? undefined,
+      cuentaDolares: m.cuenta_dolares ?? undefined, cciDolares: m.cci_dolares ?? undefined,
+      detraccion: m.es_detraccion,
+    })),
   };
 
   const buffer = await renderToBuffer(createElement(LiquidacionPDF as any, { d }) as any);

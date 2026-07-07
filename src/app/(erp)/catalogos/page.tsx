@@ -16,7 +16,7 @@ export default async function CatalogosPage() {
       supabase.from('catalogo_partidas').select('id, linea_id, codigo, descripcion, unidad, costo_referencial').order('descripcion'),
       supabase.from('catalogo_insumos').select('id, codigo, nombre, unidad, precio, tipo').order('nombre'),
       supabase.from('plantillas_cotizacion').select('id, linea_id, nombre, condiciones, servicios_incluidos, servicios_omitidos, garantia').order('nombre'),
-      supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion').order('orden'),
+      supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion, mostrar_cotizacion, mostrar_valorizacion, mostrar_liquidacion').order('orden'),
     ]);
 
   return (
