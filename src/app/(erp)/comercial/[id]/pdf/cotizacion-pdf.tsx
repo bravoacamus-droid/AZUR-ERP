@@ -128,6 +128,7 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
         </View>
 
         {/* Condiciones */}
+        {d.condiciones ? <><Text style={s.sectionTitle}>CONDICIONES GENERALES</Text><Text style={s.cond}>{d.condiciones}</Text></> : null}
         {d.serviciosIncluidos ? <><Text style={s.sectionTitle}>SERVICIOS INCLUIDOS</Text><Text style={s.cond}>{d.serviciosIncluidos}</Text></> : null}
         {d.serviciosOmitidos ? <><Text style={s.sectionTitle}>SERVICIOS OMITIDOS</Text><Text style={s.cond}>{d.serviciosOmitidos}</Text></> : null}
         {d.garantia ? <><Text style={s.sectionTitle}>GARANTÍA</Text><Text style={s.cond}>{d.garantia}</Text></> : null}
