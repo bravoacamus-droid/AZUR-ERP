@@ -1,11 +1,11 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { CatalogosClient } from './catalogos-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CatalogosPage() {
-  await requireRol(['gerencia', 'presupuestos', 'comercial', 'administrador']);
+  await requireModulo('catalogos', 'ver');
   const supabase = createClient();
 
   const [{ data: lineas }, { data: clientes }, { data: contrapartes }, { data: partidas }, { data: insumos }, { data: plantillas }, { data: medios }] =

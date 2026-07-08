@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { PageHeader } from '@/components/ui/page';
 import { NuevaCotizacionForm } from './form';
 
 export const dynamic = 'force-dynamic';
 
 export default async function NuevaCotizacionPage() {
-  await requireRol(['gerencia', 'comercial', 'presupuestos']);
+  await requireModulo('comercial', 'editar');
   const supabase = createClient();
   const [{ data: lineas }, { data: clientes }, { data: plantillas }] = await Promise.all([
     supabase.from('lineas_negocio').select('id, codigo, nombre').eq('activo', true),

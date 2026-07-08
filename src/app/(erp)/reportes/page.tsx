@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { saludGlobal, type DashboardProyecto } from '@/lib/salud';
 import { ReportesClient } from './reportes-client';
@@ -30,7 +30,7 @@ function desdeDe(periodo: string): Date | null {
 }
 
 export default async function ReportesPage({ searchParams }: { searchParams: { periodo?: string; proyecto?: string; linea?: string } }) {
-  await requireRol(['gerencia', 'jefe_proyectos', 'administrador', 'presupuestos']);
+  await requireModulo('reportes', 'ver');
   const supabase = createClient();
 
   const periodo = searchParams.periodo ?? '30';

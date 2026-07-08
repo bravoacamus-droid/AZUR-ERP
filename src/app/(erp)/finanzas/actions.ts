@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireRol, requireSession } from '@/lib/auth';
+import { requireRol, requireSession, requireModulo } from '@/lib/auth';
 import { notifyUser, notifyRoles } from '@/lib/push/notify';
 import { fmtMoney } from '@/lib/format';
 
@@ -15,7 +15,7 @@ const UMBRAL_GERENCIA = 20000;
 
 // ── N1: Jefe de Proyectos aprueba ───────────────────────────────────────
 export async function aprobarSolicitud(id: string): Promise<Res> {
-  const session = await requireRol(['jefe_proyectos', 'gerencia']);
+  const session = await requireModulo('finanzas', 'editar');
   const supabase = createClient();
   const { error } = await supabase
     .from('solicitudes_pago')
@@ -32,7 +32,7 @@ export async function aprobarSolicitud(id: string): Promise<Res> {
 }
 
 export async function rechazarSolicitud(id: string, motivo: string, devolver = false): Promise<Res> {
-  const session = await requireRol(['jefe_proyectos', 'gerencia', 'administrador']);
+  const session = await requireModulo('finanzas', 'editar');
   const supabase = createClient();
   const admin = createAdminClient();
   const { error } = await supabase
@@ -54,7 +54,7 @@ export async function rechazarSolicitud(id: string, motivo: string, devolver = f
 
 // ── N2: Administrador programa el pago ──────────────────────────────────
 export async function programarPago(id: string, banco: string, fecha: string): Promise<Res> {
-  const session = await requireRol(['administrador', 'gerencia']);
+  const session = await requireModulo('finanzas', 'editar');
   const supabase = createClient();
   const { error } = await supabase
     .from('solicitudes_pago')
@@ -143,7 +143,7 @@ async function conciliarInterno(id: string) {
 
 // ── CxC: emitir factura desde una armada ────────────────────────────────
 export async function emitirFactura(armadaId: string): Promise<Res> {
-  await requireRol(['administrador', 'gerencia', 'comercial']);
+  await requireModulo('finanzas', 'editar');
   const supabase = createClient();
   const { data: arm } = await supabase.from('cronograma_cobros').select('*, proyecto:proyectos(cliente_id)').eq('id', armadaId).single();
   if (!arm) return { ok: false, error: 'Armada no encontrada' };
@@ -159,7 +159,7 @@ export async function emitirFactura(armadaId: string): Promise<Res> {
 }
 
 export async function crearFacturaManual(input: { cliente_id: string; proyecto_id?: string; numero?: string; monto: number; fecha_vencimiento?: string }): Promise<Res> {
-  await requireRol(['administrador', 'gerencia']);
+  await requireModulo('finanzas', 'editar');
   const supabase = createClient();
   const { error } = await supabase.from('facturas').insert({
     cliente_id: input.cliente_id, proyecto_id: input.proyecto_id || null, numero: input.numero || null,
@@ -172,7 +172,7 @@ export async function crearFacturaManual(input: { cliente_id: string; proyecto_i
 
 // ── CxC: registrar abono/cobro del cliente ──────────────────────────────
 export async function registrarAbono(facturaId: string, monto: number, ctaOrigen?: string): Promise<Res> {
-  const session = await requireRol(['administrador', 'gerencia']);
+  const session = await requireModulo('finanzas', 'editar');
   const supabase = createClient();
   const admin = createAdminClient();
   const { data: fac } = await admin.from('facturas').select('*').eq('id', facturaId).single();
@@ -194,7 +194,7 @@ export async function registrarAbono(facturaId: string, monto: number, ctaOrigen
 
 // ── Cajas: movimiento manual (traslado / reposición / ajuste) ───────────
 export async function movimientoCaja(input: { caja_id: string; proyecto_id?: string; tipo: string; monto: number; concepto: string; metodo?: string; num_operacion?: string; voucher_url?: string }): Promise<Res> {
-  const session = await requireRol(['administrador', 'gerencia']);
+  const session = await requireModulo('finanzas', 'editar');
   const supabase = createClient();
   const { error } = await supabase.from('movimientos_caja').insert({
     caja_id: input.caja_id, proyecto_id: input.proyecto_id || null, tipo: input.tipo as never,
@@ -208,7 +208,7 @@ export async function movimientoCaja(input: { caja_id: string; proyecto_id?: str
 
 // Verifica si una cuenta coincide con las registradas de un CLIENTE (por su id).
 export async function validarCuentaCliente(clienteId: string, cta: string): Promise<{ encontrado: boolean; coincide: boolean }> {
-  await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);
+  await requireModulo('finanzas', 'ver');
   const soloN = (s: string | null | undefined) => String(s ?? '').replace(/\D/g, '');
   const ctaN = soloN(cta);
   if (!clienteId || !ctaN) return { encontrado: false, coincide: true };
@@ -224,7 +224,7 @@ export async function validarCuentaCliente(clienteId: string, cta: string): Prom
 
 // Verifica si la cuenta de una solicitud coincide con las registradas del proveedor (por RUC/DNI).
 export async function validarCuentaProveedor(rucDni: string, cta: string): Promise<{ encontrado: boolean; coincide: boolean; cuentas: string[] }> {
-  await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);
+  await requireModulo('finanzas', 'ver');
   const soloN = (s: string | null | undefined) => String(s ?? '').replace(/\D/g, '');
   const ruc = soloN(rucDni);
   const ctaN = soloN(cta);
@@ -243,7 +243,7 @@ export async function validarCuentaProveedor(rucDni: string, cta: string): Promi
 
 // Editar una solicitud (solo mientras está Solicitada; Gerencia puede siempre).
 export async function editarSolicitud(id: string, patch: Record<string, unknown>): Promise<Res> {
-  const session = await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);
+  const session = await requireModulo('finanzas', 'editar');
   const admin = createAdminClient();
   const { data: s } = await admin.from('solicitudes_pago').select('status').eq('id', id).single();
   if (!s) return { ok: false, error: 'Solicitud no encontrada' };
@@ -256,7 +256,7 @@ export async function editarSolicitud(id: string, patch: Record<string, unknown>
 
 // Eliminar una solicitud (Solicitada para todos; Gerencia/Administración siempre).
 export async function eliminarSolicitud(id: string): Promise<Res> {
-  const session = await requireRol(['administrador', 'gerencia', 'jefe_proyectos']);
+  const session = await requireModulo('finanzas', 'editar');
   const admin = createAdminClient();
   const { data: s } = await admin.from('solicitudes_pago').select('status').eq('id', id).single();
   if (!s) return { ok: false, error: 'Solicitud no encontrada' };
@@ -270,7 +270,7 @@ export async function eliminarSolicitud(id: string): Promise<Res> {
 
 // Crea una caja chica adicional para el proyecto, asignada a un residente/coordinador.
 export async function crearCajaChica(input: { proyecto_id: string; nombre: string; responsable_id?: string; asignacion_semanal?: number; monto_maximo?: number }): Promise<Res> {
-  await requireRol(['administrador', 'gerencia']);
+  await requireModulo('finanzas', 'editar');
   const admin = createAdminClient();
   const { data, error } = await admin.from('cajas').insert({
     proyecto_id: input.proyecto_id, tipo: 'chica', nombre: input.nombre,
@@ -285,7 +285,7 @@ export async function crearCajaChica(input: { proyecto_id: string; nombre: strin
 
 // Edita datos de la caja (responsable, asignación semanal, tope, nombre).
 export async function actualizarCaja(cajaId: string, patch: { responsable_id?: string | null; asignacion_semanal?: number; monto_maximo?: number; nombre?: string }): Promise<Res> {
-  await requireRol(['administrador', 'gerencia']);
+  await requireModulo('finanzas', 'editar');
   const admin = createAdminClient();
   const { error } = await admin.from('cajas').update(patch as never).eq('id', cajaId);
   if (error) return { ok: false, error: error.message };

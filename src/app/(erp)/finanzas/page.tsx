@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { PageHeader, KpiCard } from '@/components/ui/page';
 import { Wallet, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { FinanzasClient } from './finanzas-client';
@@ -8,7 +8,7 @@ import { fmtMoney } from '@/lib/format';
 export const dynamic = 'force-dynamic';
 
 export default async function FinanzasPage() {
-  const session = await requireRol(['gerencia', 'jefe_proyectos', 'administrador']);
+  const session = await requireModulo('finanzas', 'ver');
   const supabase = createClient();
 
   const [sols, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards] = await Promise.all([

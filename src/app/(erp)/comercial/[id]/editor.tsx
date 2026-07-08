@@ -35,11 +35,11 @@ import {
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId,
+  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true,
 }: {
   cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
   historial: any[]; perfilesMap: Record<string, string>;
-  userNombre: string; userId: string;
+  userNombre: string; userId: string; canEdit?: boolean;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -66,7 +66,7 @@ export function CotizacionEditor({
   const [motivo, setMotivo] = useState('');
   const [apuItem, setApuItem] = useState<Row | null>(null);
   const [addTarget, setAddTarget] = useState<{ parent: Row | null; nivel: number } | null>(null);
-  const editable = cot.estado === 'borrador' || cot.estado === 'en_negociacion';
+  const editable = canEdit && (cot.estado === 'borrador' || cot.estado === 'en_negociacion');
 
   useEffect(() => setRows(items), [items]);
 

@@ -3,11 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 
 type Res = { ok: boolean; error?: string; id?: string };
-
-const ROLES_INVENTARIO = ['gerencia', 'logistico', 'administrador'] as const;
 
 // ── Crear ítem de inventario ──────────────────────────────────────────────
 const crearItemSchema = z.object({
@@ -19,7 +17,7 @@ const crearItemSchema = z.object({
 });
 
 export async function crearItem(input: z.input<typeof crearItemSchema>): Promise<Res> {
-  await requireRol([...ROLES_INVENTARIO]);
+  await requireModulo('inventario', 'editar');
   const parsed = crearItemSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos incompletos' };
   const d = parsed.data;
@@ -61,7 +59,7 @@ const movimientoSchema = z
   });
 
 export async function registrarMovimiento(input: z.input<typeof movimientoSchema>): Promise<Res> {
-  const session = await requireRol([...ROLES_INVENTARIO]);
+  const session = await requireModulo('inventario', 'editar');
   const parsed = movimientoSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos incompletos' };
   const d = parsed.data;

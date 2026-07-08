@@ -2,13 +2,14 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { CajaDetalle } from './caja-detalle';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CajaPage({ params }: { params: { id: string } }) {
-  const session = await requireRol(['gerencia', 'jefe_proyectos', 'administrador']);
+  const session = await requireModulo('finanzas', 'ver');
   const supabase = createClient();
 
   const { data: caja } = await supabase.from('v_cajas_saldos').select('*').eq('caja_id', params.id).single();
@@ -34,7 +35,7 @@ export default async function CajaPage({ params }: { params: { id: string } }) {
         movimientos={movimientos ?? []}
         otrasCajas={cajas ?? []}
         perfiles={perfiles ?? []}
-        canManage={['gerencia', 'administrador'].includes(session.rol)}
+        canManage={puedeEditar(session.permisos, 'finanzas')}
       />
     </div>
   );

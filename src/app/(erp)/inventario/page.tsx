@@ -1,6 +1,6 @@
 import { Boxes, PackageOpen, Wrench } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { PageHeader, KpiCard } from '@/components/ui/page';
 import {
   InventarioClient,
@@ -12,7 +12,7 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function InventarioPage() {
-  await requireRol(['gerencia', 'logistico', 'administrador']);
+  await requireModulo('inventario', 'ver');
   const supabase = createClient();
 
   const [{ data: items }, { data: proyectos }, { data: movimientos }] = await Promise.all([

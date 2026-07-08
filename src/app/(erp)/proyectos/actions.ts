@@ -4,17 +4,17 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { notifyRoles } from '@/lib/push/notify';
 import { calcEstado, calcPrioridad, proyectadoSemana, semanasEntre } from '@/lib/lastplanner';
 import { saludRegla1, saludRegla2 } from '@/lib/salud';
 import { nowLima } from '@/lib/format';
 
 type Res = { ok: boolean; error?: string; id?: string };
-const ROLES_PROY = ['gerencia', 'jefe_proyectos', 'presupuestos'] as const;
 
+// Escritura en Proyectos: exige permiso de edición del módulo.
 async function guard() {
-  return requireRol([...ROLES_PROY]);
+  return requireModulo('proyectos', 'editar');
 }
 
 // ── Cabecera del proyecto ───────────────────────────────────────────────
@@ -538,7 +538,7 @@ export async function resolverAdicional(proyectoId: string, id: string, aprobar:
 
 // ── Liquidación / cierre de obra (Sec. 4.6 / 7bis.2) ────────────────────
 export async function liquidarProyecto(proyectoId: string): Promise<Res> {
-  const session = await requireRol(['gerencia', 'jefe_proyectos']);
+  const session = await requireModulo('proyectos', 'editar');
   const admin = createAdminClient();
 
   // remanente de la caja chica → vuelve a caja central

@@ -3,15 +3,18 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 
 export type Res = { ok: boolean; error?: string; id?: string };
 export type ImportRes = { ok: boolean; error?: string; insertados?: number; duplicados?: number };
 
-const ROLES = ['gerencia', 'presupuestos', 'comercial', 'administrador'] as const;
-
+// Escritura en Catálogos (partidas, insumos, plantillas, medios, contrapartes).
 async function guard() {
-  return requireRol([...ROLES]);
+  return requireModulo('catalogos', 'editar');
+}
+// Escritura en Clientes (maestro de clientes vive junto a catálogos).
+async function guardClientes() {
+  return requireModulo('clientes', 'editar');
 }
 
 const opt = (s: z.ZodTypeAny = z.string()) => s.optional().or(z.literal('')).transform((v) => (v ? v : null));
@@ -88,7 +91,7 @@ const clienteSchema = z.object({
 });
 
 export async function guardarCliente(input: z.input<typeof clienteSchema>): Promise<Res> {
-  await guard();
+  await guardClientes();
   const parsed = clienteSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
   const { id, ...d } = parsed.data;
@@ -312,7 +315,7 @@ const TABLAS = {
 export type TablaCatalogo = keyof typeof TABLAS;
 
 export async function eliminarRegistro(tabla: TablaCatalogo, id: string): Promise<Res> {
-  await guard();
+  await (tabla === 'clientes' ? guardClientes() : guard());
   const nombre = TABLAS[tabla];
   if (!nombre) return { ok: false, error: 'Tabla inválida' };
   if (!z.string().uuid().safeParse(id).success) return { ok: false, error: 'ID inválido' };

@@ -1884,6 +1884,7 @@ export type Database = {
           id: string
           nombre: string
           rol: Database["public"]["Enums"]["rol_enum"]
+          rol_personalizado_id: string | null
           telefono: string | null
         }
         Insert: {
@@ -1894,6 +1895,7 @@ export type Database = {
           id: string
           nombre: string
           rol?: Database["public"]["Enums"]["rol_enum"]
+          rol_personalizado_id?: string | null
           telefono?: string | null
         }
         Update: {
@@ -1904,7 +1906,32 @@ export type Database = {
           id?: string
           nombre?: string
           rol?: Database["public"]["Enums"]["rol_enum"]
+          rol_personalizado_id?: string | null
           telefono?: string | null
+        }
+        Relationships: []
+      }
+      roles_personalizados: {
+        Row: {
+          activo: boolean
+          created_at: string
+          id: string
+          nombre: string
+          permisos: Json
+        }
+        Insert: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre: string
+          permisos?: Json
+        }
+        Update: {
+          activo?: boolean
+          created_at?: string
+          id?: string
+          nombre?: string
+          permisos?: Json
         }
         Relationships: []
       }

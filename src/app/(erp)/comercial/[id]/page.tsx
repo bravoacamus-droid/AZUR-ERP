@@ -2,13 +2,14 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { CotizacionEditor } from './editor';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CotizacionPage({ params }: { params: { id: string } }) {
-  const session = await requireRol(['gerencia', 'comercial', 'presupuestos']);
+  const session = await requireModulo('comercial', 'ver');
   const supabase = createClient();
 
   const { data: cot } = await supabase
@@ -61,6 +62,7 @@ export default async function CotizacionPage({ params }: { params: { id: string 
         perfilesMap={perfilesMap}
         userNombre={session.nombre}
         userId={session.id}
+        canEdit={puedeEditar(session.permisos, 'comercial')}
       />
     </div>
   );

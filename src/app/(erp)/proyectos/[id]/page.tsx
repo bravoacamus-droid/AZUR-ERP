@@ -2,13 +2,14 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { ProyectoDetalle } from './detalle';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ProyectoPage({ params }: { params: { id: string } }) {
-  const session = await requireRol(['gerencia', 'jefe_proyectos', 'presupuestos']);
+  const session = await requireModulo('proyectos', 'ver');
   const supabase = createClient();
 
   const { data: proy } = await supabase
@@ -151,7 +152,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
           sstObs: sstObs.data ?? [],
           sstInc: sstInc.data ?? [],
         }}
-        canManage={['gerencia', 'jefe_proyectos', 'presupuestos'].includes(session.rol)}
+        canManage={puedeEditar(session.permisos, 'proyectos')}
       />
     </div>
   );

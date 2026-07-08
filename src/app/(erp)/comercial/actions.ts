@@ -4,19 +4,16 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { requireSession } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { formatCodigo } from '@/lib/codigo';
 import { notifyRoles } from '@/lib/push/notify';
-import { ROLES_VEN_MARGEN } from '@/lib/roles';
 import { armarArbol, calcularCostosMargen, calcularTotales } from '@/lib/calc';
 
 type Res = { ok: boolean; error?: string; id?: string };
 
+// Escritura en Comercial: exige permiso de edición del módulo (rol base o personalizado).
 async function guard() {
-  const session = await requireSession();
-  if (!ROLES_VEN_MARGEN.includes(session.rol))
-    throw new Error('Sin permiso para el módulo Comercial');
-  return session;
+  return requireModulo('comercial', 'editar');
 }
 
 // ── Crear cotización ────────────────────────────────────────────────────

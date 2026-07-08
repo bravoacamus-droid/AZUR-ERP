@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { HardHat } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { PageHeader } from '@/components/ui/page';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 20;
 
 export default async function ProyectosPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {
-  await requireRol(['gerencia', 'jefe_proyectos', 'presupuestos']);
+  await requireModulo('proyectos', 'ver');
   const supabase = createClient();
 
   const q = (searchParams.q ?? '').trim();

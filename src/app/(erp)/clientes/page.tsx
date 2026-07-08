@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/server';
-import { requireRol } from '@/lib/auth';
+import { requireModulo } from '@/lib/auth';
 import { PageHeader } from '@/components/ui/page';
 import { ClientesMaestro } from './clientes-maestro';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ClientesPage() {
-  await requireRol(['gerencia', 'presupuestos', 'comercial', 'administrador']);
+  await requireModulo('clientes', 'ver');
   const supabase = createClient();
 
   const { data: clientes } = await supabase.from('clientes').select('*').order('razon_social');
