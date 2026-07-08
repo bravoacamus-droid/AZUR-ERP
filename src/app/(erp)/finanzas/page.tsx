@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { PageHeader, KpiCard } from '@/components/ui/page';
 import { Wallet, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { FinanzasClient } from './finanzas-client';
@@ -42,6 +43,7 @@ export default async function FinanzasPage() {
 
       <FinanzasClient
         rol={session.rol}
+        canEdit={puedeEditar(session.permisos, 'finanzas')}
         solicitudes={solicitudes}
         facturas={facturas.data ?? []}
         armadas={armadas.data ?? []}

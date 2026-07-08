@@ -1,11 +1,13 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { CatalogosClient } from './catalogos-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CatalogosPage() {
-  await requireModulo('catalogos', 'ver');
+  const session = await requireModulo('catalogos', 'ver');
+  const canEdit = puedeEditar(session.permisos, 'catalogos');
   const supabase = createClient();
 
   const [{ data: lineas }, { data: clientes }, { data: contrapartes }, { data: partidas }, { data: insumos }, { data: plantillas }, { data: medios }] =
@@ -21,6 +23,7 @@ export default async function CatalogosPage() {
 
   return (
     <CatalogosClient
+      canEdit={canEdit}
       data={{
         lineas: lineas ?? [],
         clientes: clientes ?? [],

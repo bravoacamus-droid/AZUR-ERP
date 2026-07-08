@@ -73,16 +73,19 @@ export function InventarioClient({
   items,
   proyectos,
   movimientos,
+  canEdit = true,
 }: {
   items: ItemRow[];
   proyectos: ProyectoOpt[];
   movimientos: MovimientoRow[];
+  canEdit?: boolean;
 }) {
   const [openItem, setOpenItem] = React.useState(false);
   const [openMov, setOpenMov] = React.useState(false);
 
   return (
     <>
+      {canEdit && (
       <div className="flex flex-wrap gap-2">
         <Button variant="gradient" onClick={() => setOpenMov(true)}>
           <ArrowLeftRight /> Registrar movimiento
@@ -91,6 +94,7 @@ export function InventarioClient({
           <Plus /> Nuevo ítem
         </Button>
       </div>
+      )}
 
       <Card>
         <CardHeader className="pb-2">

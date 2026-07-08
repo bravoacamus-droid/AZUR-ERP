@@ -19,7 +19,7 @@ import { CuentasBancarias } from '@/components/finanzas/cuentas-bancarias';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const VACIO = { id: undefined as string | undefined, razon_social: '', tipo_doc: 'RUC', ruc_dni: '', contacto_nombre: '', contacto_email: '', contacto_telefono: '', ubicacion: '', origen: '', banco: '', cuenta: '', cci: '', cuenta_detraccion: '', lat: null as number | null, lng: null as number | null };
 
-export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: any[]; countCot: Record<string, number>; countProy: Record<string, number> }) {
+export function ClientesMaestro({ clientes, countCot, countProy, canEdit = true }: { clientes: any[]; countCot: Record<string, number>; countProy: Record<string, number>; canEdit?: boolean }) {
   const router = useRouter();
   const [q, setQ] = useState('');
   const [edit, setEdit] = useState<typeof VACIO | null>(null);
@@ -71,8 +71,8 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
           <Input placeholder="Buscar por razón social, RUC o contacto…" value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => { setImp(true); setImpMsg(null); }}><Upload /> Importar</Button>
-          <Button variant="gradient" onClick={() => { setEdit({ ...VACIO }); setError(null); }}><Plus /> Nuevo cliente</Button>
+          {canEdit && <Button variant="outline" onClick={() => { setImp(true); setImpMsg(null); }}><Upload /> Importar</Button>}
+          {canEdit && <Button variant="gradient" onClick={() => { setEdit({ ...VACIO }); setError(null); }}><Plus /> Nuevo cliente</Button>}
         </div>
       </div>
 
@@ -94,7 +94,7 @@ export function ClientesMaestro({ clientes, countCot, countProy }: { clientes: a
                     <TableCell>{c.origen ? <Badge variant="outline">{c.origen}</Badge> : '—'}</TableCell>
                     <TableCell>{countCot[c.id] ?? 0}</TableCell>
                     <TableCell>{countProy[c.id] ?? 0}</TableCell>
-                    <TableCell><Button size="icon" variant="ghost" onClick={() => { setEdit({ id: c.id, razon_social: c.razon_social, tipo_doc: c.tipo_doc ?? 'RUC', ruc_dni: c.ruc_dni ?? '', contacto_nombre: c.contacto_nombre ?? '', contacto_email: c.contacto_email ?? '', contacto_telefono: c.contacto_telefono ?? '', ubicacion: c.ubicacion ?? '', origen: c.origen ?? '', banco: (c as any).banco ?? '', cuenta: (c as any).cuenta ?? '', cci: (c as any).cci ?? '', cuenta_detraccion: (c as any).cuenta_detraccion ?? '', lat: c.lat ?? null, lng: c.lng ?? null }); setError(null); }}><Pencil className="size-4" /></Button></TableCell>
+                    <TableCell>{canEdit && <Button size="icon" variant="ghost" onClick={() => { setEdit({ id: c.id, razon_social: c.razon_social, tipo_doc: c.tipo_doc ?? 'RUC', ruc_dni: c.ruc_dni ?? '', contacto_nombre: c.contacto_nombre ?? '', contacto_email: c.contacto_email ?? '', contacto_telefono: c.contacto_telefono ?? '', ubicacion: c.ubicacion ?? '', origen: c.origen ?? '', banco: (c as any).banco ?? '', cuenta: (c as any).cuenta ?? '', cci: (c as any).cci ?? '', cuenta_detraccion: (c as any).cuenta_detraccion ?? '', lat: c.lat ?? null, lng: c.lng ?? null }); setError(null); }}><Pencil className="size-4" /></Button>}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

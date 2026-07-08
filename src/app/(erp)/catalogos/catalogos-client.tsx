@@ -79,7 +79,11 @@ function ErrorMsg({ msg }: { msg: string | null }) {
   return <p className="rounded-lg bg-azur-50 px-3 py-2 text-sm font-medium text-azur-700">{msg}</p>;
 }
 
+const CanEditCtx = React.createContext(true);
+const useCanEdit = () => React.useContext(CanEditCtx);
+
 function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => void }) {
+  if (!useCanEdit()) return null;
   return (
     <div className="flex justify-end gap-1">
       <Button variant="ghost" size="icon" className="size-8" onClick={onEdit} title="Editar">
@@ -126,8 +130,8 @@ function ClientesTab({ rows }: { rows: Cliente[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap justify-end gap-2">
-        <Button variant="outline" onClick={() => setImp(true)}><Upload className="size-4" /> Importar</Button>
-        <Button variant="gradient" onClick={abrirNuevo}><Plus className="size-4" /> Nuevo cliente</Button>
+        {useCanEdit() && <Button variant="outline" onClick={() => setImp(true)}><Upload className="size-4" /> Importar</Button>}
+        {useCanEdit() && <Button variant="gradient" onClick={abrirNuevo}><Plus className="size-4" /> Nuevo cliente</Button>}
       </div>
       {rows.length === 0 ? (
         <EmptyState icon={<Building2 className="size-8" />} titulo="Sin clientes" descripcion="Crea o importa tu cartera de clientes." />
@@ -275,7 +279,7 @@ function ContrapartesTab({ rows }: { rows: Contraparte[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nuevo</Button>
+        {useCanEdit() && <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nuevo</Button>}
       </div>
       {rows.length === 0 ? (
         <EmptyState icon={<HardHat className="size-8" />} titulo="Sin contratistas/proveedores" />
@@ -387,7 +391,7 @@ function PartidasTab({ rows, lineas }: { rows: Partida[]; lineas: Linea[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nueva partida</Button>
+        {useCanEdit() && <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nueva partida</Button>}
       </div>
       {rows.length === 0 ? (
         <EmptyState icon={<ListTree className="size-8" />} titulo="Sin partidas" />
@@ -476,7 +480,7 @@ function InsumosTab({ rows }: { rows: Insumo[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nuevo insumo</Button>
+        {useCanEdit() && <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nuevo insumo</Button>}
       </div>
       {rows.length === 0 ? (
         <EmptyState icon={<Package className="size-8" />} titulo="Sin insumos" />
@@ -559,7 +563,7 @@ function PlantillasTab({ rows, lineas }: { rows: Plantilla[]; lineas: Linea[] })
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nueva plantilla</Button>
+        {useCanEdit() && <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nueva plantilla</Button>}
       </div>
       {rows.length === 0 ? (
         <EmptyState icon={<FileText className="size-8" />} titulo="Sin plantillas" />
@@ -639,7 +643,7 @@ function MediosTab({ rows }: { rows: Medio[] }) {
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nuevo medio</Button>
+        {useCanEdit() && <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> Nuevo medio</Button>}
       </div>
       {rows.length === 0 ? (
         <EmptyState icon={<Landmark className="size-8" />} titulo="Sin medios de pago" />
@@ -797,11 +801,12 @@ function PreciosMasivos() {
   );
 }
 
-export function CatalogosClient({ data }: { data: Data }) {
+export function CatalogosClient({ data, canEdit = true }: { data: Data; canEdit?: boolean }) {
   const [tab, setTab] = React.useState('clientes');
   return (
+    <CanEditCtx.Provider value={canEdit}>
     <div className="space-y-6">
-      <PageHeader title="Catálogos" description="Maestros de datos: clientes, contrapartes, partidas, insumos, plantillas y medios de pago." action={<PreciosMasivos />} />
+      <PageHeader title="Catálogos" description="Maestros de datos: clientes, contrapartes, partidas, insumos, plantillas y medios de pago." action={canEdit ? <PreciosMasivos /> : undefined} />
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
       <div>
         {tab === 'clientes' && <ClientesTab rows={data.clientes} />}
@@ -812,5 +817,6 @@ export function CatalogosClient({ data }: { data: Data }) {
         {tab === 'medios' && <MediosTab rows={data.medios} />}
       </div>
     </div>
+    </CanEditCtx.Provider>
   );
 }

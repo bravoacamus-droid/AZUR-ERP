@@ -1,6 +1,7 @@
 import { Boxes, PackageOpen, Wrench } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { PageHeader, KpiCard } from '@/components/ui/page';
 import {
   InventarioClient,
@@ -12,7 +13,8 @@ import {
 export const dynamic = 'force-dynamic';
 
 export default async function InventarioPage() {
-  await requireModulo('inventario', 'ver');
+  const session = await requireModulo('inventario', 'ver');
+  const canEdit = puedeEditar(session.permisos, 'inventario');
   const supabase = createClient();
 
   const [{ data: items }, { data: proyectos }, { data: movimientos }] = await Promise.all([
@@ -48,7 +50,7 @@ export default async function InventarioPage() {
         <KpiCard label="Sin stock" value={sinStock} icon={<PackageOpen />} tone="warning" />
       </div>
 
-      <InventarioClient items={itemRows} proyectos={proyectoOpts} movimientos={movimientoRows} />
+      <InventarioClient items={itemRows} proyectos={proyectoOpts} movimientos={movimientoRows} canEdit={canEdit} />
     </div>
   );
 }

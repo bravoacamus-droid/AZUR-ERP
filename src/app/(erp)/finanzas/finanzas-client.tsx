@@ -34,7 +34,7 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios }: any) {
+export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios }: any) {
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
@@ -44,10 +44,10 @@ export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, cli
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
       ]} />
-      {tab === 'solicitudes' && <Solicitudes rol={rol} solicitudes={solicitudes} proyectos={proyectos} medios={medios} />}
+      {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
-      {tab === 'cxc' && <CxC rol={rol} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
-      {tab === 'cajas' && <Cajas rol={rol} cajas={cajas} proyectos={proyectos} perfiles={perfiles} dashboards={dashboards} />}
+      {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
+      {tab === 'cajas' && <Cajas rol={rol} canEdit={canEdit} cajas={cajas} proyectos={proyectos} perfiles={perfiles} dashboards={dashboards} />}
     </div>
   );
 }
@@ -55,7 +55,7 @@ export function FinanzasClient({ rol, solicitudes, facturas, armadas, cajas, cli
 const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
 const SOL_VACIA = { id: '', tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', ruc_dni: '', razon_social: '', cta_bancaria: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
 
-function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
+function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [] }: any) {
   const router = useRouter();
   const [nueva, setNueva] = useState(false);
   const [ns, setNs] = useState<any>(SOL_VACIA);
@@ -78,10 +78,10 @@ function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
   const [detalle, setDetalle] = useState<any>(null);
   const [busy, setBusy] = useState(false);
 
-  const puedeAprobar = rol === 'jefe_proyectos' || rol === 'gerencia';
-  const puedeProgramar = rol === 'administrador' || rol === 'gerencia'; // Administración programa
-  const puedePagar = rol === 'gerencia'; // Gerencia ejecuta el pago
-  const esGerencia = rol === 'gerencia';
+  const puedeAprobar = canEdit && (rol === 'jefe_proyectos' || rol === 'gerencia');
+  const puedeProgramar = canEdit && (rol === 'administrador' || rol === 'gerencia'); // Administración programa
+  const puedePagar = canEdit && rol === 'gerencia'; // Gerencia ejecuta el pago
+  const esGerencia = canEdit && rol === 'gerencia';
 
   const wa = (s: any) => encodeURIComponent(`*AZUR* Comprobante de pago\n${s.codigo} · ${s.beneficiario_nombre ?? ''}\nMonto: ${fmtMoney(Number(s.monto))}\n${s.voucher_url ?? ''}`);
 
@@ -123,7 +123,7 @@ function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
       <p className="text-xs text-muted-foreground">
         Flujo: <strong>Solicitada</strong> (campo) → <strong>Aprobada</strong> (Jefe de Proyectos) → <strong>Programada</strong> (Administración) → <strong>Pagada</strong> (Gerencia) → <strong>Conciliada</strong> (automático)
       </p>
-      <Button size="sm" variant="gradient" onClick={() => { setNueva(true); setNs(SOL_VACIA); setNsMsg(null); }}><Plus /> Nueva solicitud de pago</Button>
+      {canEdit && <Button size="sm" variant="gradient" onClick={() => { setNueva(true); setNs(SOL_VACIA); setNsMsg(null); }}><Plus /> Nueva solicitud de pago</Button>}
     </div>
     <Card>
       <CardContent className="p-0">
@@ -175,7 +175,7 @@ function Solicitudes({ rol, solicitudes, proyectos = [], medios = [] }: any) {
                           </a>
                         )}
                         <Button size="sm" variant="ghost" onClick={() => setDetalle(s)}><Eye /></Button>
-                        {s.status === 'solicitada' && (
+                        {canEdit && s.status === 'solicitada' && (
                           <>
                             <Button size="sm" variant="ghost" title="Editar" onClick={() => abrirEditar(s)}><Pencil className="size-4" /></Button>
                             <Button size="sm" variant="ghost" title="Eliminar" onClick={() => borrarSolicitud(s)}><Trash2 className="size-4 text-azur-600" /></Button>
@@ -354,7 +354,7 @@ function CxP({ solicitudes }: any) {
   );
 }
 
-function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
+function CxC({ rol, canEdit = true, facturas, armadas, clientes, proyectos }: any) {
   const router = useRouter();
   const [abono, setAbono] = useState<any>(null);
   const [monto, setMonto] = useState(0);
@@ -363,7 +363,7 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
   const [nueva, setNueva] = useState(false);
   const [fNew, setFNew] = useState({ cliente_id: '', proyecto_id: '', numero: '', monto: 0, fecha_vencimiento: '' });
   const [busy, setBusy] = useState(false);
-  const puede = rol === 'administrador' || rol === 'gerencia';
+  const puede = canEdit && (rol === 'administrador' || rol === 'gerencia');
   async function chkCta(val: string) {
     setCtaOrigen(val); setCtaCliChk(null);
     if (abono?.cliente_id && val.trim()) setCtaCliChk(await validarCuentaCliente(abono.cliente_id, val));
@@ -466,14 +466,14 @@ function CxC({ rol, facturas, armadas, clientes, proyectos }: any) {
   );
 }
 
-function Cajas({ rol, cajas, proyectos, perfiles = [], dashboards = [] }: any) {
+function Cajas({ rol, canEdit = true, cajas, proyectos, perfiles = [], dashboards = [] }: any) {
   const router = useRouter();
   const [mov, setMov] = useState<any>(null);
   const [form, setForm] = useState({ tipo: 'reposicion', monto: 0, concepto: '', metodo: 'transferencia', num_operacion: '', voucher_url: '' });
   const [busy, setBusy] = useState(false);
   const [nueva, setNueva] = useState(false);
   const [nf, setNf] = useState({ proyecto_id: '', nombre: '', responsable_id: '', asignacion_semanal: 0 });
-  const puede = rol === 'administrador' || rol === 'gerencia';
+  const puede = canEdit && (rol === 'administrador' || rol === 'gerencia');
 
   return (
     <div className="space-y-4">

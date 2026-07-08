@@ -1,12 +1,14 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { PageHeader } from '@/components/ui/page';
 import { ClientesMaestro } from './clientes-maestro';
 
 export const dynamic = 'force-dynamic';
 
 export default async function ClientesPage() {
-  await requireModulo('clientes', 'ver');
+  const session = await requireModulo('clientes', 'ver');
+  const canEdit = puedeEditar(session.permisos, 'clientes');
   const supabase = createClient();
 
   const { data: clientes } = await supabase.from('clientes').select('*').order('razon_social');
@@ -24,7 +26,7 @@ export default async function ClientesPage() {
   return (
     <div className="space-y-6">
       <PageHeader title="Clientes" description="Maestro de clientes — cartera, contactos e importación masiva." />
-      <ClientesMaestro clientes={clientes ?? []} countCot={countCot} countProy={countProy} />
+      <ClientesMaestro clientes={clientes ?? []} countCot={countCot} countProy={countProy} canEdit={canEdit} />
     </div>
   );
 }
