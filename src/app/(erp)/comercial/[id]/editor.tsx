@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, ChevronRight, Send, Handshake, CheckCircle2, FileDown,
-  MessageCircle, History, Loader2, Percent, Save, Layers, X, Undo2, Copy, BookmarkPlus,
+  MessageCircle, History, Loader2, Percent, Save, Layers, X, Undo2, Copy, BookmarkPlus, Upload,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
   cambiarEstado, guardarVersion, restaurarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
-  eliminarCotizacion, duplicarCotizacion,
+  eliminarCotizacion, duplicarCotizacion, importarItemizado, parsearXlsx, type FilaImport,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -66,7 +66,26 @@ export function CotizacionEditor({
   const [motivo, setMotivo] = useState('');
   const [apuItem, setApuItem] = useState<Row | null>(null);
   const [addTarget, setAddTarget] = useState<{ parent: Row | null; nivel: number } | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
   const editable = canEdit && (cot.estado === 'borrador' || cot.estado === 'en_negociacion');
+
+  // Navegación tipo Excel: ↑/↓/Enter mueven el foco a la misma columna de la
+  // fila anterior/siguiente (por posición de celda, sirve para cualquier input).
+  const onGridKey = useCallback((e: React.KeyboardEvent<HTMLTableSectionElement>) => {
+    const el = e.target as HTMLElement;
+    if (!(el instanceof HTMLInputElement)) return;
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+    const td = el.closest('td'); const tr = el.closest('tr');
+    if (!td || !tr) return;
+    const col = Array.prototype.indexOf.call(tr.children, td);
+    const dir = e.key === 'ArrowUp' ? -1 : 1; // Enter y ↓ bajan
+    let target = (dir === 1 ? tr.nextElementSibling : tr.previousElementSibling) as HTMLElement | null;
+    while (target) {
+      const input = (target.children[col] as HTMLElement | undefined)?.querySelector('input') as HTMLInputElement | null;
+      if (input && !input.disabled) { e.preventDefault(); input.focus(); input.select(); return; }
+      target = (dir === 1 ? target.nextElementSibling : target.previousElementSibling) as HTMLElement | null;
+    }
+  }, []);
 
   useEffect(() => setRows(items), [items]);
 
@@ -307,9 +326,14 @@ export function CotizacionEditor({
             <CardHeader className="flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Cuadro de costos y margen</CardTitle>
               {editable && (
-                <Button size="sm" variant="gradient" onClick={addRoot} disabled={busy}>
-                  <Plus /> Agregar partida
-                </Button>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => setImportOpen(true)} disabled={busy}>
+                    <Upload className="size-4" /> Importar Excel
+                  </Button>
+                  <Button size="sm" variant="gradient" onClick={addRoot} disabled={busy}>
+                    <Plus /> Agregar partida
+                  </Button>
+                </div>
               )}
             </CardHeader>
             <CardContent className="p-0">
@@ -332,7 +356,7 @@ export function CotizacionEditor({
                       {editable && <th className="px-2 py-2" />}
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody onKeyDown={onGridKey}>
                     {flat.length === 0 && (
                       <tr>
                         <td colSpan={editable ? 10 : 9} className="py-10 text-center text-muted-foreground">
@@ -520,7 +544,160 @@ export function CotizacionEditor({
           onPick={confirmAdd}
         />
       )}
+      {importOpen && (
+        <ImportarModal
+          cotizacionId={cot.id}
+          onClose={() => setImportOpen(false)}
+          onDone={() => { setImportOpen(false); router.refresh(); }}
+        />
+      )}
     </div>
+  );
+}
+
+// ── Importar itemizado desde Excel/CSV o pegado ─────────────────────────
+const CABECERAS_IMPORT = ['Nivel', 'Título', 'Unidad', 'Cantidad', 'Costo unitario', 'Margen %'];
+const sinAcento = (s: string) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+const numImport = (s: string): number | null => {
+  const t = String(s ?? '').replace(/\s/g, '').replace(/,(?=\d{3}\b)/g, '').replace(',', '.').replace(/[^\d.-]/g, '');
+  if (!t) return null;
+  const n = Number(t);
+  return isFinite(n) ? n : null;
+};
+
+// Mapea una matriz (con cabecera) a filas de importación.
+function matrizAFilas(matriz: string[][]): { filas: FilaImport[]; error?: string } {
+  const rows = matriz.filter((r) => r.some((c) => String(c ?? '').trim() !== ''));
+  if (rows.length < 2) return { filas: [], error: 'Faltan filas de datos.' };
+  const head = rows[0].map((c) => sinAcento(String(c)));
+  const idx = (...alts: string[]) => head.findIndex((h) => alts.some((a) => h === a || h.includes(a)));
+  const ci = {
+    nivel: idx('nivel'),
+    titulo: idx('titulo', 'descripcion', 'partida', 'item'),
+    unidad: idx('unidad', 'und', 'um'),
+    cantidad: idx('cantidad', 'cant', 'metrado'),
+    costo: idx('costo unitario', 'costo', 'c.u', 'precio unitario', 'p.u', 'precio'),
+    margen: idx('margen'),
+  };
+  if (ci.titulo < 0) return { filas: [], error: 'No se encontró la columna Título/Descripción. Usa la plantilla.' };
+  const filas: FilaImport[] = [];
+  for (let r = 1; r < rows.length; r++) {
+    const row = rows[r];
+    const titulo = String(row[ci.titulo] ?? '').trim();
+    if (!titulo) continue;
+    let margen = ci.margen >= 0 ? numImport(row[ci.margen]) : null;
+    if (margen != null && margen > 1) margen = margen / 100; // 30 → 0.30
+    filas.push({
+      nivel: ci.nivel >= 0 ? (numImport(row[ci.nivel]) ?? 1) : 1,
+      titulo,
+      unidad: ci.unidad >= 0 ? (String(row[ci.unidad] ?? '').trim() || null) : null,
+      cantidad: ci.cantidad >= 0 ? numImport(row[ci.cantidad]) : null,
+      costo_unitario: ci.costo >= 0 ? numImport(row[ci.costo]) : null,
+      margen_pct: margen,
+    });
+  }
+  return { filas };
+}
+
+function ImportarModal({ cotizacionId, onClose, onDone }: { cotizacionId: string; onClose: () => void; onDone: () => void }) {
+  const [texto, setTexto] = useState('');
+  const [filas, setFilas] = useState<FilaImport[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const parsearTexto = (t: string) => {
+    setTexto(t);
+    if (!t.trim()) { setFilas([]); setMsg(null); return; }
+    const sep = t.includes('\t') ? '\t' : ',';
+    const matriz = t.replace(/\r/g, '').split('\n').map((l) => l.split(sep));
+    const { filas, error } = matrizAFilas(matriz);
+    setFilas(filas); setMsg(error ?? null);
+  };
+
+  const onArchivo = async (file: File) => {
+    setMsg(null);
+    if (/\.xlsx?$/i.test(file.name)) {
+      setBusy(true);
+      const fd = new FormData(); fd.append('file', file);
+      const r = await parsearXlsx(fd);
+      setBusy(false);
+      if (!r.ok || !r.filas) { setMsg(r.error ?? 'No se pudo leer el Excel'); return; }
+      const { filas, error } = matrizAFilas(r.filas);
+      setFilas(filas); setMsg(error ?? null);
+    } else {
+      parsearTexto(await file.text());
+    }
+  };
+
+  const descargarPlantilla = () => {
+    const ejemplo = [
+      CABECERAS_IMPORT.join(','),
+      '1,ÁREAS INTERIORES,,,,',
+      '2,Cisterna,m2,11.35,255.08,30',
+      '1,Mesa de trabajo en acero inoxidable,m2,20,850,30',
+    ].join('\n');
+    const blob = new Blob(['﻿' + ejemplo], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a'); a.href = url; a.download = 'plantilla-cotizacion.csv'; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const importar = async () => {
+    if (!filas.length) return;
+    setBusy(true);
+    const r = await importarItemizado(cotizacionId, filas);
+    setBusy(false);
+    if (!r.ok) { setMsg(r.error ?? 'Error al importar'); return; }
+    onDone();
+  };
+
+  return (
+    <Modal open onClose={onClose} title="Importar itemizado desde Excel"
+      description="Descarga la plantilla, complétala y pégala aquí (o sube el archivo .xlsx/.csv). Nivel 1 = partida, 2 = sub partida, etc. Las hojas llevan unidad, cantidad y costo."
+      footer={<>
+        <Button variant="outline" onClick={descargarPlantilla}><FileDown className="size-4" /> Plantilla</Button>
+        <div className="flex-1" />
+        <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+        <Button variant="gradient" disabled={busy || filas.length === 0} onClick={importar}>
+          {busy ? <Loader2 className="animate-spin" /> : <Upload className="size-4" />} Importar {filas.length > 0 ? `(${filas.length})` : ''}
+        </Button>
+      </>}>
+      <div className="space-y-3">
+        <div>
+          <label className="text-sm font-medium">Subir archivo (.xlsx o .csv)</label>
+          <input type="file" accept=".xlsx,.xls,.csv" className="mt-1 block w-full text-sm" disabled={busy}
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) onArchivo(f); }} />
+        </div>
+        <div className="text-center text-xs text-muted-foreground">— o pega desde Excel —</div>
+        <textarea
+          className="h-40 w-full rounded-lg border bg-white p-2 font-mono text-xs"
+          placeholder={CABECERAS_IMPORT.join('\t') + '\n1\tÁREAS INTERIORES\n2\tCisterna\tm2\t11.35\t255.08\t30'}
+          value={texto}
+          onChange={(e) => parsearTexto(e.target.value)}
+        />
+        {msg && <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800">{msg}</p>}
+        {filas.length > 0 && (
+          <div className="rounded-lg border">
+            <div className="border-b px-3 py-1.5 text-xs font-semibold text-muted-foreground">Vista previa · {filas.length} filas</div>
+            <div className="max-h-40 overflow-auto">
+              <table className="w-full text-xs">
+                <tbody>
+                  {filas.slice(0, 30).map((f, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="px-2 py-1 text-muted-foreground">N{f.nivel}</td>
+                      <td className="px-2 py-1" style={{ paddingLeft: 8 + (Number(f.nivel) - 1) * 12 }}>{f.titulo}</td>
+                      <td className="px-2 py-1 text-center">{f.unidad ?? ''}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{f.cantidad ?? ''}</td>
+                      <td className="px-2 py-1 text-right tabular-nums">{f.costo_unitario ?? ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 

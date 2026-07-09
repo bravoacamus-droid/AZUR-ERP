@@ -77,6 +77,10 @@ export async function crearCotizacion(input: z.input<typeof crearSchema>): Promi
       plazo_tipo: d.plazo_tipo ?? 'calendario',
       recomendado_por: d.recomendado_por || null,
       responsable_id: session.id,
+      // Nace en 0% y ocultos GG/GA/utilidad; solo IGV visible. El usuario los
+      // activa/edita si los necesita (pedido reunión 3).
+      gg_pct: 0, ga_pct: 0, utilidad_pct: 0,
+      mostrar_gg: false, mostrar_ga: false, mostrar_utilidad: false, mostrar_igv: true,
       ...cond,
     })
     .select('id, correlativo')
@@ -91,6 +95,79 @@ export async function crearCotizacion(input: z.input<typeof crearSchema>): Promi
 
   revalidatePath('/comercial');
   return { ok: true, id: data.id };
+}
+
+// ── Importación de itemizado desde plantilla (Excel/CSV/pegado) ─────────
+export type FilaImport = { nivel: number; titulo: string; unidad?: string | null; cantidad?: number | null; costo_unitario?: number | null; margen_pct?: number | null };
+
+export async function importarItemizado(
+  cotizacionId: string,
+  filas: FilaImport[],
+): Promise<Res & { insertados?: number }> {
+  await guard();
+  if (!filas.length) return { ok: false, error: 'No hay filas para importar.' };
+  const admin = createAdminClient();
+
+  // orden de las nuevas partidas raíz continúa después de las existentes
+  const { count: rootCount } = await admin
+    .from('cotizacion_items').select('id', { count: 'exact', head: true })
+    .eq('cotizacion_id', cotizacionId).is('parent_id', null);
+
+  const n = filas.length;
+  const tieneHijo = filas.map((f, i) => i + 1 < n && Number(filas[i + 1].nivel || 1) > Number(f.nivel || 1));
+  const lastAtLevel: Record<number, string> = {};
+  const ordenPorParent: Record<string, number> = { root: rootCount ?? 0 };
+  let insertados = 0;
+
+  for (let i = 0; i < n; i++) {
+    const f = filas[i];
+    const nivel = Math.min(4, Math.max(1, Number(f.nivel) || 1));
+    const parentId = nivel > 1 ? (lastAtLevel[nivel - 1] ?? null) : null;
+    const key = parentId ?? 'root';
+    const orden = (ordenPorParent[key] = (ordenPorParent[key] ?? 0) + 1);
+    const esHoja = !tieneHijo[i];
+    const { data, error } = await admin.from('cotizacion_items').insert({
+      cotizacion_id: cotizacionId, parent_id: parentId, nivel, orden,
+      titulo: (f.titulo || 'Partida').toString().slice(0, 300),
+      unidad: esHoja ? (f.unidad ?? null) : null,
+      cantidad: esHoja ? (f.cantidad ?? null) : null,
+      costo_unitario: esHoja ? (f.costo_unitario ?? null) : null,
+      es_hoja: esHoja,
+      margen_pct: esHoja ? (f.margen_pct ?? 0.3) : 0.3,
+    } as never).select('id').single();
+    if (error) return { ok: false, error: error.message };
+    lastAtLevel[nivel] = (data as { id: string }).id;
+    for (let L = nivel + 1; L <= 4; L++) delete lastAtLevel[L]; // limpia niveles más profundos
+    insertados++;
+  }
+  revalidatePath(`/comercial/${cotizacionId}`);
+  return { ok: true, insertados };
+}
+
+// Parsea un archivo .xlsx en el servidor (para .csv/pegado se procesa en el cliente).
+export async function parsearXlsx(formData: FormData): Promise<{ ok: boolean; error?: string; filas?: string[][] }> {
+  await guard();
+  const file = formData.get('file');
+  if (!(file instanceof File)) return { ok: false, error: 'Archivo inválido' };
+  try {
+    const ExcelJS = (await import('exceljs')).default;
+    const wb = new ExcelJS.Workbook();
+    await wb.xlsx.load(await file.arrayBuffer());
+    const ws = wb.worksheets[0];
+    if (!ws) return { ok: false, error: 'El archivo no tiene hojas.' };
+    const filas: string[][] = [];
+    ws.eachRow((row) => {
+      const vals: string[] = [];
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        const v = cell.value as unknown;
+        vals.push(v == null ? '' : (typeof v === 'object' && 'result' in (v as object) ? String((v as { result: unknown }).result ?? '') : String(v)));
+      });
+      filas.push(vals);
+    });
+    return { ok: true, filas };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'No se pudo leer el Excel' };
+  }
 }
 
 // ── Cabecera / parámetros ───────────────────────────────────────────────
