@@ -73,16 +73,27 @@ export function CotizacionEditor({
   // fila anterior/siguiente (por posición de celda, sirve para cualquier input).
   const onGridKey = useCallback((e: React.KeyboardEvent<HTMLTableSectionElement>) => {
     const el = e.target as HTMLElement;
-    if (!(el instanceof HTMLInputElement)) return;
+    const esInput = el instanceof HTMLInputElement;
+    const esArea = el instanceof HTMLTextAreaElement;
+    if (!esInput && !esArea) return;
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
+    // En textarea (título multilínea): Enter = salto de línea; las flechas solo
+    // navegan de fila cuando el cursor está en la primera/última línea.
+    if (esArea) {
+      if (e.key === 'Enter') return;
+      const area = el as HTMLTextAreaElement;
+      const pos = area.selectionStart ?? 0;
+      if (e.key === 'ArrowDown' && area.value.indexOf('\n', pos) !== -1) return;
+      if (e.key === 'ArrowUp' && area.value.lastIndexOf('\n', pos - 1) !== -1) return;
+    }
     const td = el.closest('td'); const tr = el.closest('tr');
     if (!td || !tr) return;
     const col = Array.prototype.indexOf.call(tr.children, td);
     const dir = e.key === 'ArrowUp' ? -1 : 1; // Enter y ↓ bajan
     let target = (dir === 1 ? tr.nextElementSibling : tr.previousElementSibling) as HTMLElement | null;
     while (target) {
-      const input = (target.children[col] as HTMLElement | undefined)?.querySelector('input') as HTMLInputElement | null;
-      if (input && !input.disabled) { e.preventDefault(); input.focus(); input.select(); return; }
+      const next = (target.children[col] as HTMLElement | undefined)?.querySelector('input, textarea') as HTMLInputElement | HTMLTextAreaElement | null;
+      if (next && !next.disabled) { e.preventDefault(); next.focus(); next.select(); return; }
       target = (dir === 1 ? target.nextElementSibling : target.previousElementSibling) as HTMLElement | null;
     }
   }, []);
@@ -374,14 +385,10 @@ export function CotizacionEditor({
                             {codigos.get(row.id)}
                           </td>
                           <td className="px-2 py-1.5">
-                            <div className="flex items-center" style={{ paddingLeft: depth * 14 }}>
-                              {!hoja && <ChevronRight className="size-3 shrink-0 text-muted-foreground" />}
-                              <input
-                                className="w-full bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-azur-300 rounded px-1"
-                                defaultValue={row.titulo}
-                                disabled={!editable}
-                                onBlur={(e) => e.target.value !== row.titulo && persist(row.id, { titulo: e.target.value })}
-                              />
+                            <div className="flex items-start" style={{ paddingLeft: depth * 14 }}>
+                              {!hoja && <ChevronRight className="mt-1 size-3 shrink-0 text-muted-foreground" />}
+                              <TituloCell value={row.titulo ?? ''} disabled={!editable}
+                                onSave={(v) => persist(row.id, { titulo: v })} />
                             </div>
                           </td>
                           {/* costos: solo hoja captura */}
@@ -852,6 +859,25 @@ function ApuModal({ cotizacionId, item, componentes, editable, onClose, onChange
   );
 }
 
+// Celda de título multilínea: crece con el contenido; Enter agrega una línea
+// dentro de la misma partida (el PDF respeta los saltos de línea).
+function TituloCell({ value, disabled, onSave }: { value: string; disabled?: boolean; onSave: (v: string) => void }) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  const grow = (el: HTMLTextAreaElement) => { el.style.height = 'auto'; el.style.height = `${el.scrollHeight}px`; };
+  useEffect(() => { if (ref.current) grow(ref.current); }, []);
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      className="w-full resize-none overflow-hidden rounded bg-transparent px-1 leading-snug outline-none focus:bg-white focus:ring-1 focus:ring-azur-300"
+      defaultValue={value}
+      disabled={disabled}
+      onInput={(e) => grow(e.currentTarget)}
+      onBlur={(e) => e.target.value !== value && onSave(e.target.value)}
+    />
+  );
+}
+
 function FormulaCellCot({ value, formula, onSave, disabled }: { value: any; formula?: string | null; onSave: (v: number, f: string | null) => void; disabled?: boolean }) {
   const [foco, setFoco] = useState(false);
   const display = foco ? (formula || (value ?? '')) : (value ?? '');
@@ -1226,6 +1252,31 @@ function HistorialCambios({ historial, perfilesMap, cotizacionId, editable }: { 
   );
 }
 
+// Textarea con viñetas: arranca con "• " y cada Enter agrega otra viñeta.
+function BulletTextarea({ initial, disabled, onSave, placeholder, rows = 4 }: { initial: string; disabled?: boolean; onSave: (v: string) => void; placeholder?: string; rows?: number }) {
+  const [v, setV] = useState<string>(initial ?? '');
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => setV(initial ?? ''), [initial]);
+  const onKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    const el = e.currentTarget;
+    const s = el.selectionStart ?? v.length; const eN = el.selectionEnd ?? v.length;
+    const next = v.slice(0, s) + '\n• ' + v.slice(eN);
+    setV(next);
+    requestAnimationFrame(() => { if (ref.current) { ref.current.selectionStart = ref.current.selectionEnd = s + 3; } });
+  };
+  const onFocus = () => { if (!v.trim()) setV('• '); };
+  const onBlur = () => {
+    const out = (v.trim() === '•' || v.trim() === '') ? '' : v;
+    if (out !== (initial ?? '')) onSave(out);
+  };
+  return (
+    <Textarea ref={ref} rows={rows} value={v} disabled={disabled} placeholder={placeholder}
+      onChange={(e) => setV(e.target.value)} onKeyDown={onKey} onFocus={onFocus} onBlur={onBlur} />
+  );
+}
+
 function CondicionesEditor({ cot, onCab, editable }: any) {
   const campos = [
     { k: 'condiciones', label: 'Condiciones generales' },
@@ -1237,10 +1288,10 @@ function CondicionesEditor({ cot, onCab, editable }: any) {
       <CardHeader className="pb-2"><CardTitle className="text-base">Condiciones, servicios y garantía</CardTitle></CardHeader>
       <CardContent className="grid gap-4 lg:grid-cols-2">
         {campos.map((c) => (
-          <Field key={c.k} label={c.label} className={c.k === 'condiciones' ? 'lg:col-span-2' : ''}>
-            <Textarea rows={4} defaultValue={cot[c.k] ?? ''} disabled={!editable}
-              onBlur={(e) => e.target.value !== (cot[c.k] ?? '') && onCab({ [c.k]: e.target.value })}
-              placeholder={`Texto de ${c.label.toLowerCase()} (editable, se precarga desde la plantilla)`} />
+          <Field key={c.k} label={c.label} className={c.k === 'condiciones' ? 'lg:col-span-2' : ''} hint="Cada línea es una viñeta · Enter agrega otra">
+            <BulletTextarea initial={cot[c.k] ?? ''} disabled={!editable}
+              onSave={(val) => onCab({ [c.k]: val })}
+              placeholder={`• Punto de ${c.label.toLowerCase()}…`} />
           </Field>
         ))}
         <div className="lg:col-span-2">

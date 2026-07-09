@@ -16,10 +16,11 @@ import { SearchBox, Pagination } from '@/components/ui/list-tools';
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 20;
 
-export default async function ComercialPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {
+export default async function ComercialPage({ searchParams }: { searchParams: { q?: string; page?: string; tab?: string } }) {
   await requireModulo('comercial', 'ver');
   const supabase = createClient();
 
+  const tab = searchParams.tab === 'plantillas' ? 'plantillas' : 'cotizaciones';
   const q = (searchParams.q ?? '').trim();
   const page = Math.max(1, Number(searchParams.page) || 1);
   const desde = (page - 1) * PAGE_SIZE;
@@ -40,7 +41,6 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
     .select('id, codigo, proyecto_nombre, estado, fecha, cliente:clientes(razon_social), linea:lineas_negocio(codigo)')
     .eq('es_plantilla', true)
     .order('created_at', { ascending: false });
-  const porEstado = (e: string) => cotizaciones.filter((c) => c.estado === e).length;
 
   return (
     <div className="space-y-6">
@@ -56,32 +56,42 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
         }
       />
 
-      {(plantillas ?? []).length > 0 && (
+      {/* Pestañas: Cotizaciones | Plantillas */}
+      <div className="flex gap-1 border-b">
+        <Link href="/comercial" className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === 'cotizaciones' ? 'border-azur-600 text-azur-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+          Cotizaciones ({total})
+        </Link>
+        <Link href="/comercial?tab=plantillas" className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === 'plantillas' ? 'border-azur-600 text-azur-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+          Plantillas ({(plantillas ?? []).length})
+        </Link>
+      </div>
+
+      {tab === 'plantillas' ? (
         <Card>
           <CardContent className="p-0">
-            <div className="flex items-center gap-2 border-b px-4 py-2.5 text-sm font-medium">
-              <FileText className="size-4 text-azur-600" /> Plantillas ({plantillas!.length})
-              <span className="text-xs font-normal text-muted-foreground">— úsalas para crear una cotización ya armada</span>
-            </div>
-            <Table>
-              <TableHeader>
-                <TableRow><TableHead>Plantilla</TableHead><TableHead>Cliente</TableHead><TableHead>Línea</TableHead><TableHead></TableHead></TableRow>
-              </TableHeader>
-              <TableBody>
-                {(plantillas ?? []).map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell className="font-medium"><Link href={`/comercial/${p.id}`} className="hover:underline">{p.proyecto_nombre}</Link></TableCell>
-                    <TableCell className="text-muted-foreground">{(p.cliente as { razon_social?: string } | null)?.razon_social ?? '—'}</TableCell>
-                    <TableCell><Badge variant="outline">{(p.linea as { codigo?: string } | null)?.codigo ?? '—'}</Badge></TableCell>
-                    <TableCell><CotizacionRowActions id={p.id} estado={p.estado} esPlantilla /></TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {(plantillas ?? []).length === 0 ? (
+              <div className="p-6"><EmptyState icon={<FileText className="size-10" />} titulo="Sin plantillas" descripcion="Guarda una cotización como plantilla desde sus Acciones para reutilizarla." /></div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow><TableHead>Plantilla</TableHead><TableHead>Cliente</TableHead><TableHead>Línea</TableHead><TableHead></TableHead></TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(plantillas ?? []).map((p) => (
+                    <TableRow key={p.id}>
+                      <TableCell className="font-medium"><Link href={`/comercial/${p.id}`} className="hover:underline">{p.proyecto_nombre}</Link></TableCell>
+                      <TableCell className="text-muted-foreground">{(p.cliente as { razon_social?: string } | null)?.razon_social ?? '—'}</TableCell>
+                      <TableCell><Badge variant="outline">{(p.linea as { codigo?: string } | null)?.codigo ?? '—'}</Badge></TableCell>
+                      <TableCell><CotizacionRowActions id={p.id} estado={p.estado} esPlantilla /></TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
-      )}
-
+      ) : (
+      <>
       <SearchBox placeholder="Buscar por proyecto, código o asunto…" />
 
       <Card>
@@ -147,6 +157,8 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
           <Pagination page={page} total={total} pageSize={PAGE_SIZE} />
         </CardContent>
       </Card>
+      </>
+      )}
     </div>
   );
 }
