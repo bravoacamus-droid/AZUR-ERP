@@ -176,6 +176,13 @@ function FilaUsuario({ u, esYo, roles, canEdit }: { u: Profile; esYo: boolean; r
     if (!res.ok) setError(res.error ?? 'Error');
     setPending(false);
   };
+  const onTelefono = async (tel: string) => {
+    if (tel === (u.telefono ?? '')) return;
+    setPending(true); setError(null);
+    const res = await actualizarUsuario({ id: u.id, nombre: u.nombre, telefono: tel });
+    if (!res.ok) setError(res.error ?? 'Error');
+    setPending(false);
+  };
   const onRolPers = async (val: string) => {
     setPending(true); setError(null);
     const res = await asignarRolPersonalizado({ id: u.id, rol_personalizado_id: val || null });
@@ -202,7 +209,20 @@ function FilaUsuario({ u, esYo, roles, canEdit }: { u: Profile; esYo: boolean; r
           </div>
         </div>
       </TableCell>
-      <TableCell className="text-sm">{u.telefono ?? '—'}</TableCell>
+      <TableCell className="text-sm">
+        {canEdit ? (
+          <input
+            inputMode="tel"
+            maxLength={15}
+            defaultValue={u.telefono ?? ''}
+            disabled={pending}
+            placeholder="—"
+            className="w-32 rounded border border-transparent bg-transparent px-2 py-1 text-sm outline-none hover:border-slate-300 focus:border-azur-400 focus:bg-white"
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+            onBlur={(e) => onTelefono(soloDigitos(e.target.value))}
+          />
+        ) : (u.telefono ?? '—')}
+      </TableCell>
       <TableCell>
         {esYo || !canEdit ? (
           <Badge variant="muted">{rolLabel(u.rol)}</Badge>
