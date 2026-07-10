@@ -111,6 +111,18 @@ export function CotizacionEditor({
     const esInput = el instanceof HTMLInputElement;
     const esArea = el instanceof HTMLTextAreaElement;
     if (!esInput && !esArea) return;
+    // Tab / Shift+Tab: mueve entre celdas editables (izq→der, luego siguiente fila),
+    // saltándose los botones de acción. En el borde deja el Tab natural.
+    if (e.key === 'Tab') {
+      const tbody = el.closest('tbody');
+      if (!tbody) return;
+      const cells = Array.from(tbody.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')).filter((n) => !n.disabled);
+      const i = cells.indexOf(el as HTMLInputElement | HTMLTextAreaElement);
+      const j = e.shiftKey ? i - 1 : i + 1;
+      if (i === -1 || j < 0 || j >= cells.length) return;
+      e.preventDefault(); cells[j].focus(); cells[j].select();
+      return;
+    }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp' && e.key !== 'Enter') return;
     // En textarea (título multilínea): Enter = salto de línea; las flechas solo
     // navegan de fila cuando el cursor está en la primera/última línea.
