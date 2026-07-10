@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, ChevronRight, Send, Handshake, CheckCircle2, FileDown,
   MessageCircle, History, Loader2, Percent, Save, Layers, X, Undo2, Copy, BookmarkPlus, Upload,
-  Link2, ClipboardCheck, AlertTriangle,
+  Link2, ClipboardCheck, AlertTriangle, ChevronUp, ChevronDown,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ import {
   cambiarEstado, guardarVersion, restaurarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
   eliminarCotizacion, duplicarCotizacion, importarItemizado, parsearXlsx, type FilaImport,
-  solicitarRevision, resolverRevision,
+  solicitarRevision, resolverRevision, moverItem,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -212,6 +212,17 @@ export function CotizacionEditor({
       return next;
     });
     eliminarItem(cot.id, id).then((r) => { if (r && r.ok === false) router.refresh(); }).catch(() => router.refresh());
+  }
+  // Reordenar optimista: intercambia el `orden` con la hermana de arriba/abajo.
+  function mover(row: Row, dir: 'up' | 'down') {
+    const sibs = rows.filter((r) => (r.parent_id ?? null) === (row.parent_id ?? null))
+      .sort((a: any, b: any) => (a.orden ?? 0) - (b.orden ?? 0));
+    const idx = sibs.findIndex((s) => s.id === row.id);
+    const j = dir === 'up' ? idx - 1 : idx + 1;
+    if (j < 0 || j >= sibs.length) return;
+    const a: any = sibs[idx]; const b: any = sibs[j];
+    setRows((rs) => rs.map((r: any) => (r.id === a.id ? { ...r, orden: b.orden } : r.id === b.id ? { ...r, orden: a.orden } : r)));
+    moverItem(cot.id, row.id, dir).then((r) => { if (r && r.ok === false) router.refresh(); }).catch(() => router.refresh());
   }
   async function setEstado(estado: any, m?: string) {
     setBusy(true);
@@ -475,6 +486,14 @@ export function CotizacionEditor({
                           {editable && (
                             <td className="px-1 py-1.5">
                               <div className="flex items-center gap-0.5">
+                                <div className="flex flex-col">
+                                  <button title="Subir" onClick={() => mover(row, 'up')} className="rounded px-1 text-muted-foreground hover:bg-secondary hover:text-foreground">
+                                    <ChevronUp className="size-3" />
+                                  </button>
+                                  <button title="Bajar" onClick={() => mover(row, 'down')} className="rounded px-1 text-muted-foreground hover:bg-secondary hover:text-foreground">
+                                    <ChevronDown className="size-3" />
+                                  </button>
+                                </div>
                                 {hoja && (
                                   <button title="Detallar APU" onClick={() => setApuItem(row)} className={`rounded p-1 hover:bg-secondary ${(row as any).tiene_apu ? 'text-azur-600' : 'text-muted-foreground'}`}>
                                     <Layers className="size-3.5" />

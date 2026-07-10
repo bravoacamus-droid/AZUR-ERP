@@ -316,6 +316,27 @@ export async function eliminarItem(cotizacionId: string, itemId: string): Promis
   return { ok: true };
 }
 
+// Reordena una partida entre sus hermanas (mismo nivel/padre): intercambia
+// el `orden` con la hermana de arriba/abajo. Los códigos (1.1, 1.2…) se renumeran solos.
+export async function moverItem(cotizacionId: string, itemId: string, dir: 'up' | 'down'): Promise<Res> {
+  await guard();
+  const admin = createAdminClient();
+  const { data: it } = await admin.from('cotizacion_items').select('id, parent_id, orden').eq('id', itemId).single();
+  if (!it) return { ok: false, error: 'Ítem no encontrado' };
+  let q = admin.from('cotizacion_items').select('id, orden').eq('cotizacion_id', cotizacionId);
+  q = it.parent_id ? q.eq('parent_id', it.parent_id) : q.is('parent_id', null);
+  const { data: sibs } = await q.order('orden');
+  if (!sibs) return { ok: false, error: 'Error' };
+  const idx = sibs.findIndex((s) => s.id === itemId);
+  const j = dir === 'up' ? idx - 1 : idx + 1;
+  if (j < 0 || j >= sibs.length) return { ok: true }; // ya está en el borde
+  const a = sibs[idx]; const b = sibs[j];
+  await admin.from('cotizacion_items').update({ orden: b.orden } as never).eq('id', a.id);
+  await admin.from('cotizacion_items').update({ orden: a.orden } as never).eq('id', b.id);
+  revalidatePath(`/comercial/${cotizacionId}`);
+  return { ok: true };
+}
+
 // ── APU detallado (desglose del costo unitario) ─────────────────────────
 async function recalcularApu(itemId: string) {
   const admin = createAdminClient();
