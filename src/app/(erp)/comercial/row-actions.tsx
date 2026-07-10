@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { MoreVertical, Eye, Trash2, Loader2, Copy, BookmarkPlus, FilePlus2, FileDown, Link2, ClipboardCheck } from 'lucide-react';
 import { Dropdown, DropdownItem } from '@/components/ui/dropdown';
-import { eliminarCotizacion, duplicarCotizacion, solicitarRevision } from './actions';
+import { eliminarCotizacion, duplicarCotizacion, solicitarRevision, solicitarEliminacion } from './actions';
 
-export function CotizacionRowActions({ id, estado, esPlantilla }: { id: string; estado: string; esPlantilla?: boolean }) {
+export function CotizacionRowActions({ id, estado, esPlantilla, puedeEliminarDirecto = false }: { id: string; estado: string; esPlantilla?: boolean; puedeEliminarDirecto?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const puedeEliminar = estado !== 'aceptada';
@@ -22,6 +22,14 @@ export function CotizacionRowActions({ id, estado, esPlantilla }: { id: string; 
     const r = await solicitarRevision(id);
     setBusy(false);
     if (r.ok) { router.refresh(); alert('Enviada a revisión ✓ Se notificó a Presupuestos y Gerencia.'); }
+    else alert(r.error);
+  }
+  async function solicitarBorrado() {
+    if (!confirm('¿Solicitar la eliminación de esta cotización? Gerencia debe aprobarla.')) return;
+    setBusy(true);
+    const r = await solicitarEliminacion(id);
+    setBusy(false);
+    if (r.ok) { router.refresh(); alert('Solicitud enviada ✓ Gerencia fue notificada para aprobar.'); }
     else alert(r.error);
   }
 
@@ -72,7 +80,18 @@ export function CotizacionRowActions({ id, estado, esPlantilla }: { id: string; 
           <DropdownItem onClick={() => duplicar(true)}><BookmarkPlus /> Guardar como plantilla</DropdownItem>
         </>
       )}
-      {puedeEliminar && (
+      {puedeEliminar && !esPlantilla && (
+        puedeEliminarDirecto ? (
+          <DropdownItem onClick={borrar} className="text-azur-700 hover:bg-azur-50">
+            <Trash2 /> Eliminar
+          </DropdownItem>
+        ) : (
+          <DropdownItem onClick={solicitarBorrado} className="text-azur-700 hover:bg-azur-50">
+            <Trash2 /> Solicitar eliminación
+          </DropdownItem>
+        )
+      )}
+      {puedeEliminar && esPlantilla && (
         <DropdownItem onClick={borrar} className="text-azur-700 hover:bg-azur-50">
           <Trash2 /> Eliminar
         </DropdownItem>

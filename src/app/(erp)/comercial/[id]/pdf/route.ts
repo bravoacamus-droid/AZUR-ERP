@@ -24,7 +24,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     supabase.from('medios_pago_empresa').select('*').eq('mostrar_cotizacion', true).order('orden'),
     supabase.from('cotizacion_formas_pago').select('*').eq('cotizacion_id', params.id).order('orden'),
     cot.responsable_id
-      ? supabase.from('profiles').select('nombre, rol').eq('id', cot.responsable_id).single()
+      ? supabase.from('profiles').select('nombre, rol, firma_data').eq('id', cot.responsable_id).single()
       : Promise.resolve({ data: null }),
   ]);
 
@@ -98,6 +98,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     formaPago: (formasPago ?? []).map((f) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), esAdelanto: f.es_adelanto })),
     responsable: (responsable as { nombre?: string; rol?: string } | null)?.nombre ?? undefined,
     responsableRol: (responsable as { nombre?: string; rol?: string } | null)?.rol ?? undefined,
+    firmaData: (responsable as { firma_data?: string | null } | null)?.firma_data ?? undefined,
   };
 
   const buffer = await renderToBuffer(createElement(CotizacionPDF as any, { d }) as any);

@@ -120,6 +120,20 @@ export async function actualizarUsuario(input: z.input<typeof editarSchema>): Pr
   return { ok: true, id };
 }
 
+// ── Firma del usuario (data URI PNG para incrustar en PDFs) ─────────────
+const firmaSchema = z.object({ id: z.string().uuid(), firma_data: z.string().max(3_000_000).nullable() });
+
+export async function guardarFirma(input: z.input<typeof firmaSchema>): Promise<Res> {
+  await guard();
+  const parsed = firmaSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Firma inválida' };
+  const admin = createAdminClient();
+  const { error } = await admin.from('profiles').update({ firma_data: parsed.data.firma_data } as never).eq('id', parsed.data.id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/usuarios');
+  return { ok: true, id: parsed.data.id };
+}
+
 // ── Roles personalizados (módulos + nivel Ver/Editar) ───────────────────
 const rolPersSchema = z.object({
   id: z.string().uuid().optional(),

@@ -17,7 +17,8 @@ export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 20;
 
 export default async function ComercialPage({ searchParams }: { searchParams: { q?: string; page?: string; tab?: string } }) {
-  await requireModulo('comercial', 'ver');
+  const session = await requireModulo('comercial', 'ver');
+  const esGerencia = session.rol === 'gerencia';
   const supabase = createClient();
 
   const tab = searchParams.tab === 'plantillas' ? 'plantillas' : 'cotizaciones';
@@ -147,7 +148,7 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
                         <Badge variant={est.variant}>{est.label}</Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{fmtDate(c.fecha)}</TableCell>
-                      <TableCell><CotizacionRowActions id={c.id} estado={c.estado} /></TableCell>
+                      <TableCell><CotizacionRowActions id={c.id} estado={c.estado} puedeEliminarDirecto={esGerencia} /></TableCell>
                     </TableRow>
                   );
                 })}

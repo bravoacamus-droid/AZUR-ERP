@@ -895,6 +895,9 @@ export type Database = {
           descripcion: string | null
           descuento_activo: boolean
           descuento_pct: number | null
+          eliminacion_at: string | null
+          eliminacion_por: string | null
+          eliminacion_solicitada: boolean
           es_plantilla: boolean
           estado: Database["public"]["Enums"]["estado_cotizacion"]
           fecha: string
@@ -949,6 +952,9 @@ export type Database = {
           descripcion?: string | null
           descuento_activo?: boolean
           descuento_pct?: number | null
+          eliminacion_at?: string | null
+          eliminacion_por?: string | null
+          eliminacion_solicitada?: boolean
           es_plantilla?: boolean
           estado?: Database["public"]["Enums"]["estado_cotizacion"]
           fecha?: string
@@ -1003,6 +1009,9 @@ export type Database = {
           descripcion?: string | null
           descuento_activo?: boolean
           descuento_pct?: number | null
+          eliminacion_at?: string | null
+          eliminacion_por?: string | null
+          eliminacion_solicitada?: boolean
           es_plantilla?: boolean
           estado?: Database["public"]["Enums"]["estado_cotizacion"]
           fecha?: string
@@ -1896,6 +1905,7 @@ export type Database = {
           avatar_url: string | null
           created_at: string
           email: string
+          firma_data: string | null
           id: string
           nombre: string
           rol: Database["public"]["Enums"]["rol_enum"]
@@ -1907,6 +1917,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email: string
+          firma_data?: string | null
           id: string
           nombre: string
           rol?: Database["public"]["Enums"]["rol_enum"]
@@ -1918,6 +1929,7 @@ export type Database = {
           avatar_url?: string | null
           created_at?: string
           email?: string
+          firma_data?: string | null
           id?: string
           nombre?: string
           rol?: Database["public"]["Enums"]["rol_enum"]

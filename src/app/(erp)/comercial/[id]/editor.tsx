@@ -30,18 +30,18 @@ import {
   cambiarEstado, guardarVersion, restaurarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
   eliminarCotizacion, duplicarCotizacion, importarItemizado, parsearXlsx, type FilaImport,
-  solicitarRevision, resolverRevision, moverItem,
+  solicitarRevision, resolverRevision, moverItem, aprobarEliminacion, cancelarEliminacion,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false,
+  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false, esGerencia = false,
 }: {
   cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
   historial: any[]; perfilesMap: Record<string, string>;
-  userNombre: string; userId: string; canEdit?: boolean; esRevisor?: boolean;
+  userNombre: string; userId: string; canEdit?: boolean; esRevisor?: boolean; esGerencia?: boolean;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -89,6 +89,17 @@ export function CotizacionEditor({
       navigator.clipboard.writeText(window.location.href);
       setCopiado(true); setTimeout(() => setCopiado(false), 1800);
     }
+  }
+  async function aprobarElim() {
+    if (!confirm('¿Aprobar y ELIMINAR esta cotización? No se puede deshacer.')) return;
+    setBusy(true); const r = await aprobarEliminacion(cot.id); setBusy(false);
+    if (!r.ok) { alert(r.error); return; }
+    router.push('/comercial');
+  }
+  async function cancelarElim() {
+    setBusy(true); const r = await cancelarEliminacion(cot.id); setBusy(false);
+    if (!r.ok) { alert(r.error); return; }
+    setCot((c: any) => ({ ...c, eliminacion_solicitada: false }));
   }
   const editable = canEdit && (cot.estado === 'borrador' || cot.estado === 'en_negociacion');
 
@@ -258,6 +269,20 @@ export function CotizacionEditor({
 
   return (
     <div className="space-y-4">
+      {cot.eliminacion_solicitada && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-4 py-2.5 text-sm">
+          <Trash2 className="size-4 text-amber-700" />
+          <span className="text-amber-800">Se solicitó la <strong>eliminación</strong> de esta cotización.</span>
+          {esGerencia ? (
+            <div className="ml-auto flex gap-2">
+              <Button size="sm" variant="outline" disabled={busy} onClick={cancelarElim}>Cancelar solicitud</Button>
+              <Button size="sm" variant="destructive" disabled={busy} onClick={aprobarElim}>Aprobar eliminación</Button>
+            </div>
+          ) : (
+            <span className="ml-auto text-xs text-muted-foreground">Pendiente de aprobación de Gerencia.</span>
+          )}
+        </div>
+      )}
       {/* Cabecera */}
       <Card>
         <CardContent className="flex flex-col gap-3 p-5 lg:flex-row lg:items-center lg:justify-between">

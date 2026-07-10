@@ -16,7 +16,7 @@ import { MODULOS, MODULO_LABEL, type Modulo, type Nivel } from '@/lib/permisos';
 import { soloDigitos } from '@/lib/utils';
 import {
   crearUsuario, cambiarRol, cambiarActivo, cambiarPassword, actualizarUsuario,
-  guardarRolPersonalizado, eliminarRolPersonalizado, asignarRolPersonalizado,
+  guardarRolPersonalizado, eliminarRolPersonalizado, asignarRolPersonalizado, guardarFirma,
 } from './actions';
 
 export type Profile = {
@@ -28,6 +28,7 @@ export type Profile = {
   activo: boolean;
   avatar_url: string | null;
   rol_personalizado_id: string | null;
+  firma_data: string | null;
 };
 
 export type RolPers = { id: string; nombre: string; permisos: Record<string, Nivel> | null; activo: boolean };
@@ -88,6 +89,8 @@ function EditarUsuarioModal({ u, onClose }: { u: Profile; onClose: () => void })
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [f, setF] = React.useState({ nombre: u.nombre, email: u.email, telefono: u.telefono ?? '' });
+  const [firma, setFirma] = React.useState<string | null>(u.firma_data);
+  const [firmaBusy, setFirmaBusy] = React.useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true); setError(null);
@@ -96,13 +99,44 @@ function EditarUsuarioModal({ u, onClose }: { u: Profile; onClose: () => void })
     if (!res.ok) { setError(res.error ?? 'Error'); return; }
     onClose();
   };
+  const onFirma = async (file: File) => {
+    setError(null);
+    if (file.size > 2_000_000) { setError('La firma debe pesar menos de 2 MB.'); return; }
+    const dataUri = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(file);
+    });
+    setFirmaBusy(true);
+    const res = await guardarFirma({ id: u.id, firma_data: dataUri });
+    setFirmaBusy(false);
+    if (!res.ok) { setError(res.error ?? 'Error al guardar la firma'); return; }
+    setFirma(dataUri);
+  };
+  const quitarFirma = async () => {
+    setFirmaBusy(true);
+    await guardarFirma({ id: u.id, firma_data: null });
+    setFirmaBusy(false); setFirma(null);
+  };
   return (
-    <Modal open onClose={onClose} title={`Editar · ${u.nombre}`} description="Actualiza nombre, correo y teléfono del usuario.">
+    <Modal open onClose={onClose} title={`Editar · ${u.nombre}`} description="Actualiza nombre, correo, teléfono y firma del usuario.">
       <form onSubmit={submit} className="space-y-4">
         <Field label="Nombre completo" required><Input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} required /></Field>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Email" required><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /></Field>
           <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={f.telefono} onChange={(e) => setF({ ...f, telefono: soloDigitos(e.target.value) })} /></Field>
+        </div>
+        <div className="rounded-lg border p-3">
+          <p className="mb-2 text-sm font-medium">Firma (PNG sin fondo)</p>
+          {firma ? (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={firma} alt="Firma" className="h-14 rounded border bg-white object-contain px-2" />
+              <Button type="button" variant="outline" size="sm" disabled={firmaBusy} onClick={quitarFirma}>Quitar</Button>
+            </div>
+          ) : (
+            <p className="mb-2 text-xs text-muted-foreground">Sin firma cargada. Sube un PNG (idealmente con fondo transparente) — se incrusta en el PDF cuando el usuario es el responsable.</p>
+          )}
+          <input type="file" accept="image/png,image/jpeg" className="mt-2 block w-full text-sm" disabled={firmaBusy}
+            onChange={(e) => { const file = e.target.files?.[0]; if (file) onFirma(file); }} />
         </div>
         <ErrorMsg msg={error} />
         <div className="flex justify-end gap-2 pt-1">

@@ -489,6 +489,42 @@ export async function eliminarCotizacion(id: string): Promise<Res> {
   return { ok: true };
 }
 
+// Eliminación con aprobación: quien no es Gerencia solicita; Gerencia aprueba o cancela.
+export async function solicitarEliminacion(id: string): Promise<Res> {
+  const session = await guard();
+  const admin = createAdminClient();
+  const { data: cot } = await admin.from('cotizaciones').select('estado, proyecto_id, codigo, proyecto_nombre').eq('id', id).single();
+  if (!cot) return { ok: false, error: 'No encontrada' };
+  if (cot.estado === 'aceptada' || cot.proyecto_id) return { ok: false, error: 'No se puede eliminar: la cotización ya generó un proyecto.' };
+  await admin.from('cotizaciones').update({
+    eliminacion_solicitada: true, eliminacion_por: session.id, eliminacion_at: new Date().toISOString(),
+  } as never).eq('id', id);
+  await notifyRoles(['gerencia'], {
+    title: 'Solicitud de eliminación de cotización',
+    body: `${cot.codigo ?? ''} · ${cot.proyecto_nombre ?? ''} — solicitó ${session.nombre}`,
+    url: `/comercial/${id}`, tag: 'alertas',
+  }, 'comercial');
+  revalidatePath('/comercial'); revalidatePath(`/comercial/${id}`);
+  return { ok: true };
+}
+
+export async function aprobarEliminacion(id: string): Promise<Res> {
+  const session = await guard();
+  if (session.rol !== 'gerencia') return { ok: false, error: 'Solo Gerencia puede aprobar la eliminación.' };
+  return eliminarCotizacion(id);
+}
+
+export async function cancelarEliminacion(id: string): Promise<Res> {
+  await guard();
+  const admin = createAdminClient();
+  const { error } = await admin.from('cotizaciones').update({
+    eliminacion_solicitada: false, eliminacion_por: null, eliminacion_at: null,
+  } as never).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/comercial'); revalidatePath(`/comercial/${id}`);
+  return { ok: true };
+}
+
 // ── Versionado (snapshot de negociación) ────────────────────────────────
 export async function guardarVersion(cotizacionId: string, justificacion: string): Promise<Res> {
   const session = await guard();
