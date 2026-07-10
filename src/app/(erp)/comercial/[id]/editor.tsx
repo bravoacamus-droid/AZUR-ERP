@@ -37,11 +37,11 @@ import {
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false, esGerencia = false,
+  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false, esGerencia = false, clientes = [],
 }: {
   cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
   historial: any[]; perfilesMap: Record<string, string>;
-  userNombre: string; userId: string; canEdit?: boolean; esRevisor?: boolean; esGerencia?: boolean;
+  userNombre: string; userId: string; canEdit?: boolean; esRevisor?: boolean; esGerencia?: boolean; clientes?: any[];
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -260,6 +260,12 @@ export function CotizacionEditor({
   async function toggleParam(patch: Record<string, unknown>) {
     setCot((c: any) => ({ ...c, ...patch })); // optimista: la UI cambia al instante
     await guardarCabecera(cot.id, patch);     // persiste en segundo plano (sin recargar todo)
+  }
+  // Cambiar el cliente: actualiza el objeto anidado local (para el nombre en cabecera) y persiste el id.
+  async function cambiarCliente(id: string) {
+    const cli = clientes.find((c: any) => c.id === id) ?? null;
+    setCot((c: any) => ({ ...c, cliente_id: id || null, cliente: cli }));
+    await guardarCabecera(cot.id, { cliente_id: id || null });
   }
 
   const est = ESTADO_COTIZACION[cot.estado] ?? { label: cot.estado, variant: 'muted' as const };
@@ -549,7 +555,7 @@ export function CotizacionEditor({
       )}
 
       {tab === 'pago' && (
-        <CondicionesPago cot={cot} formas={formas} medios={medios} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
+        <CondicionesPago cot={cot} formas={formas} medios={medios} clientes={clientes} onCliente={cambiarCliente} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
       )}
 
       {tab === 'historial' && <HistorialCambios historial={historial} perfilesMap={perfilesMap} cotizacionId={cot.id} editable={editable} />}
@@ -1157,7 +1163,7 @@ function Row3({ label, value, bold, azur, currency }: { label: string; value: nu
   );
 }
 
-function CondicionesPago({ cot, formas, medios, onSave, onCab, editable }: any) {
+function CondicionesPago({ cot, formas, medios, clientes = [], onCliente, onSave, onCab, editable }: any) {
   const [items, setItems] = useState<{ concepto: string; porcentaje: number; es_adelanto: boolean }[]>(
     formas.length ? formas.map((f: any) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), es_adelanto: f.es_adelanto })) : [
       { concepto: 'Pago de adelanto', porcentaje: 0.2, es_adelanto: true },
@@ -1167,6 +1173,23 @@ function CondicionesPago({ cot, formas, medios, onSave, onCab, editable }: any) 
   const suma = items.reduce((a, f) => a + f.porcentaje, 0);
   return (
    <div className="space-y-4">
+    <Card>
+      <CardHeader className="pb-2"><CardTitle className="text-base">Datos generales</CardTitle></CardHeader>
+      <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <Field label="Cliente">
+          <Select value={cot.cliente_id ?? ''} disabled={!editable} onChange={(e) => onCliente(e.target.value)}>
+            <option value="">— Sin cliente —</option>
+            {clientes.map((c: any) => <option key={c.id} value={c.id}>{c.razon_social}{c.ruc_dni ? ` · ${c.ruc_dni}` : ''}</option>)}
+          </Select>
+        </Field>
+        <Field label="Asunto">
+          <Input defaultValue={cot.asunto ?? ''} disabled={!editable} onBlur={(e) => e.target.value !== (cot.asunto ?? '') && onCab({ asunto: e.target.value })} />
+        </Field>
+        <Field label="Ubicación">
+          <Input defaultValue={cot.ubicacion ?? ''} disabled={!editable} onBlur={(e) => e.target.value !== (cot.ubicacion ?? '') && onCab({ ubicacion: e.target.value })} />
+        </Field>
+      </CardContent>
+    </Card>
     <div className="grid gap-4 lg:grid-cols-2">
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">Forma de pago y adelanto</CardTitle></CardHeader>

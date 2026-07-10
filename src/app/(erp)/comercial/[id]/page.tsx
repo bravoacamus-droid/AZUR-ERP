@@ -19,13 +19,14 @@ export default async function CotizacionPage({ params }: { params: { id: string 
     .single();
   if (!cot) notFound();
 
-  const [{ data: items }, { data: formas }, { data: versiones }, { data: medios }, { data: apu }, { data: catalogo }] = await Promise.all([
+  const [{ data: items }, { data: formas }, { data: versiones }, { data: medios }, { data: apu }, { data: catalogo }, { data: clientes }] = await Promise.all([
     supabase.from('cotizacion_items').select('*').eq('cotizacion_id', params.id).order('orden'),
     supabase.from('cotizacion_formas_pago').select('*').eq('cotizacion_id', params.id).order('orden'),
     supabase.from('cotizacion_versiones').select('id, version, justificacion, created_at').eq('cotizacion_id', params.id).order('version', { ascending: false }),
     supabase.from('medios_pago_empresa').select('*').order('orden'),
     supabase.from('apu_componentes').select('*, item:cotizacion_items!inner(cotizacion_id)').eq('item.cotizacion_id', params.id).order('orden'),
     supabase.from('catalogo_partidas').select('id, codigo, descripcion, unidad, costo_referencial').order('codigo'),
+    supabase.from('clientes').select('id, razon_social, ruc_dni').order('razon_social'),
   ]);
 
   // marca qué partidas del catálogo traen APU plantilla
@@ -58,6 +59,7 @@ export default async function CotizacionPage({ params }: { params: { id: string 
         medios={medios ?? []}
         apu={apu ?? []}
         catalogo={catalogoConApu}
+        clientes={clientes ?? []}
         historial={historial}
         perfilesMap={perfilesMap}
         userNombre={session.nombre}
