@@ -1,6 +1,7 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { fmtMoney, fmtNumber } from '@/lib/format';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
+import { rolLabel } from '@/lib/roles';
 
 const AZUR = '#E20627';
 const s = StyleSheet.create({
@@ -36,6 +37,7 @@ export interface ValPdfData {
   contrato: number; valorizadoPeriodo: number; amortizacion: number; cobroNeto: number;
   adelantoPct: number; tasaAmort: number; adelantoTotal: number; amortizadoAcum: number; saldoAdelanto: number;
   valorizadoAcum: number; saldoContrato: number; responsable?: string; responsableFirma?: string; gerente?: string; gerenteFirma?: string;
+  firmantes?: { nombre: string; rol?: string; firma?: string }[];
   rows: {
     codigo: string; titulo: string; unidad: string; contractual: number;
     pct: number; monto: number; pctAcum: number; valorizadoAcum: number; saldo: number;
@@ -177,6 +179,18 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
                 ))}
               </View>
             ) : null}
+            {d.firmantes && d.firmantes.length ? (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', marginTop: 24 }}>
+                {d.firmantes.map((f, i) => (
+                  <View key={i} style={{ alignItems: 'center', width: 190, marginBottom: 8 }}>
+                    {f.firma ? <Image src={f.firma} style={{ height: 44, width: 150, objectFit: 'contain' }} /> : <View style={{ height: 44 }} />}
+                    <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 165, marginBottom: 4 }} />
+                    <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{f.nombre}</Text>
+                    <Text style={{ fontSize: 8, color: '#666' }}>{f.rol ? rolLabel(f.rol) : ''}</Text>
+                  </View>
+                ))}
+              </View>
+            ) : (
             <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 24 }}>
               <View style={{ alignItems: 'center', width: 200 }}>
                 {/* Firma del Jefe de Proyectos si está cargada; si no, espacio para firmar. */}
@@ -192,6 +206,7 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
                 <Text style={{ fontSize: 8, color: '#666' }}>Aprobado por · Gerencia</Text>
               </View>
             </View>
+            )}
           </View>
         </View>
             )}

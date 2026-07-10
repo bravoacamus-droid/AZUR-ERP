@@ -30,18 +30,19 @@ import {
   cambiarEstado, guardarVersion, restaurarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
   eliminarCotizacion, duplicarCotizacion, importarItemizado, parsearXlsx, type FilaImport,
-  solicitarRevision, resolverRevision, moverItem, aprobarEliminacion, cancelarEliminacion,
+  solicitarRevision, resolverRevision, moverItem, aprobarEliminacion, cancelarEliminacion, guardarFirmantesCotizacion,
 } from '../actions';
+import { FirmasEditor, type UsuarioFirma } from '@/components/firmas/firmas-editor';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false, esGerencia = false, clientes = [],
+  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false, esGerencia = false, clientes = [], usuariosFirma = [],
 }: {
   cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
   historial: any[]; perfilesMap: Record<string, string>;
-  userNombre: string; userId: string; canEdit?: boolean; esRevisor?: boolean; esGerencia?: boolean; clientes?: any[];
+  userNombre: string; userId: string; canEdit?: boolean; esRevisor?: boolean; esGerencia?: boolean; clientes?: any[]; usuariosFirma?: UsuarioFirma[];
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -555,7 +556,7 @@ export function CotizacionEditor({
       )}
 
       {tab === 'pago' && (
-        <CondicionesPago cot={cot} formas={formas} medios={medios} clientes={clientes} onCliente={cambiarCliente} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
+        <CondicionesPago cot={cot} formas={formas} medios={medios} clientes={clientes} usuariosFirma={usuariosFirma} onCliente={cambiarCliente} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
       )}
 
       {tab === 'historial' && <HistorialCambios historial={historial} perfilesMap={perfilesMap} cotizacionId={cot.id} editable={editable} />}
@@ -1157,7 +1158,8 @@ function Row3({ label, value, bold, azur, currency }: { label: string; value: nu
   );
 }
 
-function CondicionesPago({ cot, formas, medios, clientes = [], onCliente, onSave, onCab, editable }: any) {
+function CondicionesPago({ cot, formas, medios, clientes = [], usuariosFirma = [], onCliente, onSave, onCab, editable }: any) {
+  const router = useRouter();
   const [items, setItems] = useState<{ concepto: string; porcentaje: number; es_adelanto: boolean }[]>(
     formas.length ? formas.map((f: any) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), es_adelanto: f.es_adelanto })) : [
       { concepto: 'Pago de adelanto', porcentaje: 0.2, es_adelanto: true },
@@ -1238,6 +1240,14 @@ function CondicionesPago({ cot, formas, medios, clientes = [], onCliente, onSave
     </div>
 
     <CondicionesEditor cot={cot} onCab={onCab} editable={editable} />
+
+    <FirmasEditor
+      usuarios={usuariosFirma}
+      value={Array.isArray(cot.firmantes) ? cot.firmantes : []}
+      editable={editable}
+      descripcion="Marca quién firma esta cotización. Si no marcas a nadie, firma el responsable de la cotización. La firma se incrusta en el PDF si el usuario la tiene cargada."
+      onSave={async (ids) => { await guardarFirmantesCotizacion(cot.id, ids); router.refresh(); }}
+    />
    </div>
   );
 }

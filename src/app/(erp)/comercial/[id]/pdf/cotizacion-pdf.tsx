@@ -51,6 +51,7 @@ export interface PdfData {
   medios: { banco: string; titular: string; cuentaSoles?: string; cciSoles?: string; cuentaDolares?: string; cciDolares?: string; detraccion: boolean }[];
   formaPago?: { concepto: string; porcentaje: number; esAdelanto: boolean }[];
   responsable?: string; responsableRol?: string; firmaData?: string;
+  firmantes?: { nombre: string; rol?: string; firma?: string }[];
 }
 
 const ROL_LABEL: Record<string, string> = {
@@ -157,15 +158,28 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
           ))}
         </> : null}
 
-        {/* Firma del responsable (abajo a la derecha; con imagen si está registrada) */}
-        <View style={{ marginTop: 30, alignItems: 'flex-end' }} wrap={false}>
-          <View style={{ alignItems: 'center', width: 220 }}>
-            {(d.firmaData ?? FIRMA_DATA_URI) ? <Image src={(d.firmaData ?? FIRMA_DATA_URI) as string} style={{ width: 150, height: 55, objectFit: 'contain', marginBottom: 2 }} /> : <View style={{ height: 40 }} />}
-            <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 200, marginBottom: 4 }} />
-            <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? ''}</Text>
-            <Text style={{ fontSize: 8, color: '#666' }}>{d.responsableRol ? (ROL_LABEL[d.responsableRol] ?? d.responsableRol) : 'Responsable'} · {d.empresa}</Text>
+        {/* Firmas: los firmantes configurados o, por defecto, el responsable. */}
+        {d.firmantes && d.firmantes.length ? (
+          <View style={{ marginTop: 48, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around', gap: 10 }} wrap={false}>
+            {d.firmantes.map((f, i) => (
+              <View key={i} style={{ alignItems: 'center', width: 200, marginBottom: 8 }}>
+                {f.firma ? <Image src={f.firma} style={{ width: 150, height: 48, objectFit: 'contain' }} /> : <View style={{ height: 48 }} />}
+                <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
+                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{f.nombre}</Text>
+                <Text style={{ fontSize: 8, color: '#666' }}>{f.rol ? (ROL_LABEL[f.rol] ?? f.rol) : 'Responsable'} · {d.empresa}</Text>
+              </View>
+            ))}
           </View>
-        </View>
+        ) : (
+          <View style={{ marginTop: 48, alignItems: 'flex-end' }} wrap={false}>
+            <View style={{ alignItems: 'center', width: 220 }}>
+              {(d.firmaData ?? FIRMA_DATA_URI) ? <Image src={(d.firmaData ?? FIRMA_DATA_URI) as string} style={{ width: 150, height: 48, objectFit: 'contain', marginBottom: 2 }} /> : <View style={{ height: 48 }} />}
+              <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 200, marginBottom: 4 }} />
+              <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? ''}</Text>
+              <Text style={{ fontSize: 8, color: '#666' }}>{d.responsableRol ? (ROL_LABEL[d.responsableRol] ?? d.responsableRol) : 'Responsable'} · {d.empresa}</Text>
+            </View>
+          </View>
+        )}
 
         <Text style={s.footer} fixed>AZUR Constructora e Inmobiliaria · {d.empresa} · Cotización {d.codigo}</Text>
       </Page>

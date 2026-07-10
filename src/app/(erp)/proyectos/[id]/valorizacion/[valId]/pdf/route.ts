@@ -37,6 +37,15 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   const gerente = (gerentes ?? []).length === 1 ? (gerentes![0] as { nombre?: string }).nombre ?? undefined : undefined;
   const gerenteFirma = (gerentes ?? []).length === 1 ? (gerentes![0] as { firma_data?: string | null }).firma_data ?? undefined : undefined;
 
+  // Firmantes configurados en el proyecto (si no hay, el PDF usa Jefe + Gerente).
+  const firmanteIds: string[] = Array.isArray((proy as { firmantes?: unknown }).firmantes) ? (proy as { firmantes: string[] }).firmantes : [];
+  let firmantes: { nombre: string; rol?: string; firma?: string }[] = [];
+  if (firmanteIds.length) {
+    const { data: fs } = await supabase.from('profiles').select('id, nombre, rol, firma_data').in('id', firmanteIds);
+    firmantes = firmanteIds.map((id) => (fs ?? []).find((u) => u.id === id)).filter(Boolean)
+      .map((u) => ({ nombre: (u as { nombre: string }).nombre, rol: (u as { rol?: string }).rol, firma: (u as { firma_data?: string | null }).firma_data ?? undefined }));
+  }
+
   // itemizado completo (para código de ítem, unidad y monto contractual de cada partida)
   const { data: allItems } = await supabase
     .from('proyecto_items')
@@ -135,6 +144,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     responsableFirma,
     gerente,
     gerenteFirma,
+    firmantes,
     rows,
     historial,
     medios: (medios ?? []).map((m) => ({

@@ -28,6 +28,17 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       : Promise.resolve({ data: null }),
   ]);
 
+  // Firmantes configurados (si no hay, el PDF cae al responsable).
+  const firmanteIds: string[] = Array.isArray((cot as { firmantes?: unknown }).firmantes) ? (cot as { firmantes: string[] }).firmantes : [];
+  let firmantes: { nombre: string; rol?: string; firma?: string }[] = [];
+  if (firmanteIds.length) {
+    const { data: fs } = await supabase.from('profiles').select('id, nombre, rol, firma_data').in('id', firmanteIds);
+    firmantes = firmanteIds
+      .map((id) => (fs ?? []).find((u) => u.id === id))
+      .filter(Boolean)
+      .map((u) => ({ nombre: (u as { nombre: string }).nombre, rol: (u as { rol?: string }).rol, firma: (u as { firma_data?: string | null }).firma_data ?? undefined }));
+  }
+
   const arbol = armarArbol((items ?? []) as never);
   const codigos = renumerar(arbol as never);
   const calc = calcularCostosMargen(arbol as never);
@@ -99,6 +110,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     responsable: (responsable as { nombre?: string; rol?: string } | null)?.nombre ?? undefined,
     responsableRol: (responsable as { nombre?: string; rol?: string } | null)?.rol ?? undefined,
     firmaData: (responsable as { firma_data?: string | null } | null)?.firma_data ?? undefined,
+    firmantes,
   };
 
   const buffer = await renderToBuffer(createElement(CotizacionPDF as any, { d }) as any);

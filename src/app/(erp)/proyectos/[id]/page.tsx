@@ -28,7 +28,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     supabase.from('adicionales_deductivos').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }),
     supabase.from('v_dashboard_proyecto').select('*').eq('proyecto_id', params.id).single(),
     supabase.from('v_cajas_saldos').select('*').eq('proyecto_id', params.id),
-    supabase.from('profiles').select('id, nombre, rol').eq('activo', true).order('nombre'),
+    supabase.from('profiles').select('id, nombre, rol, firma_data').eq('activo', true).order('nombre'),
     supabase.from('hitos').select('*').eq('proyecto_id', params.id).order('fecha_comprometida'),
     supabase.from('documentos').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }),
   ]);
@@ -132,6 +132,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         dash={dash.data}
         cajas={caja.data ?? []}
         perfiles={perfiles.data ?? []}
+        usuariosFirma={(perfiles.data ?? []).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol as string, tiene_firma: !!(u as { firma_data?: string | null }).firma_data }))}
         hitos={hitos.data ?? []}
         documentos={documentos.data ?? []}
         catalogo={catalogoConApu}

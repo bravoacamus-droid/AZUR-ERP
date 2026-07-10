@@ -29,6 +29,9 @@ export default async function CotizacionPage({ params }: { params: { id: string 
     supabase.from('clientes').select('id, razon_social, ruc_dni').order('razon_social'),
   ]);
 
+  const { data: usuarios } = await supabase.from('profiles').select('id, nombre, rol, firma_data').eq('activo', true).order('nombre');
+  const usuariosFirma = (usuarios ?? []).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol as string, tiene_firma: !!(u as { firma_data?: string | null }).firma_data }));
+
   // marca qué partidas del catálogo traen APU plantilla
   const { data: apuTpl } = await supabase.from('catalogo_apu').select('catalogo_partida_id');
   const conApu = new Set((apuTpl ?? []).map((a) => a.catalogo_partida_id));
@@ -60,6 +63,7 @@ export default async function CotizacionPage({ params }: { params: { id: string 
         apu={apu ?? []}
         catalogo={catalogoConApu}
         clientes={clientes ?? []}
+        usuariosFirma={usuariosFirma}
         historial={historial}
         perfilesMap={perfilesMap}
         userNombre={session.nombre}

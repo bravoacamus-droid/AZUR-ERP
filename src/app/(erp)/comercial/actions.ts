@@ -180,6 +180,17 @@ export async function guardarCabecera(id: string, patch: Record<string, unknown>
   return { ok: true };
 }
 
+// Firmantes del documento (quiénes firman el PDF de la cotización).
+export async function guardarFirmantesCotizacion(id: string, userIds: string[]): Promise<Res> {
+  await guard();
+  const admin = createAdminClient();
+  const ids = (userIds ?? []).filter((x) => typeof x === 'string');
+  const { error } = await admin.from('cotizaciones').update({ firmantes: ids } as never).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/comercial/${id}`);
+  return { ok: true };
+}
+
 // ── Flujo de revisión / validación ──────────────────────────────────────
 // Comercial envía la cotización a revisión → notifica a Presupuestos y Gerencia.
 export async function solicitarRevision(cotizacionId: string): Promise<Res> {

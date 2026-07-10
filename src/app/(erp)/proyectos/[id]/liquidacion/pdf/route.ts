@@ -20,6 +20,23 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     supabase.from('medios_pago_empresa').select('banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion, mostrar_liquidacion').eq('mostrar_liquidacion', true).order('orden'),
   ]);
 
+  // Firmantes: configurados en el proyecto o, por defecto, Jefe de Proyectos + Gerente.
+  const firmanteIds: string[] = Array.isArray((proy as { firmantes?: unknown }).firmantes) ? (proy as { firmantes: string[] }).firmantes : [];
+  let firmantes: { nombre: string; rol?: string; firma?: string }[] = [];
+  if (firmanteIds.length) {
+    const { data: fs } = await supabase.from('profiles').select('id, nombre, rol, firma_data').in('id', firmanteIds);
+    firmantes = firmanteIds.map((id) => (fs ?? []).find((u) => u.id === id)).filter(Boolean)
+      .map((u) => ({ nombre: (u as { nombre: string }).nombre, rol: (u as { rol?: string }).rol, firma: (u as { firma_data?: string | null }).firma_data ?? undefined }));
+  } else {
+    const [{ data: equipo }, { data: gerentes }] = await Promise.all([
+      supabase.from('proyecto_equipo').select('profile:profiles(nombre, rol, firma_data)').eq('proyecto_id', params.id),
+      supabase.from('profiles').select('nombre, rol, firma_data').eq('rol', 'gerencia').eq('activo', true),
+    ]);
+    const jefe = (equipo ?? []).map((e) => e.profile as { nombre?: string; rol?: string; firma_data?: string | null } | null).find((p) => p?.rol === 'jefe_proyectos');
+    if (jefe?.nombre) firmantes.push({ nombre: jefe.nombre, rol: 'jefe_proyectos', firma: jefe.firma_data ?? undefined });
+    if ((gerentes ?? []).length === 1) { const g = gerentes![0] as { nombre?: string; firma_data?: string | null }; if (g.nombre) firmantes.push({ nombre: g.nombre, rol: 'gerencia', firma: g.firma_data ?? undefined }); }
+  }
+
   const contrato = Number(proy.contrato_total);
   const costoPresupuestado = (items ?? []).filter((i) => i.es_hoja).reduce((a, i) => a + Number(i.total_costo ?? 0), 0);
   const amortizado = (vals ?? []).reduce((a, v) => a + Number(v.amortizacion_adelanto ?? 0), 0);
@@ -39,6 +56,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
     costoPresupuestado, gastado: Number(dash?.gasto ?? 0),
     margenPresupuesto: liq.margenPresupuesto, utilidadReal: liq.utilidadReal, margenPct: liq.margenPct,
     adelantoInicial: liq.adelantoInicial, amortizado, adelantoSaldo: liq.adelantoSaldo,
+    firmantes,
     medios: (medios ?? []).map((m) => ({
       banco: m.banco, titular: m.titular,
       cuentaSoles: m.cuenta_soles ?? undefined, cciSoles: m.cci_soles ?? undefined,

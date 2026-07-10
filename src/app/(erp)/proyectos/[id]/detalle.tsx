@@ -20,6 +20,7 @@ import { CurvaS } from '@/components/proyectos/curva-s';
 import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
+import { FirmasEditor } from '@/components/firmas/firmas-editor';
 import { evalFormula, esFormula } from '@/lib/formula';
 import { entregaDesdeDuracion, duracionDesdeFechas, PATRON_LABEL, type PatronDias } from '@/lib/fechas';
 import { calcularLiquidacion } from '@/lib/liquidacion';
@@ -32,14 +33,14 @@ import {
   generarServiciosMantenimiento, actualizarServicio, eliminarServicio,
   solicitarCambioMonto, solicitarReaperturaValorizacion, cerrarReaperturaValorizacion, reabrirValorizacion,
   aprobarSolicitud, rechazarSolicitud, vaciarItemizadoProyecto, marcarItemizadoPropio,
-  guardarPresupuestoTipoGasto, agregarAdelanto, eliminarAdelanto,
+  guardarPresupuestoTipoGasto, agregarAdelanto, eliminarAdelanto, guardarFirmantesProyecto,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, adelantos, campo, userId, userNombre, userRol, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, usuariosFirma = [], hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, adelantos, campo, userId, userNombre, userRol, canManage } = props;
   const esMantenimiento = proy.tipo_proyecto === 'chico';
   const router = useRouter();
   const [presentes, setPresentes] = useState<string[]>([]);
@@ -107,7 +108,7 @@ export function ProyectoDetalle(props: any) {
         ]}
       />
 
-      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} adelantos={adelantos} />}
+      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} adelantos={adelantos} usuariosFirma={usuariosFirma} />}
       {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} adelantos={adelantos} />}
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
@@ -121,7 +122,7 @@ export function ProyectoDetalle(props: any) {
 }
 
 // ───────────────────────────── RESUMEN ────────────────────────────────
-function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo, presupuestoGasto, adelantos = [] }: any) {
+function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo, presupuestoGasto, adelantos = [], usuariosFirma = [] }: any) {
   const router = useRouter();
   const [busyS, setBusyS] = useState<string | null>(null);
   const [adForm, setAdForm] = useState({ concepto: '', tipo: 'extraordinario', monto: '' });
@@ -311,6 +312,13 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
             </CardContent>
           </Card>
         )}
+        <FirmasEditor
+          usuarios={usuariosFirma}
+          value={Array.isArray(proy.firmantes) ? proy.firmantes : []}
+          editable={canManage}
+          descripcion="Firmas para los PDF de valorización y liquidación. Si no marcas a nadie, firman el Jefe de Proyectos y el Gerente. La firma se incrusta si el usuario la tiene cargada."
+          onSave={async (ids) => { await guardarFirmantesProyecto(proy.id, ids); router.refresh(); }}
+        />
         {canManage && (
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base">Itemizado de Proyectos</CardTitle></CardHeader>

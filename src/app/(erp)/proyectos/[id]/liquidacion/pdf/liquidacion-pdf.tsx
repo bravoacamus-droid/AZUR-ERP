@@ -1,6 +1,7 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { fmtMoney, fmtPct } from '@/lib/format';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
+import { rolLabel } from '@/lib/roles';
 
 const AZUR = '#E20627';
 const s = StyleSheet.create({
@@ -32,6 +33,7 @@ export interface LiqPdfData {
   margenPresupuesto: number; utilidadReal: number; margenPct: number;
   adelantoInicial: number; amortizado: number; adelantoSaldo: number;
   medios?: { banco: string; titular: string; cuentaSoles?: string; cciSoles?: string; cuentaDolares?: string; cciDolares?: string; detraccion: boolean }[];
+  firmantes?: { nombre: string; rol?: string; firma?: string }[];
 }
 
 export function LiquidacionPDF({ d }: { d: LiqPdfData }) {
@@ -97,6 +99,19 @@ export function LiquidacionPDF({ d }: { d: LiqPdfData }) {
                 </Text>
               ))}
             </View>
+          </View>
+        ) : null}
+
+        {d.firmantes && d.firmantes.length ? (
+          <View wrap={false} style={{ marginTop: 36, flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-around' }}>
+            {d.firmantes.map((f, i) => (
+              <View key={i} style={{ alignItems: 'center', width: 200, marginBottom: 8 }}>
+                {f.firma ? <Image src={f.firma} style={{ height: 44, width: 150, objectFit: 'contain' }} /> : <View style={{ height: 44 }} />}
+                <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
+                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{f.nombre}</Text>
+                <Text style={{ fontSize: 8, color: '#666' }}>{f.rol ? rolLabel(f.rol) : ''}</Text>
+              </View>
+            ))}
           </View>
         ) : null}
 

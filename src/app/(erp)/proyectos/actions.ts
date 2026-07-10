@@ -366,6 +366,17 @@ export async function guardarPresupuestoTipoGasto(proyectoId: string, tipo: stri
   return { ok: true };
 }
 
+// Firmantes de los documentos del proyecto (valorización / liquidación).
+export async function guardarFirmantesProyecto(proyectoId: string, userIds: string[]): Promise<Res> {
+  await guard();
+  const admin = createAdminClient();
+  const ids = (userIds ?? []).filter((x) => typeof x === 'string');
+  const { error } = await admin.from('proyectos').update({ firmantes: ids } as never).eq('id', proyectoId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${proyectoId}`);
+  return { ok: true };
+}
+
 export async function marcarItemizadoPropio(proyectoId: string, propio: boolean): Promise<Res> {
   await guard();
   const supabase = createClient();

@@ -899,6 +899,7 @@ export type Database = {
           eliminacion_por: string | null
           eliminacion_solicitada: boolean
           es_plantilla: boolean
+          firmantes: Json
           estado: Database["public"]["Enums"]["estado_cotizacion"]
           fecha: string
           ga_pct: number | null
@@ -956,6 +957,7 @@ export type Database = {
           eliminacion_por?: string | null
           eliminacion_solicitada?: boolean
           es_plantilla?: boolean
+          firmantes?: Json
           estado?: Database["public"]["Enums"]["estado_cotizacion"]
           fecha?: string
           ga_pct?: number | null
@@ -1013,6 +1015,7 @@ export type Database = {
           eliminacion_por?: string | null
           eliminacion_solicitada?: boolean
           es_plantilla?: boolean
+          firmantes?: Json
           estado?: Database["public"]["Enums"]["estado_cotizacion"]
           fecha?: string
           ga_pct?: number | null
@@ -2128,6 +2131,7 @@ export type Database = {
           estado: Database["public"]["Enums"]["estado_proyecto"]
           fecha_fin: string | null
           fecha_inicio: string | null
+          firmantes: Json
           ga_pct: number | null
           gg_pct: number | null
           id: string
@@ -2156,6 +2160,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["estado_proyecto"]
           fecha_fin?: string | null
           fecha_inicio?: string | null
+          firmantes?: Json
           ga_pct?: number | null
           gg_pct?: number | null
           id?: string
@@ -2184,6 +2189,7 @@ export type Database = {
           estado?: Database["public"]["Enums"]["estado_proyecto"]
           fecha_fin?: string | null
           fecha_inicio?: string | null
+          firmantes?: Json
           ga_pct?: number | null
           gg_pct?: number | null
           id?: string
