@@ -32,6 +32,10 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     .find((p) => p?.rol === 'jefe_proyectos');
   const responsable = jefe?.nombre ?? undefined;
   const responsableFirma = jefe?.firma_data ?? undefined;
+  // Gerente (aprueba). Si hay un único gerente, su firma va automática.
+  const { data: gerentes } = await supabase.from('profiles').select('nombre, firma_data').eq('rol', 'gerencia').eq('activo', true);
+  const gerente = (gerentes ?? []).length === 1 ? (gerentes![0] as { nombre?: string }).nombre ?? undefined : undefined;
+  const gerenteFirma = (gerentes ?? []).length === 1 ? (gerentes![0] as { firma_data?: string | null }).firma_data ?? undefined : undefined;
 
   // itemizado completo (para código de ítem, unidad y monto contractual de cada partida)
   const { data: allItems } = await supabase
@@ -129,6 +133,8 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     saldoContrato: contrato - valorizadoAcum,
     responsable,
     responsableFirma,
+    gerente,
+    gerenteFirma,
     rows,
     historial,
     medios: (medios ?? []).map((m) => ({

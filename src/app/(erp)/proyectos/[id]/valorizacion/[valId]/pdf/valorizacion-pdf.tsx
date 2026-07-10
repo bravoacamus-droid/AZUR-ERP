@@ -35,7 +35,7 @@ export interface ValPdfData {
   proyecto: string; codigo: string; cliente: string; numero: number; fecha: string;
   contrato: number; valorizadoPeriodo: number; amortizacion: number; cobroNeto: number;
   adelantoPct: number; tasaAmort: number; adelantoTotal: number; amortizadoAcum: number; saldoAdelanto: number;
-  valorizadoAcum: number; saldoContrato: number; responsable?: string; responsableFirma?: string;
+  valorizadoAcum: number; saldoContrato: number; responsable?: string; responsableFirma?: string; gerente?: string; gerenteFirma?: string;
   rows: {
     codigo: string; titulo: string; unidad: string; contractual: number;
     pct: number; monto: number; pctAcum: number; valorizadoAcum: number; saldo: number;
@@ -177,18 +177,18 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
                 ))}
               </View>
             ) : null}
-            <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-around', marginTop: 24 }}>
               <View style={{ alignItems: 'center', width: 200 }}>
                 {/* Firma del Jefe de Proyectos si está cargada; si no, espacio para firmar. */}
-                {d.responsableFirma ? <Image src={d.responsableFirma} style={{ height: 34, width: 150, objectFit: 'contain' }} /> : <View style={{ height: 34 }} />}
+                {d.responsableFirma ? <Image src={d.responsableFirma} style={{ height: 44, width: 150, objectFit: 'contain' }} /> : <View style={{ height: 44 }} />}
                 <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
                 <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? ''}</Text>
                 <Text style={{ fontSize: 8, color: '#666' }}>Elaborado por · Jefe de Proyectos</Text>
               </View>
               <View style={{ alignItems: 'center', width: 200 }}>
-                <View style={{ height: 34 }} />
+                {d.gerenteFirma ? <Image src={d.gerenteFirma} style={{ height: 44, width: 150, objectFit: 'contain' }} /> : <View style={{ height: 44 }} />}
                 <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
-                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}> </Text>
+                <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.gerente ?? ' '}</Text>
                 <Text style={{ fontSize: 8, color: '#666' }}>Aprobado por · Gerencia</Text>
               </View>
             </View>

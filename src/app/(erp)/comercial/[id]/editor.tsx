@@ -681,7 +681,12 @@ const numImport = (s: string): number | null => {
 function matrizAFilas(matriz: string[][]): { filas: FilaImport[]; error?: string } {
   const rows = matriz.filter((r) => r.some((c) => String(c ?? '').trim() !== ''));
   if (rows.length < 2) return { filas: [], error: 'Faltan filas de datos.' };
-  const head = rows[0].map((c) => sinAcento(String(c)));
+  // Ubica la fila de cabecera (la que contiene Título/Descripción) — tolera filas
+  // de marca/instrucciones arriba en la plantilla brandeada.
+  const contieneTitulo = (r: string[]) => r.some((c) => { const h = sinAcento(String(c)); return h === 'titulo' || h.includes('titulo') || h.includes('descripcion') || h === 'partida'; });
+  const headRow = rows.findIndex(contieneTitulo);
+  if (headRow < 0) return { filas: [], error: 'No se encontró la columna Título/Descripción. Usa la plantilla.' };
+  const head = rows[headRow].map((c) => sinAcento(String(c)));
   const idx = (...alts: string[]) => head.findIndex((h) => alts.some((a) => h === a || h.includes(a)));
   const ci = {
     nivel: idx('nivel'),
@@ -693,7 +698,7 @@ function matrizAFilas(matriz: string[][]): { filas: FilaImport[]; error?: string
   };
   if (ci.titulo < 0) return { filas: [], error: 'No se encontró la columna Título/Descripción. Usa la plantilla.' };
   const filas: FilaImport[] = [];
-  for (let r = 1; r < rows.length; r++) {
+  for (let r = headRow + 1; r < rows.length; r++) {
     const row = rows[r];
     const titulo = String(row[ci.titulo] ?? '').trim();
     if (!titulo) continue;
@@ -741,18 +746,7 @@ function ImportarModal({ cotizacionId, onClose, onDone }: { cotizacionId: string
     }
   };
 
-  const descargarPlantilla = () => {
-    const ejemplo = [
-      CABECERAS_IMPORT.join(','),
-      '1,ÁREAS INTERIORES,,,,',
-      '2,Cisterna,m2,11.35,255.08,30',
-      '1,Mesa de trabajo en acero inoxidable,m2,20,850,30',
-    ].join('\n');
-    const blob = new Blob(['﻿' + ejemplo], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'plantilla-cotizacion.csv'; a.click();
-    URL.revokeObjectURL(url);
-  };
+  const descargarPlantilla = () => { window.open('/comercial/plantilla-import', '_blank'); };
 
   const importar = async () => {
     if (!filas.length) return;
