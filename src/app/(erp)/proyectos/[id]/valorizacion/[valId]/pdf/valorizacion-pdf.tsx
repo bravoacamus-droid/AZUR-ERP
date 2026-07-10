@@ -35,7 +35,7 @@ export interface ValPdfData {
   proyecto: string; codigo: string; cliente: string; numero: number; fecha: string;
   contrato: number; valorizadoPeriodo: number; amortizacion: number; cobroNeto: number;
   adelantoPct: number; tasaAmort: number; adelantoTotal: number; amortizadoAcum: number; saldoAdelanto: number;
-  valorizadoAcum: number; saldoContrato: number; responsable?: string;
+  valorizadoAcum: number; saldoContrato: number; responsable?: string; responsableFirma?: string;
   rows: {
     codigo: string; titulo: string; unidad: string; contractual: number;
     pct: number; monto: number; pctAcum: number; valorizadoAcum: number; saldo: number;
@@ -179,8 +179,8 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
             ) : null}
             <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
               <View style={{ alignItems: 'center', width: 200 }}>
-                {/* Espacio en blanco para firmar (encima de la línea) */}
-                <View style={{ height: 34 }} />
+                {/* Firma del Jefe de Proyectos si está cargada; si no, espacio para firmar. */}
+                {d.responsableFirma ? <Image src={d.responsableFirma} style={{ height: 34, width: 150, objectFit: 'contain' }} /> : <View style={{ height: 34 }} />}
                 <View style={{ borderTopWidth: 1, borderTopColor: '#333', width: 170, marginBottom: 4 }} />
                 <Text style={{ fontSize: 9, fontFamily: 'Helvetica-Bold' }}>{d.responsable ?? ''}</Text>
                 <Text style={{ fontSize: 8, color: '#666' }}>Elaborado por · Jefe de Proyectos</Text>

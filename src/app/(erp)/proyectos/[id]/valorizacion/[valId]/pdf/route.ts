@@ -26,10 +26,12 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   // jefe de proyectos del equipo (responsable que elabora el informe)
   const { data: equipo } = await supabase
     .from('proyecto_equipo')
-    .select('profile:profiles(nombre, rol)')
+    .select('profile:profiles(nombre, rol, firma_data)')
     .eq('proyecto_id', params.id);
-  const responsable = (equipo ?? []).map((e) => e.profile as { nombre?: string; rol?: string } | null)
-    .find((p) => p?.rol === 'jefe_proyectos')?.nombre ?? undefined;
+  const jefe = (equipo ?? []).map((e) => e.profile as { nombre?: string; rol?: string; firma_data?: string | null } | null)
+    .find((p) => p?.rol === 'jefe_proyectos');
+  const responsable = jefe?.nombre ?? undefined;
+  const responsableFirma = jefe?.firma_data ?? undefined;
 
   // itemizado completo (para código de ítem, unidad y monto contractual de cada partida)
   const { data: allItems } = await supabase
@@ -126,6 +128,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     valorizadoAcum,
     saldoContrato: contrato - valorizadoAcum,
     responsable,
+    responsableFirma,
     rows,
     historial,
     medios: (medios ?? []).map((m) => ({
