@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireModulo } from '@/lib/auth';
 import { formatCodigo } from '@/lib/codigo';
-import { notifyRoles } from '@/lib/push/notify';
+import { notifyRoles, notifyUser } from '@/lib/push/notify';
 import { armarArbol, calcularCostosMargen, calcularTotales } from '@/lib/calc';
 
 type Res = { ok: boolean; error?: string; id?: string };
@@ -177,6 +177,54 @@ export async function guardarCabecera(id: string, patch: Record<string, unknown>
   const { error } = await supabase.from('cotizaciones').update(patch as never).eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/comercial/${id}`);
+  return { ok: true };
+}
+
+// ── Flujo de revisión / validación ──────────────────────────────────────
+// Comercial envía la cotización a revisión → notifica a Presupuestos y Gerencia.
+export async function solicitarRevision(cotizacionId: string): Promise<Res> {
+  const session = await guard();
+  const admin = createAdminClient();
+  const { data: cot } = await admin.from('cotizaciones').select('codigo, proyecto_nombre').eq('id', cotizacionId).single();
+  const { error } = await admin.from('cotizaciones').update({
+    revision_estado: 'pendiente', revision_nota: null,
+    revision_solicitada_por: session.id, revision_at: new Date().toISOString(),
+  } as never).eq('id', cotizacionId);
+  if (error) return { ok: false, error: error.message };
+  await notifyRoles(['presupuestos', 'gerencia'], {
+    title: 'Cotización para revisar',
+    body: `${cot?.codigo ?? ''} · ${cot?.proyecto_nombre ?? ''} — solicitó ${session.nombre}`,
+    url: `/comercial/${cotizacionId}`, tag: 'revision',
+  }, 'comercial');
+  revalidatePath(`/comercial/${cotizacionId}`);
+  revalidatePath('/comercial');
+  return { ok: true };
+}
+
+// Presupuestos/Gerencia resuelve la revisión: aprobada u observada (con nota) →
+// notifica a quien la solicitó.
+export async function resolverRevision(cotizacionId: string, aprobar: boolean, nota?: string): Promise<Res> {
+  const session = await guard();
+  const admin = createAdminClient();
+  const { data: cot } = await admin.from('cotizaciones')
+    .select('codigo, proyecto_nombre, revision_solicitada_por, responsable_id')
+    .eq('id', cotizacionId).single();
+  const { error } = await admin.from('cotizaciones').update({
+    revision_estado: aprobar ? 'aprobada' : 'observada',
+    revision_nota: nota ?? null, revision_por: session.id, revision_at: new Date().toISOString(),
+  } as never).eq('id', cotizacionId);
+  if (error) return { ok: false, error: error.message };
+  const destino = (cot as { revision_solicitada_por?: string; responsable_id?: string } | null)?.revision_solicitada_por
+    ?? (cot as { responsable_id?: string } | null)?.responsable_id;
+  if (destino) {
+    await notifyUser(destino, {
+      title: aprobar ? 'Revisión aprobada ✓' : 'Cotización observada',
+      body: `${cot?.codigo ?? ''} · ${cot?.proyecto_nombre ?? ''}${nota ? ` — ${nota}` : ''}`,
+      url: `/comercial/${cotizacionId}`, tag: 'revision',
+    }, 'comercial');
+  }
+  revalidatePath(`/comercial/${cotizacionId}`);
+  revalidatePath('/comercial');
   return { ok: true };
 }
 

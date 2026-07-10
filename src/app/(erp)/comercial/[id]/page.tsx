@@ -63,6 +63,7 @@ export default async function CotizacionPage({ params }: { params: { id: string 
         userNombre={session.nombre}
         userId={session.id}
         canEdit={puedeEditar(session.permisos, 'comercial')}
+        esRevisor={session.rol === 'presupuestos' || session.rol === 'gerencia'}
       />
     </div>
   );

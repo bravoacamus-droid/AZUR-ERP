@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, ChevronRight, Send, Handshake, CheckCircle2, FileDown,
   MessageCircle, History, Loader2, Percent, Save, Layers, X, Undo2, Copy, BookmarkPlus, Upload,
+  Link2, ClipboardCheck, AlertTriangle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,17 +30,18 @@ import {
   cambiarEstado, guardarVersion, restaurarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
   eliminarCotizacion, duplicarCotizacion, importarItemizado, parsearXlsx, type FilaImport,
+  solicitarRevision, resolverRevision,
 } from '../actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true,
+  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false,
 }: {
   cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
   historial: any[]; perfilesMap: Record<string, string>;
-  userNombre: string; userId: string; canEdit?: boolean;
+  userNombre: string; userId: string; canEdit?: boolean; esRevisor?: boolean;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => createClient(), []);
@@ -67,6 +69,27 @@ export function CotizacionEditor({
   const [apuItem, setApuItem] = useState<Row | null>(null);
   const [addTarget, setAddTarget] = useState<{ parent: Row | null; nivel: number } | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  // Revisión / validación
+  const [showObs, setShowObs] = useState(false);
+  const [revNota, setRevNota] = useState('');
+  const [copiado, setCopiado] = useState(false);
+  async function enviarRevision() {
+    setBusy(true); const r = await solicitarRevision(cot.id); setBusy(false);
+    if (!r.ok) { alert(r.error); return; }
+    setCot((c: any) => ({ ...c, revision_estado: 'pendiente', revision_nota: null }));
+  }
+  async function resolver(aprobar: boolean, nota?: string) {
+    setBusy(true); const r = await resolverRevision(cot.id, aprobar, nota); setBusy(false);
+    if (!r.ok) { alert(r.error); return; }
+    setCot((c: any) => ({ ...c, revision_estado: aprobar ? 'aprobada' : 'observada', revision_nota: nota ?? null }));
+    setShowObs(false); setRevNota('');
+  }
+  function copiarLink() {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(window.location.href);
+      setCopiado(true); setTimeout(() => setCopiado(false), 1800);
+    }
+  }
   const editable = canEdit && (cot.estado === 'borrador' || cot.estado === 'en_negociacion');
 
   // Navegación tipo Excel: ↑/↓/Enter mueven el foco a la misma columna de la
@@ -241,10 +264,16 @@ export function CotizacionEditor({
                 <h1 className="text-xl font-bold">{cot.proyecto_nombre}</h1>
               )}
               <Badge variant={est.variant}>{est.label}</Badge>
+              {cot.revision_estado === 'pendiente' && <Badge variant="warning"><ClipboardCheck className="size-3" /> En revisión</Badge>}
+              {cot.revision_estado === 'aprobada' && <Badge variant="success"><CheckCircle2 className="size-3" /> Revisión aprobada</Badge>}
+              {cot.revision_estado === 'observada' && <Badge variant="danger"><AlertTriangle className="size-3" /> Observada</Badge>}
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
               {cot.codigo} · {cot.cliente?.razon_social} · {cot.linea?.nombre} · v{cot.version}
             </p>
+            {cot.revision_estado === 'observada' && cot.revision_nota && (
+              <p className="mt-1 inline-block rounded bg-azur-50 px-2 py-1 text-xs text-azur-800"><strong>Observación:</strong> {cot.revision_nota}</p>
+            )}
           </div>
           <div className="flex items-center gap-3">
             {presentes.length > 0 && (
@@ -255,9 +284,27 @@ export function CotizacionEditor({
                 <span className="ml-3 text-xs text-muted-foreground">{presentes.length} en línea</span>
               </div>
             )}
+            {esRevisor && cot.revision_estado === 'pendiente' && (
+              <>
+                <Button variant="outline" size="sm" className="text-emerald-700" disabled={busy} onClick={() => resolver(true)}>
+                  <CheckCircle2 className="size-4" /> Aprobar revisión
+                </Button>
+                <Button variant="outline" size="sm" className="text-azur-700" disabled={busy} onClick={() => { setRevNota(''); setShowObs(true); }}>
+                  <AlertTriangle className="size-4" /> Observar
+                </Button>
+              </>
+            )}
+            <Button variant="outline" size="sm" onClick={copiarLink} title="Copiar enlace para compartir">
+              <Link2 className="size-4" /> {copiado ? 'Copiado ✓' : 'Copiar link'}
+            </Button>
             <Dropdown
               trigger={<Button variant="outline">Acciones</Button>}
             >
+              {canEdit && cot.revision_estado !== 'pendiente' && (
+                <DropdownItem onClick={enviarRevision}>
+                  <ClipboardCheck /> Enviar a revisión
+                </DropdownItem>
+              )}
               {cot.estado === 'borrador' && (
                 <DropdownItem onClick={() => setEstado('enviada')}>
                   <Send /> Marcar como enviada
@@ -558,6 +605,14 @@ export function CotizacionEditor({
           onDone={() => { setImportOpen(false); router.refresh(); }}
         />
       )}
+      <Modal open={showObs} onClose={() => setShowObs(false)} title="Observar cotización"
+        description="Escribe qué debe corregir el área comercial. Le llegará una notificación."
+        footer={<>
+          <Button variant="ghost" onClick={() => setShowObs(false)}>Cancelar</Button>
+          <Button variant="gradient" disabled={busy} onClick={() => resolver(false, revNota.trim() || undefined)}>Enviar observación</Button>
+        </>}>
+        <Textarea rows={4} value={revNota} onChange={(e) => setRevNota(e.target.value)} placeholder="Ej. Revisar el costo unitario de la partida 1.3; falta la unidad en 2.1…" />
+      </Modal>
     </div>
   );
 }
@@ -1095,7 +1150,7 @@ function CondicionesPago({ cot, formas, medios, onSave, onCab, editable }: any) 
         <CardContent className="space-y-3">
           <div className="flex items-end gap-2">
             <Field label="Plazo de ejecución" className="flex-1">
-              <Input type="number" defaultValue={cot.plazo_valor ?? ''} disabled={!editable} onBlur={(e) => onCab({ plazo_valor: Number(e.target.value) })} />
+              <Input type="number" step="any" min="0" defaultValue={cot.plazo_valor ?? ''} disabled={!editable} onBlur={(e) => onCab({ plazo_valor: e.target.value === '' ? null : Number(e.target.value) })} />
             </Field>
             <Field label="Tipo" className="flex-1">
               <Select defaultValue={cot.plazo_tipo} disabled={!editable} onChange={(e) => onCab({ plazo_tipo: e.target.value })}>

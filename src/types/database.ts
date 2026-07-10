@@ -923,6 +923,11 @@ export type Database = {
           proyecto_nombre: string
           recomendado_por: string | null
           responsable_id: string | null
+          revision_at: string | null
+          revision_estado: string | null
+          revision_nota: string | null
+          revision_por: string | null
+          revision_solicitada_por: string | null
           servicios_incluidos: string | null
           servicios_omitidos: string | null
           tipo_cambio: number | null
@@ -972,6 +977,11 @@ export type Database = {
           proyecto_nombre: string
           recomendado_por?: string | null
           responsable_id?: string | null
+          revision_at?: string | null
+          revision_estado?: string | null
+          revision_nota?: string | null
+          revision_por?: string | null
+          revision_solicitada_por?: string | null
           servicios_incluidos?: string | null
           servicios_omitidos?: string | null
           tipo_cambio?: number | null
@@ -1021,6 +1031,11 @@ export type Database = {
           proyecto_nombre?: string
           recomendado_por?: string | null
           responsable_id?: string | null
+          revision_at?: string | null
+          revision_estado?: string | null
+          revision_nota?: string | null
+          revision_por?: string | null
+          revision_solicitada_por?: string | null
           servicios_incluidos?: string | null
           servicios_omitidos?: string | null
           tipo_cambio?: number | null

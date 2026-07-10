@@ -3,14 +3,27 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { MoreVertical, Eye, Trash2, Loader2, Copy, BookmarkPlus, FilePlus2 } from 'lucide-react';
+import { MoreVertical, Eye, Trash2, Loader2, Copy, BookmarkPlus, FilePlus2, FileDown, Link2, ClipboardCheck } from 'lucide-react';
 import { Dropdown, DropdownItem } from '@/components/ui/dropdown';
-import { eliminarCotizacion, duplicarCotizacion } from './actions';
+import { eliminarCotizacion, duplicarCotizacion, solicitarRevision } from './actions';
 
 export function CotizacionRowActions({ id, estado, esPlantilla }: { id: string; estado: string; esPlantilla?: boolean }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const puedeEliminar = estado !== 'aceptada';
+
+  function copiarLink() {
+    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(`${window.location.origin}/comercial/${id}`);
+    }
+  }
+  async function enviarRevision() {
+    setBusy(true);
+    const r = await solicitarRevision(id);
+    setBusy(false);
+    if (r.ok) { router.refresh(); alert('Enviada a revisión ✓ Se notificó a Presupuestos y Gerencia.'); }
+    else alert(r.error);
+  }
 
   async function borrar() {
     if (!confirm('¿Eliminar esta cotización? Esta acción no se puede deshacer.')) return;
@@ -40,6 +53,17 @@ export function CotizacionRowActions({ id, estado, esPlantilla }: { id: string; 
       <Link href={`/comercial/${id}`}>
         <DropdownItem><Eye /> Abrir / Editar</DropdownItem>
       </Link>
+      {!esPlantilla && (
+        <>
+          <a href={`/comercial/${id}/pdf`} target="_blank" rel="noreferrer">
+            <DropdownItem><FileDown /> Descargar PDF</DropdownItem>
+          </a>
+          <DropdownItem onClick={copiarLink}><Link2 /> Copiar link</DropdownItem>
+          {estado !== 'aceptada' && (
+            <DropdownItem onClick={enviarRevision}><ClipboardCheck /> Enviar a revisión</DropdownItem>
+          )}
+        </>
+      )}
       {esPlantilla ? (
         <DropdownItem onClick={() => duplicar(false)}><FilePlus2 /> Usar plantilla (crear cotización)</DropdownItem>
       ) : (
