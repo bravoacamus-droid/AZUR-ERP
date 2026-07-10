@@ -10,7 +10,7 @@ import { Field, Avatar } from '@/components/ui/misc';
 import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/page';
 import { rolLabel } from '@/lib/roles';
-import { actualizarPerfil, guardarAvatar } from './actions';
+import { actualizarPerfil, guardarAvatar, guardarMiFirma } from './actions';
 
 export type PerfilData = {
   id: string;
@@ -19,12 +19,32 @@ export type PerfilData = {
   rol: string;
   telefono: string | null;
   avatar_url: string | null;
+  firma_data: string | null;
 };
 
 export function PerfilClient({ perfil }: { perfil: PerfilData }) {
   const [nombre, setNombre] = React.useState(perfil.nombre);
   const [telefono, setTelefono] = React.useState(perfil.telefono ?? '');
   const [avatarUrl, setAvatarUrl] = React.useState(perfil.avatar_url);
+  const [firma, setFirma] = React.useState<string | null>(perfil.firma_data);
+  const [firmaBusy, setFirmaBusy] = React.useState(false);
+  const [firmaError, setFirmaError] = React.useState<string | null>(null);
+
+  const onFirma = async (file: File) => {
+    setFirmaError(null);
+    if (file.size > 2_000_000) { setFirmaError('La firma debe pesar menos de 2 MB.'); return; }
+    const dataUri = await new Promise<string>((resolve, reject) => {
+      const r = new FileReader(); r.onload = () => resolve(String(r.result)); r.onerror = reject; r.readAsDataURL(file);
+    });
+    setFirmaBusy(true);
+    const res = await guardarMiFirma({ firma_data: dataUri });
+    setFirmaBusy(false);
+    if (!res.ok) { setFirmaError(res.error ?? 'Error al guardar la firma'); return; }
+    setFirma(dataUri);
+  };
+  const quitarFirma = async () => {
+    setFirmaBusy(true); await guardarMiFirma({ firma_data: null }); setFirmaBusy(false); setFirma(null);
+  };
 
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -117,6 +137,22 @@ export function PerfilClient({ perfil }: { perfil: PerfilData }) {
                 <Button type="submit" variant="gradient" disabled={saving}>{saving ? 'Guardando…' : 'Guardar cambios'}</Button>
               </div>
             </form>
+
+            <div className="mt-6 rounded-lg border p-3">
+              <p className="mb-2 text-sm font-medium">Mi firma (PNG sin fondo)</p>
+              {firma ? (
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={firma} alt="Mi firma" className="h-16 rounded border bg-white object-contain px-2" />
+                  <Button type="button" variant="outline" size="sm" disabled={firmaBusy} onClick={quitarFirma}>Quitar</Button>
+                </div>
+              ) : (
+                <p className="mb-2 text-xs text-muted-foreground">Sin firma cargada. Se incrusta en el PDF cuando eres el responsable de la cotización.</p>
+              )}
+              <input type="file" accept="image/png,image/jpeg" className="mt-2 block w-full text-sm" disabled={firmaBusy}
+                onChange={(e) => { const file = e.target.files?.[0]; if (file) onFirma(file); }} />
+              {firmaError && <p className="mt-2 text-xs font-medium text-azur-700">{firmaError}</p>}
+            </div>
           </CardContent>
         </Card>
       </div>

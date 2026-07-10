@@ -27,6 +27,20 @@ export async function actualizarPerfil(input: z.input<typeof perfilSchema>): Pro
   return { ok: true };
 }
 
+const firmaSchema = z.object({ firma_data: z.string().max(3_000_000).nullable() });
+
+// Cada usuario puede subir/quitar su propia firma (sin permiso del módulo Usuarios).
+export async function guardarMiFirma(input: z.input<typeof firmaSchema>): Promise<Res> {
+  const session = await requireSession();
+  const parsed = firmaSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Firma inválida' };
+  const supabase = createClient();
+  const { error } = await supabase.from('profiles').update({ firma_data: parsed.data.firma_data } as never).eq('id', session.id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/perfil');
+  return { ok: true };
+}
+
 const avatarSchema = z.object({ avatar_url: z.string().url('URL inválida') });
 
 export async function guardarAvatar(input: z.input<typeof avatarSchema>): Promise<Res> {

@@ -43,13 +43,13 @@ function ErrorMsg({ msg }: { msg: string | null }) {
 function NuevoUsuarioModal({ roles, onClose }: { roles: RolPers[]; onClose: () => void }) {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [f, setF] = React.useState({ nombre: '', email: '', rol: 'comercial' as Rol, telefono: '', password: '' });
+  const [f, setF] = React.useState({ nombre: '', email: '', rol: 'comercial' as Rol, telefono: '', password: '', rol_personalizado_id: '' });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true); setError(null);
     try {
-      const res = await crearUsuario(f);
+      const res = await crearUsuario({ ...f, rol_personalizado_id: f.rol_personalizado_id || null });
       if (!res.ok) { setError(res.error ?? 'No se pudo crear'); return; }
       onClose();
     } catch (err) {
@@ -75,6 +75,12 @@ function NuevoUsuarioModal({ roles, onClose }: { roles: RolPers[]; onClose: () =
           </Field>
           <Field label="Contraseña" required hint="Mínimo 6 caracteres"><Input type="text" value={f.password} onChange={(e) => setF({ ...f, password: e.target.value })} required /></Field>
         </div>
+        <Field label="Rol personalizado (opcional)" hint={roles.length ? 'Si eliges uno, sus permisos por módulo mandan sobre el rol base.' : 'Aún no hay roles personalizados. Créalos con “Nuevo rol”.'}>
+          <Select value={f.rol_personalizado_id} onChange={(e) => setF({ ...f, rol_personalizado_id: e.target.value })} disabled={roles.length === 0}>
+            <option value="">— usar rol base —</option>
+            {roles.filter((r) => r.activo).map((r) => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+          </Select>
+        </Field>
         <ErrorMsg msg={error} />
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>

@@ -53,7 +53,7 @@ export function CotizacionRowActions({ id, estado, esPlantilla, puedeEliminarDir
   return (
     <Dropdown
       trigger={
-        <button className="rounded-md p-1.5 hover:bg-secondary" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="rounded-md p-1.5 hover:bg-secondary">
           {busy ? <Loader2 className="size-4 animate-spin" /> : <MoreVertical className="size-4 text-muted-foreground" />}
         </button>
       }

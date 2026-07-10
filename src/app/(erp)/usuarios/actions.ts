@@ -30,6 +30,7 @@ const crearSchema = z.object({
   rol: z.enum(ROLES),
   telefono: z.string().optional().or(z.literal('')).transform((v) => (v ? v : null)),
   password: z.string().min(6, 'La contraseña debe tener al menos 6 caracteres'),
+  rol_personalizado_id: z.string().uuid().optional().nullable(),
 });
 
 export async function crearUsuario(input: z.input<typeof crearSchema>): Promise<Res> {
@@ -46,6 +47,11 @@ export async function crearUsuario(input: z.input<typeof crearSchema>): Promise<
     user_metadata: { nombre: d.nombre, rol: d.rol, telefono: d.telefono },
   });
   if (error) return { ok: false, error: error.message };
+
+  // Rol personalizado (opcional): se asigna sobre el perfil recién creado por el trigger.
+  if (d.rol_personalizado_id && data.user?.id) {
+    await admin.from('profiles').update({ rol_personalizado_id: d.rol_personalizado_id } as never).eq('id', data.user.id);
+  }
 
   revalidatePath('/usuarios');
   return { ok: true, id: data.user?.id };
