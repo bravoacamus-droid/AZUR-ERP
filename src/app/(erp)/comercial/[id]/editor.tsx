@@ -102,7 +102,9 @@ export function CotizacionEditor({
     if (!r.ok) { alert(r.error); return; }
     setCot((c: any) => ({ ...c, eliminacion_solicitada: false }));
   }
-  const editable = canEdit && (cot.estado === 'borrador' || cot.estado === 'en_negociacion');
+  // Editable hasta que sea aprobada (aceptada). "Enviada" sigue editable: el
+  // cliente puede pedir agregar/quitar partidas, no solo descuento.
+  const editable = canEdit && cot.estado !== 'aceptada';
 
   // Navegación tipo Excel: ↑/↓/Enter mueven el foco a la misma columna de la
   // fila anterior/siguiente (por posición de celda, sirve para cualquier input).
@@ -502,7 +504,7 @@ export function CotizacionEditor({
                           </td>
                           <td className="px-1 py-1.5">
                             {hoja ? (
-                              <NumCell value={row.cantidad} disabled={!editable} onSave={(v) => { setLocal(row.id, { cantidad: v }); persist(row.id, { cantidad: v }); }} />
+                              <FormulaCellCot value={row.cantidad} formula={(row as any).cantidad_formula} disabled={!editable} onSave={(v, f) => { setLocal(row.id, { cantidad: v }); persist(row.id, { cantidad: v, cantidad_formula: f }); }} />
                             ) : null}
                           </td>
                           <td className="px-1 py-1.5">

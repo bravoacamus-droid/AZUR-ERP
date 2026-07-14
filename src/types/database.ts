@@ -770,6 +770,7 @@ export type Database = {
       cotizacion_items: {
         Row: {
           cantidad: number | null
+          cantidad_formula: string | null
           costo_formula: string | null
           costo_unitario: number | null
           cotizacion_id: string
@@ -787,6 +788,7 @@ export type Database = {
         }
         Insert: {
           cantidad?: number | null
+          cantidad_formula?: string | null
           costo_formula?: string | null
           costo_unitario?: number | null
           cotizacion_id: string
@@ -804,6 +806,7 @@ export type Database = {
         }
         Update: {
           cantidad?: number | null
+          cantidad_formula?: string | null
           costo_formula?: string | null
           costo_unitario?: number | null
           cotizacion_id?: string
@@ -2015,6 +2018,7 @@ export type Database = {
         Row: {
           cantidad: number | null
           contratista_id: string | null
+          cantidad_formula: string | null
           costo_formula: string | null
           costo_unitario: number | null
           created_at: string
@@ -2039,6 +2043,7 @@ export type Database = {
         Insert: {
           cantidad?: number | null
           contratista_id?: string | null
+          cantidad_formula?: string | null
           costo_formula?: string | null
           costo_unitario?: number | null
           created_at?: string
@@ -2063,6 +2068,7 @@ export type Database = {
         Update: {
           cantidad?: number | null
           contratista_id?: string | null
+          cantidad_formula?: string | null
           costo_formula?: string | null
           costo_unitario?: number | null
           created_at?: string
