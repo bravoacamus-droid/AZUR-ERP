@@ -82,7 +82,15 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       row.getCell(1).value = codigos.get(n.data.id) ?? '';
       row.getCell(2).value = `${'   '.repeat(depth)}${n.data.titulo}`;
       row.getCell(3).value = hoja ? (n.data.unidad ?? '') : '';
-      row.getCell(4).value = hoja ? Number(n.data.cantidad ?? 0) : '';
+      // Cantidad: si hay fórmula guardada y es segura, la celda lleva la fórmula
+      // (con el valor como resultado); si no, el valor numérico de siempre.
+      if (hoja) {
+        const qty = Number(n.data.cantidad ?? 0);
+        const qf = n.data.cantidad_formula ? String(n.data.cantidad_formula).replace(/^=/, '').replace(/,/g, '.').trim() : '';
+        row.getCell(4).value = qf && /^[0-9+\-*/(). ]+$/.test(qf) ? { formula: qf, result: qty } : qty;
+      } else {
+        row.getCell(4).value = '';
+      }
       // C. Unitario: si hay fórmula guardada y es segura, la celda lleva la fórmula
       // (con el valor como resultado); si no, el valor numérico de siempre.
       if (hoja) {
