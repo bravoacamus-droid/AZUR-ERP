@@ -21,6 +21,7 @@ import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from 
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
 import { FirmasEditor } from '@/components/firmas/firmas-editor';
+import { FullscreenButton } from '@/components/ui/fullscreen-button';
 import { evalFormula, esFormula } from '@/lib/formula';
 import { entregaDesdeDuracion, duracionDesdeFechas, PATRON_LABEL, type PatronDias } from '@/lib/fechas';
 import { calcularLiquidacion } from '@/lib/liquidacion';
@@ -708,7 +709,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <Layers className="size-4" /> Cuadrantes 1-4 + valorizaciones semanales acumulables
         </div>
-        {canManage && (
+        <div className="flex flex-wrap items-center gap-2">
+          <FullscreenButton />
+          {canManage && (
           <div className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 rounded-lg border bg-white px-1.5 py-0.5">
               <Calendar className="size-3.5 text-muted-foreground" />
@@ -721,7 +724,8 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
             <Button size="sm" variant="outline" onClick={nuevaVal} disabled={busy}><Calendar /> Nueva valorización</Button>
             {activeVal && <Button size="sm" variant="gradient" onClick={guardar} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Guardar avances</Button>}
           </div>
-        )}
+          )}
+        </div>
       </div>
 
       {aviso && (

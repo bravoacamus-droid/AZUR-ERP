@@ -33,6 +33,7 @@ import {
   solicitarRevision, resolverRevision, moverItem, aprobarEliminacion, cancelarEliminacion, guardarFirmantesCotizacion,
 } from '../actions';
 import { FirmasEditor, type UsuarioFirma } from '@/components/firmas/firmas-editor';
+import { FullscreenButton } from '@/components/ui/fullscreen-button';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
@@ -440,16 +441,19 @@ export function CotizacionEditor({
           <Card>
             <CardHeader className="flex-row items-center justify-between pb-3">
               <CardTitle className="text-base">Cuadro de costos y margen</CardTitle>
-              {editable && (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setImportOpen(true)} disabled={busy}>
-                    <Upload className="size-4" /> Importar Excel
-                  </Button>
-                  <Button size="sm" variant="gradient" onClick={addRoot} disabled={busy}>
-                    <Plus /> Agregar partida
-                  </Button>
-                </div>
-              )}
+              <div className="flex gap-2">
+                <FullscreenButton />
+                {editable && (
+                  <>
+                    <Button size="sm" variant="outline" onClick={() => setImportOpen(true)} disabled={busy}>
+                      <Upload className="size-4" /> Importar Excel
+                    </Button>
+                    <Button size="sm" variant="gradient" onClick={addRoot} disabled={busy}>
+                      <Plus /> Agregar partida
+                    </Button>
+                  </>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="overflow-x-auto">
