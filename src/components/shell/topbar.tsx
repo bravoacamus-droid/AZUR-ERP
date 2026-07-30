@@ -1,8 +1,10 @@
 import { NotificationBell } from './notification-bell';
 import { UserMenu } from './user-menu';
 import type { SessionUser } from '@/lib/auth';
+import { ROLES_PWA } from '@/lib/roles';
 
 export function Topbar({ session, title }: { session: SessionUser; title?: string }) {
+  const puedeCampo = ROLES_PWA.includes(session.rol);
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between border-b bg-white/80 px-4 backdrop-blur-md lg:px-6">
       <div className="pl-10 lg:pl-0">
@@ -15,6 +17,7 @@ export function Topbar({ session, title }: { session: SessionUser; title?: strin
           email={session.email}
           rol={session.rol}
           avatarUrl={session.avatar_url}
+          otroShell={puedeCampo ? { label: 'Ir a Campo', href: '/campo' } : undefined}
         />
       </div>
     </header>

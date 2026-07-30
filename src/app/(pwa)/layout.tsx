@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { requireSession } from '@/lib/auth';
 import { ROLES_PWA } from '@/lib/roles';
+import { navForPermisos } from '@/lib/nav';
 import { BottomNav } from '@/components/shell/bottom-nav';
 import { NotificationBell } from '@/components/shell/notification-bell';
 import { UserMenu } from '@/components/shell/user-menu';
@@ -11,6 +12,9 @@ import { OfflineSync } from '@/components/pwa/offline-sync';
 export default async function PwaLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
   if (!ROLES_PWA.includes(session.rol)) redirect('/inicio');
+  // Si además tiene acceso a módulos ERP (rol personalizado), ofrece ir a Oficina.
+  const erpItems = navForPermisos(session.rol, session.permisos).flatMap((g) => g.items);
+  const irOficina = erpItems.length ? { label: 'Ir a Oficina', href: erpItems[0].href } : undefined;
 
   return (
     <div className="mx-auto flex min-h-screen max-w-lg flex-col bg-secondary/30">
@@ -24,6 +28,7 @@ export default async function PwaLayout({ children }: { children: React.ReactNod
             email={session.email}
             rol={session.rol}
             avatarUrl={session.avatar_url}
+            otroShell={irOficina}
           />
         </div>
       </header>

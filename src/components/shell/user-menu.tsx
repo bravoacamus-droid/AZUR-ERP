@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
-import { LogOut, User as UserIcon, ChevronDown, Loader2 } from 'lucide-react';
+import { LogOut, User as UserIcon, ChevronDown, Loader2, ArrowLeftRight } from 'lucide-react';
 import { Avatar } from '@/components/ui/misc';
 import { Dropdown, DropdownItem } from '@/components/ui/dropdown';
 import { rolLabel } from '@/lib/roles';
@@ -13,11 +13,13 @@ export function UserMenu({
   email,
   rol,
   avatarUrl,
+  otroShell,
 }: {
   nombre: string;
   email: string;
   rol: string;
   avatarUrl?: string | null;
+  otroShell?: { label: string; href: string };
 }) {
   const router = useRouter();
   const [saliendo, setSaliendo] = useState(false);
@@ -54,6 +56,11 @@ export function UserMenu({
       <DropdownItem onClick={() => router.push('/perfil')}>
         <UserIcon /> Mi perfil
       </DropdownItem>
+      {otroShell && (
+        <DropdownItem onClick={() => { window.location.href = otroShell.href; }}>
+          <ArrowLeftRight /> {otroShell.label}
+        </DropdownItem>
+      )}
       <DropdownItem
         onClick={cerrarSesion}
         className="text-azur-700 hover:bg-azur-50"

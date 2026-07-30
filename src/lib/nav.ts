@@ -1,4 +1,5 @@
 import type { Rol } from './roles';
+import { ROL_META, ROLES_ERP } from './roles';
 import { puedeVer, type Modulo, type PermisosMap } from './permisos';
 
 export interface NavItem {
@@ -70,4 +71,15 @@ export function navForPermisos(rol: Rol, permisos: PermisosMap) {
 
 export function pwaNavForRol(rol: Rol) {
   return PWA_NAV.filter((i) => i.roles.includes(rol));
+}
+
+/** Destino tras iniciar sesión, considerando el rol personalizado.
+ *  Roles de oficina → su home habitual. Un rol de campo (p. ej. residente) al
+ *  que un rol personalizado le da acceso a módulos ERP aterriza en el primer
+ *  módulo ERP disponible; si no, en su home de campo. */
+export function homeFor(rol: Rol, permisos: PermisosMap): string {
+  if (ROLES_ERP.includes(rol)) return ROL_META[rol].home;
+  const items = navForPermisos(rol, permisos).flatMap((g) => g.items);
+  if (items.length) return items[0].href;
+  return ROL_META[rol].home;
 }
