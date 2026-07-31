@@ -16,8 +16,8 @@ import { Modal } from '@/components/ui/dialog';
 import { Field, EmptyState, Avatar, InfoTip } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
-import { CurvaS } from '@/components/proyectos/curva-s';
 import { CurvaSComparativa } from '@/components/proyectos/curva-s-comparativa';
+import { DashboardProyVsReal } from '@/components/proyectos/dashboard-proy-real';
 import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
@@ -110,7 +110,7 @@ export function ProyectoDetalle(props: any) {
         ]}
       />
 
-      {tab === 'resumen' && <Resumen proy={proy} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} adelantos={adelantos} usuariosFirma={usuariosFirma} />}
+      {tab === 'resumen' && <Resumen proy={proy} items={items} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} adelantos={adelantos} usuariosFirma={usuariosFirma} />}
       {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} adelantos={adelantos} />}
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
@@ -124,7 +124,7 @@ export function ProyectoDetalle(props: any) {
 }
 
 // ───────────────────────────── RESUMEN ────────────────────────────────
-function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo, presupuestoGasto, adelantos = [], usuariosFirma = [] }: any) {
+function Resumen({ proy, items = [], dash, cajaSaldo, valorizaciones, hitos, canManage, solicitudes, userRol, comparativo, presupuestoGasto, adelantos = [], usuariosFirma = [] }: any) {
   const router = useRouter();
   const [busyS, setBusyS] = useState<string | null>(null);
   const [adForm, setAdForm] = useState({ concepto: '', tipo: 'extraordinario', monto: '' });
@@ -236,7 +236,7 @@ function Resumen({ proy, dash, cajaSaldo, valorizaciones, hitos, canManage, soli
           <InformeBtn proyectoId={proy.id} />
         </div>
         {proy.tipo_proyecto === 'grande' && (
-          <CurvaS contratoTotal={Number(proy.contrato_total)} fechaInicio={proy.fecha_inicio} fechaFin={proy.fecha_fin} valorizaciones={valorizaciones} />
+          <DashboardProyVsReal proy={proy} items={items} valorizaciones={valorizaciones} />
         )}
         <Card>
           <CardHeader className="flex-row items-center justify-between pb-2"><CardTitle className="text-base flex items-center gap-2"><Calendar className="size-4 text-azur-600" /> Hitos contractuales</CardTitle></CardHeader>

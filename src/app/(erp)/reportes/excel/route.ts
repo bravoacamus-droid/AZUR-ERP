@@ -14,7 +14,7 @@ function desdeDe(periodo: string): string | null {
   if (periodo === 'todo') return null;
   if (periodo === 'mes') return new Date(hoy.getFullYear(), hoy.getMonth(), 1).toISOString().slice(0, 10);
   const d = new Date(hoy);
-  d.setDate(d.getDate() - (Number(periodo) || 30));
+  d.setDate(d.getDate() - (periodo === 'sem' ? 84 : Number(periodo) || 30));
   return d.toISOString().slice(0, 10);
 }
 

@@ -23,6 +23,7 @@ function desdeDe(periodo: string): Date | null {
   const hoy = new Date();
   if (periodo === 'todo') return null;
   if (periodo === 'mes') return new Date(hoy.getFullYear(), hoy.getMonth(), 1);
+  if (periodo === 'sem') { const d = new Date(hoy); d.setDate(d.getDate() - 84); return d; } // 12 semanas
   const dias = Number(periodo) || 30;
   const d = new Date(hoy);
   d.setDate(d.getDate() - dias);
@@ -60,12 +61,15 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   }
   const [{ data: abonos }, { data: sols }, { data: ptg }] = await Promise.all([qAbonos, qSols, qPtg]);
 
-  const bucket = (s: string) => (periodo === 'todo' ? s.slice(0, 7) : s.slice(0, 10));
+  // lunes de la semana de una fecha (para el bucket semanal, #10)
+  const lunesDe = (s: string) => { const d = new Date(s.slice(0, 10) + 'T00:00:00'); const g = d.getDay(); d.setDate(d.getDate() + (g === 0 ? -6 : 1 - g)); return d.toISOString().slice(0, 10); };
+  const bucket = (s: string) => (periodo === 'todo' ? s.slice(0, 7) : periodo === 'sem' ? lunesDe(s) : s.slice(0, 10));
   const serieMap = new Map<string, { Ingresos: number; Egresos: number }>();
   const get = (k: string) => serieMap.get(k) ?? { Ingresos: 0, Egresos: 0 };
   (abonos ?? []).forEach((a) => { const k = bucket(a.fecha); const v = get(k); v.Ingresos += Number(a.monto); serieMap.set(k, v); });
   (sols ?? []).forEach((s) => { if (!s.pagado_at) return; const k = bucket(s.pagado_at); const v = get(k); v.Egresos += Number(s.monto); serieMap.set(k, v); });
-  const serie = [...serieMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, v]) => ({ label, ...v }));
+  const fmtLbl = (k: string) => (periodo === 'sem' ? `Sem ${k.slice(8, 10)}/${k.slice(5, 7)}` : k);
+  const serie = [...serieMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, v]) => ({ label: fmtLbl(label), ...v }));
 
   const ingresos = (abonos ?? []).reduce((a, r) => a + Number(r.monto), 0);
   const egresos = (sols ?? []).reduce((a, r) => a + Number(r.monto), 0);

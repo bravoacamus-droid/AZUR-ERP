@@ -30,7 +30,7 @@ const kfmt = (v: number) => (v ? `S/${(Number(v) / 1000).toFixed(0)}k` : '');
 
 const PERIODOS = [
   { v: '7', l: '7 días' }, { v: '15', l: '15 días' }, { v: '30', l: '30 días' },
-  { v: 'mes', l: 'Este mes' }, { v: 'todo', l: 'Histórico' },
+  { v: 'sem', l: 'Semanal (12 sem)' }, { v: 'mes', l: 'Este mes' }, { v: 'todo', l: 'Histórico' },
 ];
 
 const fade = (i: number) => ({
