@@ -691,6 +691,14 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   const adelantoTotalProy = adelantoContractual + adelantoExtra;
   const tasaAmort = Number(proy.contrato_total) > 0 ? adelantoTotalProy / Number(proy.contrato_total) : 0;
   const dil = dilucionAdelanto(montoActivo, tasaAmort);
+  // Desglose del cobro (a precio): subtotal con margen + GG + GA + utilidad + IGV.
+  const vGg = Number(proy.gg_pct ?? 0), vGa = Number(proy.ga_pct ?? 0), vUtil = Number(proy.utilidad_pct ?? 0), vIgv = Number(proy.igv_pct ?? 0);
+  const desgVal = (() => {
+    if (baseVal !== 'precio') return null;
+    const sub = montoActivo / ((1 + vGg + vGa + vUtil) * (1 + vIgv));
+    const gg = sub * vGg, ga = sub * vGa, ut = sub * vUtil;
+    return { sub, gg, ga, ut, igv: (sub + gg + ga + ut) * vIgv };
+  })();
   const valorizadoAcumProy = rows.reduce((acc, r) => {
     if (!r.es_hoja) return acc;
     const acumPct = (avancesCalc.get(r.id) ?? []).reduce((x, y) => x + y, 0);
@@ -897,6 +905,19 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
             <KpiCard label="Valorizado periodo" value={fmtMoney(montoActivo)} />
             <KpiCard label={`Amortización (${fmtPct(tasaAmort, 0)})`} value={fmtMoney(dil.amortizacion)} tone="warning" />
             <KpiCard label="Cobro neto" value={fmtMoney(dil.cobroNeto)} tone="success" />
+            {desgVal && (
+              <div className="rounded-lg border bg-muted/30 p-3 text-xs sm:col-span-4">
+                <p className="mb-1 font-semibold uppercase tracking-wide text-muted-foreground">Desglose del cobro (a precio)</p>
+                <div className="flex flex-wrap gap-x-5 gap-y-1 tabular-nums">
+                  <span>Subtotal (con margen): <strong>{fmtMoney(desgVal.sub)}</strong></span>
+                  {vGg > 0 && <span>GG ({fmtPct(vGg, 0)}): <strong>{fmtMoney(desgVal.gg)}</strong></span>}
+                  {vGa > 0 && <span>GA ({fmtPct(vGa, 0)}): <strong>{fmtMoney(desgVal.ga)}</strong></span>}
+                  {vUtil > 0 && <span>Utilidad ({fmtPct(vUtil, 0)}): <strong>{fmtMoney(desgVal.ut)}</strong></span>}
+                  {vIgv > 0 && <span>IGV ({fmtPct(vIgv, 0)}): <strong>{fmtMoney(desgVal.igv)}</strong></span>}
+                  <span className="text-azur-600">Total periodo: <strong>{fmtMoney(montoActivo)}</strong></span>
+                </div>
+              </div>
+            )}
             <div className="flex items-end gap-2">
               <a href={`/proyectos/${proy.id}/valorizacion/${activeVal.id}/pdf`} target="_blank" rel="noreferrer" className="flex-1">
                 <Button variant="outline" className="w-full"><FileBarChart /> Resumen PDF</Button>

@@ -101,7 +101,18 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
 
   // base de valorización: costo o precio (factor = contrato / costo directo)
   const costoDirecto = (allItems ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? 0) : 0), 0);
-  const factorVal = proy.base_valorizacion === 'precio' && costoDirecto > 0 ? contrato / costoDirecto : 1;
+  const esPrecio = proy.base_valorizacion === 'precio';
+  const factorVal = esPrecio && costoDirecto > 0 ? contrato / costoDirecto : 1;
+
+  // Desglose del cobro (como en la cotización): parte un monto a precio del cliente
+  // en subtotal con margen + GG + GA + utilidad + IGV, con los % aprobados del proyecto.
+  const ggPct = Number(proy.gg_pct ?? 0), gaPct = Number(proy.ga_pct ?? 0), utilPct = Number(proy.utilidad_pct ?? 0), igvPct = Number(proy.igv_pct ?? 0);
+  const desglosar = (T: number) => {
+    const sub = T / ((1 + ggPct + gaPct + utilPct) * (1 + igvPct));
+    const gg = sub * ggPct, ga = sub * gaPct, util = sub * utilPct;
+    const igv = (sub + gg + ga + util) * igvPct;
+    return { subtotal: sub, gg, ga, util, igv, total: T };
+  };
 
   const rows = ((val.valorizacion_items as any[]) ?? [])
     .map((vi) => {
@@ -145,6 +156,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     gerente,
     gerenteFirma,
     firmantes,
+    desglose: esPrecio ? { ...desglosar(periodo), ggPct, gaPct, utilPct, igvPct } : undefined,
     rows,
     historial,
     medios: (medios ?? []).map((m) => ({

@@ -38,6 +38,7 @@ export interface ValPdfData {
   adelantoPct: number; tasaAmort: number; adelantoTotal: number; amortizadoAcum: number; saldoAdelanto: number;
   valorizadoAcum: number; saldoContrato: number; responsable?: string; responsableFirma?: string; gerente?: string; gerenteFirma?: string;
   firmantes?: { nombre: string; rol?: string; firma?: string }[];
+  desglose?: { subtotal: number; gg: number; ga: number; util: number; igv: number; total: number; ggPct: number; gaPct: number; utilPct: number; igvPct: number };
   rows: {
     codigo: string; titulo: string; unidad: string; contractual: number;
     pct: number; monto: number; pctAcum: number; valorizadoAcum: number; saldo: number;
@@ -99,7 +100,18 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
           <View style={s.rowB}><Text style={s.k}>Adelanto recibido (contrato {fmtNumber(d.adelantoPct * 100, 0)}%{d.adelantoTotal > d.contrato * d.adelantoPct ? ' + adic.' : ''})</Text><Text style={s.vb}>- {fmtMoney(d.adelantoTotal)}</Text></View>
 
           <Text style={[s.k, { marginTop: 6, marginBottom: 2, fontFamily: 'Helvetica-Bold' }]}>Periodo — Valorización N° {d.numero}</Text>
-          <View style={s.rowB}><Text style={s.k}>Valorización del periodo</Text><Text style={s.vb}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
+          {d.desglose ? (
+            <>
+              <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>Subtotal (con margen)</Text><Text style={s.vb}>{fmtMoney(d.desglose.subtotal)}</Text></View>
+              {d.desglose.ggPct > 0 && <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>Gastos generales ({fmtNumber(d.desglose.ggPct * 100, 0)}%)</Text><Text style={s.vb}>{fmtMoney(d.desglose.gg)}</Text></View>}
+              {d.desglose.gaPct > 0 && <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>Gastos administrativos ({fmtNumber(d.desglose.gaPct * 100, 0)}%)</Text><Text style={s.vb}>{fmtMoney(d.desglose.ga)}</Text></View>}
+              {d.desglose.utilPct > 0 && <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>Utilidad ({fmtNumber(d.desglose.utilPct * 100, 0)}%)</Text><Text style={s.vb}>{fmtMoney(d.desglose.util)}</Text></View>}
+              {d.desglose.igvPct > 0 && <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>I.G.V. ({fmtNumber(d.desglose.igvPct * 100, 0)}%)</Text><Text style={s.vb}>{fmtMoney(d.desglose.igv)}</Text></View>}
+              <View style={s.rowB}><Text style={[s.k, s.vb]}>Valorización del periodo</Text><Text style={s.vb}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
+            </>
+          ) : (
+            <View style={s.rowB}><Text style={s.k}>Valorización del periodo</Text><Text style={s.vb}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
+          )}
           <View style={s.rowB}><Text style={s.k}>Amortización del adelanto ({fmtNumber(d.tasaAmort * 100, 1)}%)</Text><Text style={s.vb}>- {fmtMoney(d.amortizacion)}</Text></View>
           <View style={s.rowB}><Text style={[s.k, s.vb]}>Cobro neto del periodo</Text><Text style={[s.vb, s.hi]}>{fmtMoney(d.cobroNeto)}</Text></View>
 
