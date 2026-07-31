@@ -34,6 +34,16 @@ export function entregaDesdeDuracion(inicioISO: string, dias: number, patron: Pa
   return toISO(d);
 }
 
+// Primer día laborable estrictamente posterior a la fecha dada.
+// Se usa para encadenar dependencias: una actividad arranca el día laborable
+// siguiente a la entrega de su predecesora.
+export function siguienteDiaLaborable(desdeISO: string, patron: PatronDias): string | null {
+  if (!desdeISO) return null;
+  const d = toDate(desdeISO);
+  do { d.setDate(d.getDate() + 1); } while (!esLaborable(d, patron));
+  return toISO(d);
+}
+
 // Duración (días laborables) entre inicio y entrega, ambos inclusive.
 export function duracionDesdeFechas(inicioISO: string, finISO: string, patron: PatronDias): number | null {
   if (!inicioISO || !finISO) return null;

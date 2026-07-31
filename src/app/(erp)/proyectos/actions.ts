@@ -34,27 +34,30 @@ export async function agregarItemProyecto(
   proyectoId: string,
   parentId: string | null,
   nivel: number,
-  prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string },
+  prefill?: { titulo?: string; unidad?: string | null; costo_unitario?: number | null; catalogoPartidaId?: string; es_hito?: boolean; hito_de?: string | null },
   idPreset?: string,
 ): Promise<Res> {
   await guard();
   const supabase = createClient();
   const admin = createAdminClient();
-  if (parentId) await supabase.from('proyecto_items').update({ es_hoja: false }).eq('id', parentId);
+  const esHito = !!prefill?.es_hito;
+  // Un hito no forma parte del árbol de costos: no convierte a su padre en rama.
+  if (parentId && !esHito) await supabase.from('proyecto_items').update({ es_hoja: false }).eq('id', parentId);
   let q = supabase.from('proyecto_items').select('id', { count: 'exact', head: true }).eq('proyecto_id', proyectoId);
   q = parentId ? q.eq('parent_id', parentId) : q.is('parent_id', null);
   const { count } = await q;
-  const tituloDefault = nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad';
-  const cu = prefill?.costo_unitario ?? null;
+  const tituloDefault = esHito ? 'Nuevo hito' : nivel === 1 ? 'Nueva partida' : nivel === 2 ? 'Nueva sub partida' : nivel === 3 ? 'Nueva actividad' : 'Nueva sub actividad';
+  const cu = esHito ? null : (prefill?.costo_unitario ?? null);
   const { data: nuevo, error } = await supabase.from('proyecto_items').insert({
     ...(idPreset ? { id: idPreset } : {}),
     proyecto_id: proyectoId, parent_id: parentId, nivel, orden: (count ?? 0) + 1,
     titulo: prefill?.titulo || tituloDefault,
-    unidad: prefill?.unidad ?? null,
+    unidad: esHito ? null : (prefill?.unidad ?? null),
     costo_unitario: cu,
     cantidad: cu != null ? 1 : null,
     total_costo: cu != null ? cu : 0,
     es_hoja: true, estado_tarea: 'pendiente', prioridad: 'media',
+    es_hito: esHito, hito_de: esHito ? (prefill?.hito_de ?? null) : null,
   } as never).select('id').single();
   if (error || !nuevo) return { ok: false, error: error?.message ?? 'Error' };
 

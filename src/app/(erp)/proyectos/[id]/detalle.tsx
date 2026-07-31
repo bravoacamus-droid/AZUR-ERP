@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Plus, Trash2, Save, Loader2, CheckCircle2, Calendar, Users, Layers,
-  TrendingUp, FileBarChart, Banknote, ListChecks, X, ChevronRight,
+  TrendingUp, FileBarChart, Banknote, ListChecks, X, ChevronRight, Link2, Flag,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,7 @@ import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type Nod
 import { FirmasEditor } from '@/components/firmas/firmas-editor';
 import { FullscreenButton } from '@/components/ui/fullscreen-button';
 import { evalFormula, esFormula } from '@/lib/formula';
-import { entregaDesdeDuracion, duracionDesdeFechas, PATRON_LABEL, type PatronDias } from '@/lib/fechas';
+import { entregaDesdeDuracion, duracionDesdeFechas, siguienteDiaLaborable, PATRON_LABEL, type PatronDias } from '@/lib/fechas';
 import { calcularLiquidacion } from '@/lib/liquidacion';
 import type { DashboardProyecto } from '@/lib/salud';
 import {
@@ -485,6 +485,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   const [rows, setRows] = useState<any[]>(items);
   const [addTarget, setAddTarget] = useState<{ parent: any | null; nivel: number } | null>(null);
   const [apuItem, setApuItem] = useState<any | null>(null);
+  const [depTarget, setDepTarget] = useState<any | null>(null);
   useEffect(() => setRows(items), [items]);
 
   const valsSorted = [...valorizaciones].sort((a, b) => a.numero - b.numero);
@@ -501,7 +502,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   // avances por item: [valIndex] = pct (de valorizacion_items)
   const baseAvances = useMemo(() => {
     const m = new Map<string, number[]>();
-    rows.forEach((r) => { if (r.es_hoja) m.set(r.id, Array(valsSorted.length).fill(0)); });
+    rows.forEach((r) => { if (r.es_hoja && !r.es_hito) m.set(r.id, Array(valsSorted.length).fill(0)); });
     valsSorted.forEach((v, idx) => {
       (v.valorizacion_items ?? []).forEach((vi: any) => {
         const arr = m.get(vi.proyecto_item_id);
@@ -530,16 +531,40 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     return m;
   }, [baseAvances, activeAvances]);
 
-  const arbol = useMemo(() => armarArbol(rows as any), [rows]);
+  // Los hitos (sin costo) no entran al árbol de costos: se numeran/renderizan aparte.
+  const partidas = useMemo(() => rows.filter((r: any) => !r.es_hito), [rows]);
+  const arbol = useMemo(() => armarArbol(partidas as any), [partidas]);
   const codigos = useMemo(() => renumerar(arbol as any), [arbol]);
   const calcVal = useMemo(() => calcularValorizacion(arbol as any, avancesCalc, valsSorted.length || 1), [arbol, avancesCalc, valsSorted.length]);
 
+  // hitos agrupados por la partida que anotan (hito_de)
+  const hitosPorFuente = useMemo(() => {
+    const m = new Map<string, any[]>();
+    rows.filter((r: any) => r.es_hito).forEach((h: any) => {
+      const arr = m.get(h.hito_de) ?? []; arr.push(h); m.set(h.hito_de, arr);
+    });
+    m.forEach((arr) => arr.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0)));
+    return m;
+  }, [rows]);
+
   const flat = useMemo(() => {
-    const out: { row: any; depth: number }[] = [];
-    const walk = (nodos: NodoArbol<any>[], depth: number) => nodos.forEach((n) => { out.push({ row: n.data, depth }); walk(n.hijos, depth + 1); });
+    const out: { row: any; depth: number; codigo: string }[] = [];
+    const walk = (nodos: NodoArbol<any>[], depth: number) => nodos.forEach((n) => {
+      const cod = codigos.get(n.data.id) ?? n.data.item_codigo ?? '';
+      out.push({ row: n.data, depth, codigo: cod });
+      (hitosPorFuente.get(n.data.id) ?? []).forEach((h, i) => out.push({ row: h, depth: depth + 1, codigo: `${cod}·H${i + 1}` }));
+      walk(n.hijos, depth + 1);
+    });
     walk(arbol as any, 0);
     return out;
-  }, [arbol]);
+  }, [arbol, codigos, hitosPorFuente]);
+
+  // Códigos legibles para el selector de dependencias (partidas + hitos).
+  const codigoDe = useMemo(() => {
+    const m = new Map<string, string>();
+    flat.forEach((f) => m.set(f.row.id, f.codigo));
+    return m;
+  }, [flat]);
 
   function add(parent: any | null) {
     setAddTarget({ parent, nivel: parent ? Math.min(4, parent.nivel + 1) : 1 });
@@ -583,17 +608,51 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     const ids = new Set<string>([id]);
     for (let changed = true; changed;) {
       changed = false;
-      rows.forEach((r) => { if (r.parent_id && ids.has(r.parent_id) && !ids.has(r.id)) { ids.add(r.id); changed = true; } });
+      // arrastra descendientes (parent_id) e hitos anclados (hito_de)
+      rows.forEach((r) => { if (((r.parent_id && ids.has(r.parent_id)) || (r.hito_de && ids.has(r.hito_de))) && !ids.has(r.id)) { ids.add(r.id); changed = true; } });
     }
+    // al borrar la predecesora, deja sin vínculo a quienes dependían de ella
+    const quedanSinDep = rows.filter((r) => r.depende_de && ids.has(r.depende_de)).map((r) => r.id);
     const parentId = rows.find((r) => r.id === id)?.parent_id ?? null;
     setRows((rs) => {
       let next = rs.filter((r) => !ids.has(r.id));
-      if (parentId && !next.some((r) => r.parent_id === parentId)) next = next.map((r) => (r.id === parentId ? { ...r, es_hoja: true } : r));
+      if (parentId && !next.some((r) => r.parent_id === parentId && !r.es_hito)) next = next.map((r) => (r.id === parentId ? { ...r, es_hoja: true } : r));
+      next = next.map((r) => quedanSinDep.includes(r.id) ? { ...r, depende_de: null } : r);
       return next;
     });
     eliminarItemProyecto(proy.id, id).then((r) => { if (r && r.ok === false) router.refresh(); }).catch(() => router.refresh());
   }
   async function save(id: string, patch: any) { await actualizarItemProyecto(proy.id, id, patch); }
+  // Fija (o quita) la dependencia de una fila respecto de otra por su código.
+  function setDepende(rowId: string, predId: string | null) {
+    setRows((rs) => rs.map((r) => r.id === rowId ? { ...r, depende_de: predId } : r));
+    save(rowId, { depende_de: predId });
+    // Si al vincular ya hay fecha en la predecesora, arrastra de inmediato.
+    if (predId) {
+      const base = rows.map((r) => r.id === rowId ? { ...r, depende_de: predId } : r);
+      const cambios = cascadaDeps(base, predId);
+      if (cambios.length) {
+        setRows((rs) => rs.map((r) => { const c = cambios.find((x) => x.id === r.id); return c ? { ...r, fecha_inicio: c.fecha_inicio, fecha_entrega: c.fecha_entrega } : r; }));
+        cambios.forEach((c) => save(c.id, { fecha_inicio: c.fecha_inicio, fecha_entrega: c.fecha_entrega }));
+      }
+    }
+  }
+  // Crea un hito (fila de control sin costo) anclado a una partida/subpartida.
+  function addHito(fuente: any) {
+    const id = globalThis.crypto.randomUUID();
+    const nuevo: any = {
+      id, proyecto_id: proy.id, parent_id: fuente.parent_id ?? null, nivel: fuente.nivel,
+      titulo: 'Nuevo hito', es_hoja: true, es_hito: true, hito_de: fuente.id,
+      unidad: null, cantidad: null, costo_unitario: null, total_costo: 0,
+      fecha_inicio: fuente.fecha_entrega ?? null, fecha_entrega: fuente.fecha_entrega ?? null,
+      duracion_dias: null, estado_tarea: 'pendiente', prioridad: 'media', avance_pct: 0,
+      orden: rows.filter((r: any) => r.es_hito && r.hito_de === fuente.id).length + 1,
+    };
+    setRows((rs) => [...rs, nuevo]);
+    agregarItemProyecto(proy.id, fuente.parent_id ?? null, fuente.nivel, { titulo: 'Nuevo hito', es_hito: true, hito_de: fuente.id }, id)
+      .then((r) => { if (r && r.ok === false) router.refresh(); })
+      .catch(() => router.refresh());
+  }
   const [aviso, setAviso] = useState<string | null>(null);
   // Cambios de cantidad/monto: directo (Presupuestos/Gerencia) o a aprobación (Jefe de proyectos).
   function aplicarMonto(row: any, patch: any, descripcion: string, optimistic: any) {
@@ -623,7 +682,41 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     setAviso(`Fechas de entrega recalculadas con el calendario "${PATRON_LABEL[patronSel]}".`);
     router.refresh(); setBusy(false);
   }
-  // Plazos amarrados: al cambiar inicio/entrega/duración recalcula el campo dependiente.
+  // Reprograma en cascada toda actividad que dependa (directa o transitivamente)
+  // de `changedId`, encadenándola al día laborable siguiente a la entrega de su
+  // predecesora. Devuelve los cambios; `base` ya trae la fila cambiada actualizada.
+  function cascadaDeps(base: any[], changedId: string): { id: string; fecha_inicio: string; fecha_entrega: string }[] {
+    const byId = new Map(base.map((r) => [r.id, { ...r }]));
+    const out: { id: string; fecha_inicio: string; fecha_entrega: string }[] = [];
+    const visited = new Set<string>([changedId]);
+    let frontier = [changedId];
+    let guardas = 0;
+    while (frontier.length && guardas++ < 500) {
+      const next: string[] = [];
+      for (const pid of frontier) {
+        const pred = byId.get(pid);
+        const predEntrega = pred?.fecha_entrega ? fmtDateInput(pred.fecha_entrega) : '';
+        if (!predEntrega) continue;
+        base.filter((r) => r.depende_de === pid).forEach((depOrig) => {
+          if (visited.has(depOrig.id)) return;
+          visited.add(depOrig.id);
+          const dep = byId.get(depOrig.id)!;
+          const inicio = siguienteDiaLaborable(predEntrega, patron);
+          if (!inicio) return;
+          const durN = Number(dep.duracion_dias) > 0 ? Number(dep.duracion_dias) : 1;
+          const entrega = entregaDesdeDuracion(inicio, durN, patron) ?? inicio;
+          dep.fecha_inicio = inicio; dep.fecha_entrega = entrega;
+          out.push({ id: dep.id, fecha_inicio: inicio, fecha_entrega: entrega });
+          next.push(dep.id);
+        });
+      }
+      frontier = next;
+    }
+    return out;
+  }
+
+  // Plazos amarrados: al cambiar inicio/entrega/duración recalcula el campo dependiente
+  // y arrastra en cascada las actividades que dependen de esta.
   function saveFechas(row: any, patch: any) {
     const inicio = patch.fecha_inicio !== undefined ? patch.fecha_inicio : fmtDateInput(row.fecha_inicio);
     let entrega = patch.fecha_entrega !== undefined ? patch.fecha_entrega : fmtDateInput(row.fecha_entrega);
@@ -636,8 +729,16 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       entrega = entregaDesdeDuracion(inicio, Number(dur), patron) ?? entrega;
     }
     const full = { fecha_inicio: inicio || null, fecha_entrega: entrega || null, duracion_dias: dur ?? null };
-    setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, ...full } : r));
+    const base = rows.map((r) => r.id === row.id ? { ...r, ...full } : r);
+    const cambios = cascadaDeps(base, row.id);
+    setRows((rs) => rs.map((r) => {
+      if (r.id === row.id) return { ...r, ...full };
+      const c = cambios.find((x) => x.id === r.id);
+      return c ? { ...r, fecha_inicio: c.fecha_inicio, fecha_entrega: c.fecha_entrega } : r;
+    }));
     save(row.id, full);
+    cambios.forEach((c) => save(c.id, { fecha_inicio: c.fecha_inicio, fecha_entrega: c.fecha_entrega }));
+    if (cambios.length) setAviso(`Se reprogramaron ${cambios.length} actividad(es) dependiente(s) en cascada.`);
   }
   async function nuevaVal() { setBusy(true); await crearValorizacion(proy.id); router.refresh(); setBusy(false); }
   async function guardar() {
@@ -676,7 +777,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
 
   // Base de valorización: 'costo' (itemizado) o 'precio' (con margen → factor contrato/costo).
   const baseVal = proy.base_valorizacion === 'precio' ? 'precio' : 'costo';
-  const leavesLP = rows.filter((r: any) => r.es_hoja);
+  const leavesLP = rows.filter((r: any) => r.es_hoja && !r.es_hito);
   const totContratoLP = leavesLP.reduce((a, r) => a + Number(r.total_costo ?? 0), 0);
   const factorVal = baseVal === 'precio' && totContratoLP > 0 ? Number(proy.contrato_total ?? 0) / totContratoLP : 1;
   const pv = (n: number) => n * factorVal; // a la base elegida (precio o costo)
@@ -795,15 +896,47 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
               </thead>
               <tbody>
                 {flat.length === 0 && <tr><td colSpan={20} className="py-10 text-center text-muted-foreground">Sin itemizado. Agrega la primera partida.</td></tr>}
-                {flat.map(({ row, depth }) => {
+                {flat.map(({ row, depth, codigo }) => {
                   const cv = calcVal.get(row.id);
                   const hoja = row.es_hoja;
+                  const esHito = row.es_hito;
+                  const depCod = row.depende_de ? codigoDe.get(row.depende_de) : null;
+                  // Control de dependencia (ícono junto a Entrega) para filas programables.
+                  const depCtrl = canManage ? (
+                    <div className="mt-0.5 flex items-center gap-1">
+                      <button type="button" title={depCod ? `Depende de ${depCod}` : 'Vincular dependencia'} onClick={() => setDepTarget(row)} className={`rounded p-0.5 hover:bg-secondary ${row.depende_de ? 'text-azur-600' : 'text-muted-foreground'}`}><Link2 className="size-3" /></button>
+                      {depCod && <span className="text-[10px] font-medium text-azur-600">← {depCod}</span>}
+                    </div>
+                  ) : (depCod ? <div className="mt-0.5 text-[10px] font-medium text-azur-600">← {depCod}</div> : null);
+                  if (esHito) {
+                    return (
+                      <tr key={row.id} className="border-b bg-amber-50/40">
+                        <td className="whitespace-nowrap px-2 py-1.5 font-medium text-amber-700">{codigo}</td>
+                        <td className="px-2 py-1.5">
+                          <span className="flex items-center gap-1" style={{ paddingLeft: depth * 14 }}>
+                            <Flag className="size-3 shrink-0 text-amber-600" />
+                            {canManage ? <input className="w-full rounded border border-transparent bg-transparent px-1 hover:border-input focus:border-input focus:bg-white" defaultValue={row.titulo} key={`ht-${row.id}-${row.titulo}`} onBlur={(e) => { const v = e.target.value.trim(); if (v && v !== row.titulo) { setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, titulo: v } : r)); save(row.id, { titulo: v }); } }} /> : row.titulo}
+                          </span>
+                        </td>
+                        <td colSpan={6} className="px-2 py-1.5 text-center text-[11px] italic text-muted-foreground">Hito (sin costo)</td>
+                        <td className="px-1 py-1.5 align-top">{canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ini-${row.id}-${fmtDateInput(row.fecha_inicio)}`} defaultValue={fmtDateInput(row.fecha_inicio)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_inicio)) saveFechas(row, { fecha_inicio: e.target.value || null }); }} /> : fmtDate(row.fecha_inicio)}</td>
+                        <td className="px-1 py-1.5 align-top">{canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ent-${row.id}-${fmtDateInput(row.fecha_entrega)}`} defaultValue={fmtDateInput(row.fecha_entrega)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_entrega)) saveFechas(row, { fecha_entrega: e.target.value || null }); }} /> : fmtDate(row.fecha_entrega)}{depCtrl}</td>
+                        <td className="px-1 py-1.5 text-center align-top">{canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" key={`dur-${row.id}-${row.duracion_dias ?? ''}`} defaultValue={row.duracion_dias ?? ''} onBlur={(e) => { const nv = e.target.value === '' ? null : Number(e.target.value); if (nv !== (row.duracion_dias ?? null)) saveFechas(row, { duracion_dias: nv }); }} /> : (row.duracion_dias ?? '')}</td>
+                        <td className="px-2 py-1.5 text-center align-top"><Badge variant="warning">Hito</Badge></td>
+                        <td colSpan={4} />
+                        {valsDesc.flatMap(({ v }) => [<td key={`${v.id}-p`} />, <td key={`${v.id}-t`} />])}
+                        {canManage && (
+                          <td className="px-1 py-1.5 align-top"><div className="flex gap-0.5"><button onClick={() => del(row.id)} title="Eliminar hito" className="rounded p-1 hover:bg-azur-50"><Trash2 className="size-3.5 text-azur-600" /></button></div></td>
+                        )}
+                      </tr>
+                    );
+                  }
                   const et = ESTADO_TAREA[row.estado_tarea] ?? { label: row.estado_tarea, variant: 'muted' as const };
                   const pr = PRIORIDAD[row.prioridad] ?? { label: row.prioridad, variant: 'muted' as const };
                   const nivelBg = ['bg-slate-200/80', 'bg-slate-100/80', 'bg-slate-50/80', 'bg-slate-50/40'][Math.min(3, (row.nivel ?? 1) - 1)];
                   return (
                     <tr key={row.id} className={`border-b ${nivelBg} ${!hoja ? 'font-medium' : ''}`}>
-                      <td className="whitespace-nowrap px-2 py-1.5 font-medium text-muted-foreground">{codigos.get(row.id) ?? row.item_codigo}</td>
+                      <td className="whitespace-nowrap px-2 py-1.5 font-medium text-muted-foreground">{codigo}</td>
                       <td className="px-2 py-1.5">
                         <span style={{ paddingLeft: depth * 14 }}>{row.titulo}</span>
                       </td>
@@ -821,8 +954,8 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                         ) : ''}
                       </td>
                       <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ini-${row.id}-${fmtDateInput(row.fecha_inicio)}`} defaultValue={fmtDateInput(row.fecha_inicio)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_inicio)) saveFechas(row, { fecha_inicio: e.target.value || null }); }} /> : (hoja ? fmtDate(row.fecha_inicio) : '')}</td>
-                      <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ent-${row.id}-${fmtDateInput(row.fecha_entrega)}`} defaultValue={fmtDateInput(row.fecha_entrega)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_entrega)) saveFechas(row, { fecha_entrega: e.target.value || null }); }} /> : (hoja ? fmtDate(row.fecha_entrega) : '')}</td>
-                      <td className="px-1 py-1.5 text-center">{hoja && canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" key={`dur-${row.id}-${row.duracion_dias ?? ''}`} defaultValue={row.duracion_dias ?? ''} onBlur={(e) => { const nv = e.target.value === '' ? null : Number(e.target.value); if (nv !== (row.duracion_dias ?? null)) saveFechas(row, { duracion_dias: nv }); }} /> : (hoja && row.duracion_dias != null ? row.duracion_dias : '')}</td>
+                      <td className="px-1 py-1.5 align-top">{hoja && canManage ? <><input type="date" className="rounded border bg-white px-1 py-0.5" key={`ent-${row.id}-${fmtDateInput(row.fecha_entrega)}`} defaultValue={fmtDateInput(row.fecha_entrega)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_entrega)) saveFechas(row, { fecha_entrega: e.target.value || null }); }} />{depCtrl}</> : (hoja ? <>{fmtDate(row.fecha_entrega)}{depCtrl}</> : '')}</td>
+                      <td className="px-1 py-1.5 text-center align-top">{hoja && canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" key={`dur-${row.id}-${row.duracion_dias ?? ''}`} defaultValue={row.duracion_dias ?? ''} onBlur={(e) => { const nv = e.target.value === '' ? null : Number(e.target.value); if (nv !== (row.duracion_dias ?? null)) saveFechas(row, { duracion_dias: nv }); }} /> : (hoja && row.duracion_dias != null ? row.duracion_dias : '')}</td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={et.variant}>{et.label}</Badge></td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={pr.variant}>{pr.label}</Badge></td>
                       <td className="px-2 py-1.5"><PctBar pct={cv?.pct_acumulado ?? 0} /></td>
@@ -858,6 +991,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                         <td className="px-1 py-1.5">
                           <div className="flex gap-0.5">
                             {hoja && <button title="Detallar APU" onClick={() => setApuItem(row)} className={`rounded p-1 hover:bg-secondary ${row.tiene_apu ? 'text-azur-600' : 'text-muted-foreground'}`}><Layers className="size-3.5" /></button>}
+                            <button title="Agregar hito (sin costo)" onClick={() => addHito(row)} className="rounded p-1 hover:bg-amber-50"><Flag className="size-3.5 text-amber-600" /></button>
                             {row.nivel < 4 && <button onClick={() => add(row)} className="rounded p-1 hover:bg-secondary"><Plus className="size-3.5 text-muted-foreground" /></button>}
                             <button onClick={() => del(row.id)} className="rounded p-1 hover:bg-azur-50"><Trash2 className="size-3.5 text-azur-600" /></button>
                           </div>
@@ -934,7 +1068,36 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       {apuItem && (
         <ApuModalProy proyectoId={proy.id} item={apuItem} componentes={apuProyecto.filter((c: any) => c.proyecto_item_id === apuItem.id)} editable={canManage} onClose={() => setApuItem(null)} onChanged={() => router.refresh()} />
       )}
+      {depTarget && (
+        <DependenciaModal
+          row={depTarget}
+          opciones={flat.filter((f) => f.row.id !== depTarget.id).map((f) => ({ id: f.row.id, label: `${f.codigo} — ${f.row.titulo}` }))}
+          actual={depTarget.depende_de ?? null}
+          onClose={() => setDepTarget(null)}
+          onSave={(predId) => { setDepende(depTarget.id, predId); setDepTarget(null); }}
+        />
+      )}
     </div>
+  );
+}
+
+function DependenciaModal({ row, opciones, actual, onClose, onSave }: { row: any; opciones: { id: string; label: string }[]; actual: string | null; onClose: () => void; onSave: (predId: string | null) => void }) {
+  const [sel, setSel] = useState<string>(actual ?? '');
+  return (
+    <Modal open onClose={onClose} className="sm:max-w-md" title="Dependencia de fecha" description={`"${row.titulo}" arrancará el día laborable siguiente a la entrega de la actividad elegida. Al mover esa fecha, esta y su cadena se reprograman solas.`}>
+      <div className="space-y-3">
+        <Field label="Depende de (predecesora)">
+          <Select value={sel} onChange={(e) => setSel(e.target.value)}>
+            <option value="">— Sin dependencia —</option>
+            {opciones.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </Select>
+        </Field>
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => onSave(sel || null)}>Guardar</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
