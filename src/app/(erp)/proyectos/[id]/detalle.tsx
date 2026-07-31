@@ -17,6 +17,7 @@ import { Field, EmptyState, Avatar, InfoTip } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { CurvaS } from '@/components/proyectos/curva-s';
+import { CurvaSComparativa } from '@/components/proyectos/curva-s-comparativa';
 import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
@@ -486,6 +487,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   const [addTarget, setAddTarget] = useState<{ parent: any | null; nivel: number } | null>(null);
   const [apuItem, setApuItem] = useState<any | null>(null);
   const [depTarget, setDepTarget] = useState<any | null>(null);
+  const [lpTab, setLpTab] = useState<'proyectado' | 'real'>('proyectado');
   useEffect(() => setRows(items), [items]);
 
   const valsSorted = [...valorizaciones].sort((a, b) => a.numero - b.numero);
@@ -627,13 +629,20 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   function setDepende(rowId: string, predId: string | null) {
     setRows((rs) => rs.map((r) => r.id === rowId ? { ...r, depende_de: predId } : r));
     save(rowId, { depende_de: predId });
-    // Si al vincular ya hay fecha en la predecesora, arrastra de inmediato.
+    // Si al vincular ya hay fecha en la predecesora, arrastra de inmediato
+    // tanto el cronograma real como la línea base.
     if (predId) {
       const base = rows.map((r) => r.id === rowId ? { ...r, depende_de: predId } : r);
-      const cambios = cascadaDeps(base, predId);
-      if (cambios.length) {
-        setRows((rs) => rs.map((r) => { const c = cambios.find((x) => x.id === r.id); return c ? { ...r, fecha_inicio: c.fecha_inicio, fecha_entrega: c.fecha_entrega } : r; }));
-        cambios.forEach((c) => save(c.id, { fecha_inicio: c.fecha_inicio, fecha_entrega: c.fecha_entrega }));
+      const real = cascadaDeps(base, predId);
+      const proyc = cascadaDeps(base, predId, 'fi_proy', 'fe_proy', 'dur_proy');
+      if (real.length || proyc.length) {
+        setRows((rs) => rs.map((r) => {
+          const cr = real.find((x) => x.id === r.id); const cp = proyc.find((x) => x.id === r.id);
+          if (!cr && !cp) return r;
+          return { ...r, ...(cr ? { fecha_inicio: cr.fecha_inicio, fecha_entrega: cr.fecha_entrega } : {}), ...(cp ? { fi_proy: cp.fecha_inicio, fe_proy: cp.fecha_entrega } : {}) };
+        }));
+        real.forEach((c) => save(c.id, { fecha_inicio: c.fecha_inicio, fecha_entrega: c.fecha_entrega }));
+        proyc.forEach((c) => save(c.id, { fi_proy: c.fecha_inicio, fe_proy: c.fecha_entrega }));
       }
     }
   }
@@ -670,22 +679,28 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   useEffect(() => setPatronSel((proy.dias_laborables ?? 'lun_sab') as PatronDias), [proy.dias_laborables]);
   const patron: PatronDias = patronSel;
   // Recalcula en bloque todas las entregas (inicio + duración) con el calendario elegido.
-  async function recalcularFechas() {
+  // capa='real' usa fecha_inicio/fecha_entrega; capa='proy' usa la línea base.
+  async function recalcularFechas(capa: 'real' | 'proy' = 'real') {
+    const fiF = capa === 'proy' ? 'fi_proy' : 'fecha_inicio';
+    const feF = capa === 'proy' ? 'fe_proy' : 'fecha_entrega';
+    const durF = capa === 'proy' ? 'dur_proy' : 'duracion_dias';
     setBusy(true);
     if (patronSel !== proy.dias_laborables) await actualizarProyecto(proy.id, { dias_laborables: patronSel });
-    const cambios = rows.filter((r) => r.es_hoja && r.fecha_inicio && r.duracion_dias).map((r) => {
-      const entrega = entregaDesdeDuracion(fmtDateInput(r.fecha_inicio), Number(r.duracion_dias), patronSel);
+    const cambios = rows.filter((r) => r.es_hoja && r[fiF] && r[durF]).map((r) => {
+      const entrega = entregaDesdeDuracion(fmtDateInput(r[fiF]), Number(r[durF]), patronSel);
       return entrega ? { id: r.id, entrega } : null;
     }).filter(Boolean) as { id: string; entrega: string }[];
-    setRows((rs) => rs.map((r) => { const c = cambios.find((x) => x.id === r.id); return c ? { ...r, fecha_entrega: c.entrega } : r; }));
-    await Promise.all(cambios.map((c) => actualizarItemProyecto(proy.id, c.id, { fecha_entrega: c.entrega })));
-    setAviso(`Fechas de entrega recalculadas con el calendario "${PATRON_LABEL[patronSel]}".`);
+    setRows((rs) => rs.map((r) => { const c = cambios.find((x) => x.id === r.id); return c ? { ...r, [feF]: c.entrega } : r; }));
+    await Promise.all(cambios.map((c) => actualizarItemProyecto(proy.id, c.id, { [feF]: c.entrega })));
+    setAviso(`Fechas de entrega ${capa === 'proy' ? '(línea base) ' : ''}recalculadas con el calendario "${PATRON_LABEL[patronSel]}".`);
     router.refresh(); setBusy(false);
   }
   // Reprograma en cascada toda actividad que dependa (directa o transitivamente)
   // de `changedId`, encadenándola al día laborable siguiente a la entrega de su
   // predecesora. Devuelve los cambios; `base` ya trae la fila cambiada actualizada.
-  function cascadaDeps(base: any[], changedId: string): { id: string; fecha_inicio: string; fecha_entrega: string }[] {
+  // `fiF`/`feF`/`durF` permiten cascadear tanto las fechas reales (por defecto)
+  // como las planificadas (fi_proy/fe_proy/dur_proy) con la misma lógica.
+  function cascadaDeps(base: any[], changedId: string, fiF = 'fecha_inicio', feF = 'fecha_entrega', durF = 'duracion_dias'): { id: string; fecha_inicio: string; fecha_entrega: string }[] {
     const byId = new Map(base.map((r) => [r.id, { ...r }]));
     const out: { id: string; fecha_inicio: string; fecha_entrega: string }[] = [];
     const visited = new Set<string>([changedId]);
@@ -695,7 +710,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       const next: string[] = [];
       for (const pid of frontier) {
         const pred = byId.get(pid);
-        const predEntrega = pred?.fecha_entrega ? fmtDateInput(pred.fecha_entrega) : '';
+        const predEntrega = pred?.[feF] ? fmtDateInput(pred[feF]) : '';
         if (!predEntrega) continue;
         base.filter((r) => r.depende_de === pid).forEach((depOrig) => {
           if (visited.has(depOrig.id)) return;
@@ -703,9 +718,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
           const dep = byId.get(depOrig.id)!;
           const inicio = siguienteDiaLaborable(predEntrega, patron);
           if (!inicio) return;
-          const durN = Number(dep.duracion_dias) > 0 ? Number(dep.duracion_dias) : 1;
+          const durN = Number(dep[durF]) > 0 ? Number(dep[durF]) : 1;
           const entrega = entregaDesdeDuracion(inicio, durN, patron) ?? inicio;
-          dep.fecha_inicio = inicio; dep.fecha_entrega = entrega;
+          dep[fiF] = inicio; dep[feF] = entrega;
           out.push({ id: dep.id, fecha_inicio: inicio, fecha_entrega: entrega });
           next.push(dep.id);
         });
@@ -739,6 +754,30 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
     save(row.id, full);
     cambios.forEach((c) => save(c.id, { fecha_inicio: c.fecha_inicio, fecha_entrega: c.fecha_entrega }));
     if (cambios.length) setAviso(`Se reprogramaron ${cambios.length} actividad(es) dependiente(s) en cascada.`);
+  }
+  // Igual que saveFechas pero sobre las fechas PLANIFICADAS (línea base).
+  function saveFechasProy(row: any, patch: any) {
+    const inicio = patch.fi_proy !== undefined ? patch.fi_proy : fmtDateInput(row.fi_proy);
+    let entrega = patch.fe_proy !== undefined ? patch.fe_proy : fmtDateInput(row.fe_proy);
+    let dur = patch.dur_proy !== undefined ? patch.dur_proy : row.dur_proy;
+    if (patch.dur_proy !== undefined && inicio && dur) {
+      entrega = entregaDesdeDuracion(inicio, Number(dur), patron) ?? entrega;
+    } else if (patch.fe_proy !== undefined && inicio && entrega) {
+      dur = duracionDesdeFechas(inicio, entrega, patron) ?? dur;
+    } else if (patch.fi_proy !== undefined && inicio && dur) {
+      entrega = entregaDesdeDuracion(inicio, Number(dur), patron) ?? entrega;
+    }
+    const full = { fi_proy: inicio || null, fe_proy: entrega || null, dur_proy: dur ?? null };
+    const base = rows.map((r) => r.id === row.id ? { ...r, ...full } : r);
+    const cambios = cascadaDeps(base, row.id, 'fi_proy', 'fe_proy', 'dur_proy');
+    setRows((rs) => rs.map((r) => {
+      if (r.id === row.id) return { ...r, ...full };
+      const c = cambios.find((x) => x.id === r.id);
+      return c ? { ...r, fi_proy: c.fecha_inicio, fe_proy: c.fecha_entrega } : r;
+    }));
+    save(row.id, full);
+    cambios.forEach((c) => save(c.id, { fi_proy: c.fecha_inicio, fe_proy: c.fecha_entrega }));
+    if (cambios.length) setAviso(`Se reprogramaron ${cambios.length} actividad(es) dependiente(s) en la línea base.`);
   }
   async function nuevaVal() { setBusy(true); await crearValorizacion(proy.id); router.refresh(); setBusy(false); }
   async function guardar() {
@@ -812,6 +851,12 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   const totSaldoLP = totContratoLP - totValAcumLP;
   const totPorValLP = valsSorted.map((_, i) => leavesLP.reduce((a, r) => a + (avancesCalc.get(r.id)?.[i] ?? 0) * Number(r.total_costo ?? 0), 0));
 
+  // Datos para la curva S comparativa (Proyectado vs Real), a la base elegida.
+  const itemsPlan = leavesLP.map((r) => ({ fi: fmtDateInput(r.fi_proy) || null, fe: fmtDateInput(r.fe_proy) || null, monto: Number(r.total_costo ?? 0) * factorVal }));
+  const valsCurva = valsSorted.map((v, i) => ({ numero: v.numero, monto: (totPorValLP[i] ?? 0) * factorVal }));
+  const inicioBaseCurva = leavesLP.map((r) => fmtDateInput(r.fi_proy)).filter(Boolean).sort()[0] || fmtDateInput(proy.fecha_inicio) || null;
+  const semPlan = (r: any) => { const fi = fmtDateInput(r.fi_proy), fe = fmtDateInput(r.fe_proy); if (!fi || !fe) return ''; const d = Math.round((new Date(fe + 'T00:00:00').getTime() - new Date(fi + 'T00:00:00').getTime()) / 86400000) + 1; return Math.max(1, Math.ceil(d / 7)); };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -827,14 +872,19 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
               <select className="bg-transparent py-1 text-xs" value={patronSel} onChange={(e) => setPatronSel(e.target.value as PatronDias)}>
                 {Object.entries(PATRON_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </select>
-              <Button size="sm" variant="outline" onClick={recalcularFechas} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Recalcular fechas</Button>
+              <Button size="sm" variant="outline" onClick={() => recalcularFechas(lpTab === 'proyectado' ? 'proy' : 'real')} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Recalcular fechas</Button>
             </div>
             <Button size="sm" variant="outline" onClick={() => add(null)} disabled={busy}><Plus /> Partida</Button>
-            <Button size="sm" variant="outline" onClick={nuevaVal} disabled={busy}><Calendar /> Nueva valorización</Button>
-            {activeVal && <Button size="sm" variant="gradient" onClick={guardar} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Guardar avances</Button>}
+            {lpTab === 'real' && <Button size="sm" variant="outline" onClick={nuevaVal} disabled={busy}><Calendar /> Nueva valorización</Button>}
+            {lpTab === 'real' && activeVal && <Button size="sm" variant="gradient" onClick={guardar} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Guardar avances</Button>}
           </div>
           )}
         </div>
+      </div>
+
+      <div className="flex w-fit items-center gap-1 rounded-lg border bg-muted/40 p-0.5 text-sm">
+        <button onClick={() => setLpTab('proyectado')} className={`rounded-md px-3 py-1.5 font-medium transition ${lpTab === 'proyectado' ? 'bg-white text-azur-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Proyectado <span className="text-[10px] font-normal text-muted-foreground">(línea base)</span></button>
+        <button onClick={() => setLpTab('real')} className={`rounded-md px-3 py-1.5 font-medium transition ${lpTab === 'real' ? 'bg-white text-azur-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Real <span className="text-[10px] font-normal text-muted-foreground">(avance)</span></button>
       </div>
 
       {aviso && (
@@ -843,6 +893,102 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
           <button onClick={() => setAviso(null)} className="text-amber-600 hover:text-amber-900"><X className="size-4" /></button>
         </div>
       )}
+      {lpTab === 'proyectado' && (
+        <>
+          <CurvaSComparativa items={itemsPlan} inicioBase={inicioBaseCurva} valorizaciones={valsCurva} moneda="S/" />
+          <Card>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <p className="px-3 pt-3 text-xs text-muted-foreground">Línea base del cronograma: fechas planificadas por partida. La curva S de arriba se arma sola con estas fechas y el costo. No incluye estado/prioridad/contratista (eso vive en la pestaña Real).</p>
+                <table className="w-full whitespace-nowrap text-xs">
+                  <thead className="bg-muted/50 uppercase tracking-wide text-muted-foreground">
+                    <tr>
+                      <th className="px-2 py-2 text-left">Ítem</th>
+                      <th className="min-w-[180px] px-2 py-2 text-left">Título</th>
+                      <th className="px-2 py-2">Und</th>
+                      <th className="px-2 py-2 text-right">Cant</th>
+                      <th className="px-2 py-2 text-right">C.Unit</th>
+                      <th className="px-2 py-2 text-right">Total{baseVal === 'precio' ? ' (precio)' : ''}</th>
+                      <th className="px-2 py-2">Inicio plan</th>
+                      <th className="px-2 py-2">Entrega plan</th>
+                      <th className="px-2 py-2">Dur</th>
+                      <th className="px-2 py-2 text-center">Sem</th>
+                      {canManage && <th className="px-2 py-2" />}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {flat.length === 0 && <tr><td colSpan={11} className="py-10 text-center text-muted-foreground">Sin itemizado. Agrega la primera partida.</td></tr>}
+                    {flat.map(({ row, depth, codigo }) => {
+                      const cv = calcVal.get(row.id);
+                      const hoja = row.es_hoja;
+                      const esHito = row.es_hito;
+                      const depCod = row.depende_de ? codigoDe.get(row.depende_de) : null;
+                      const depCtrl = canManage ? (
+                        <div className="mt-0.5 flex items-center gap-1">
+                          <button type="button" title={depCod ? `Depende de ${depCod}` : 'Vincular dependencia'} onClick={() => setDepTarget(row)} className={`rounded p-0.5 hover:bg-secondary ${row.depende_de ? 'text-azur-600' : 'text-muted-foreground'}`}><Link2 className="size-3" /></button>
+                          {depCod && <span className="text-[10px] font-medium text-azur-600">← {depCod}</span>}
+                        </div>
+                      ) : (depCod ? <div className="mt-0.5 text-[10px] font-medium text-azur-600">← {depCod}</div> : null);
+                      const iniCell = canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`pini-${row.id}-${fmtDateInput(row.fi_proy)}`} defaultValue={fmtDateInput(row.fi_proy)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fi_proy)) saveFechasProy(row, { fi_proy: e.target.value || null }); }} /> : fmtDate(row.fi_proy);
+                      const entCell = <>{canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`pent-${row.id}-${fmtDateInput(row.fe_proy)}`} defaultValue={fmtDateInput(row.fe_proy)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fe_proy)) saveFechasProy(row, { fe_proy: e.target.value || null }); }} /> : fmtDate(row.fe_proy)}{depCtrl}</>;
+                      const durCell = canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" key={`pdur-${row.id}-${row.dur_proy ?? ''}`} defaultValue={row.dur_proy ?? ''} onBlur={(e) => { const nv = e.target.value === '' ? null : Number(e.target.value); if (nv !== (row.dur_proy ?? null)) saveFechasProy(row, { dur_proy: nv }); }} /> : (row.dur_proy ?? '');
+                      if (esHito) {
+                        return (
+                          <tr key={row.id} className="border-b bg-amber-50/40">
+                            <td className="whitespace-nowrap px-2 py-1.5 font-medium text-amber-700">{codigo}</td>
+                            <td className="px-2 py-1.5"><span className="flex items-center gap-1" style={{ paddingLeft: depth * 14 }}><Flag className="size-3 shrink-0 text-amber-600" />{row.titulo}</span></td>
+                            <td colSpan={4} className="px-2 py-1.5 text-center text-[11px] italic text-muted-foreground">Hito (sin costo)</td>
+                            <td className="px-1 py-1.5 align-top">{iniCell}</td>
+                            <td className="px-1 py-1.5 align-top">{entCell}</td>
+                            <td className="px-1 py-1.5 text-center align-top">{durCell}</td>
+                            <td className="px-2 py-1.5 text-center align-top">{semPlan(row)}</td>
+                            {canManage && <td className="px-1 py-1.5 align-top"><button onClick={() => del(row.id)} title="Eliminar hito" className="rounded p-1 hover:bg-azur-50"><Trash2 className="size-3.5 text-azur-600" /></button></td>}
+                          </tr>
+                        );
+                      }
+                      const nivelBg = ['bg-slate-200/80', 'bg-slate-100/80', 'bg-slate-50/80', 'bg-slate-50/40'][Math.min(3, (row.nivel ?? 1) - 1)];
+                      return (
+                        <tr key={row.id} className={`border-b ${nivelBg} ${!hoja ? 'font-medium' : ''}`}>
+                          <td className="whitespace-nowrap px-2 py-1.5 font-medium text-muted-foreground">{codigo}</td>
+                          <td className="px-2 py-1.5"><span style={{ paddingLeft: depth * 14 }}>{row.titulo}</span></td>
+                          <td className="px-1 py-1.5 text-center">{hoja ? row.unidad ?? '' : ''}</td>
+                          <td className="px-1 py-1.5 text-right tabular-nums">{hoja && row.cantidad != null ? fmtNumber(Number(row.cantidad), 0) : ''}</td>
+                          <td className="px-1 py-1.5 text-right tabular-nums">{hoja ? fmtNumber(Number(row.costo_unitario ?? 0)) : ''}</td>
+                          <td className="px-2 py-1.5 text-right font-medium tabular-nums">{fmtNumber(pv(cv?.total_partida ?? 0))}</td>
+                          <td className="px-1 py-1.5 align-top">{hoja ? iniCell : ''}</td>
+                          <td className="px-1 py-1.5 align-top">{hoja ? entCell : ''}</td>
+                          <td className="px-1 py-1.5 text-center align-top">{hoja ? durCell : ''}</td>
+                          <td className="px-2 py-1.5 text-center align-top">{hoja ? semPlan(row) : ''}</td>
+                          {canManage && (
+                            <td className="px-1 py-1.5 align-top">
+                              <div className="flex gap-0.5">
+                                <button title="Agregar hito (sin costo)" onClick={() => addHito(row)} className="rounded p-1 hover:bg-amber-50"><Flag className="size-3.5 text-amber-600" /></button>
+                                {row.nivel < 4 && <button onClick={() => add(row)} className="rounded p-1 hover:bg-secondary"><Plus className="size-3.5 text-muted-foreground" /></button>}
+                                <button onClick={() => del(row.id)} className="rounded p-1 hover:bg-azur-50"><Trash2 className="size-3.5 text-azur-600" /></button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                  {flat.length > 0 && (
+                    <tfoot className="border-t-2 border-azur-200 bg-muted/40 font-semibold">
+                      <tr>
+                        <td colSpan={5} className="px-2 py-2 text-right">TOTAL LÍNEA BASE{baseVal === 'precio' ? ' (precio)' : ''}</td>
+                        <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(pv(totContratoLP))}</td>
+                        <td colSpan={canManage ? 5 : 4} />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+        </>
+      )}
+
+      {lpTab === 'real' && (<>
       {reabiertaIdx >= 0 && (
         <div className="rounded-lg border border-azur-300 bg-azur-50 px-3 py-2 text-sm text-azur-800">
           Estás editando la <strong>Valorización N°{valsSorted[reabiertaIdx].numero}</strong>, reabierta por Gerencia. Al guardar, se volverá a bloquear.
@@ -1061,6 +1207,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
           </CardContent>
         </Card>
       )}
+      </>)}
 
       {addTarget && (
         <CatalogoPickerProy nivel={addTarget.nivel} catalogo={catalogo} busy={busy} onClose={() => setAddTarget(null)} onPick={confirmAdd} />
