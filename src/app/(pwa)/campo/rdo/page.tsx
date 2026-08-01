@@ -6,6 +6,7 @@ import { fmtDateInput } from '@/lib/format';
 import { EmptyState } from '@/components/ui/misc';
 import { RdoForm } from './rdo-form';
 import { RdoListItem } from './rdo-list-item';
+import { ReporteConsolidado } from '@/components/proyectos/reporte-consolidado';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,10 +47,12 @@ export default async function RdoPage() {
         <Link href="/campo" className="mb-1 inline-flex items-center text-sm text-muted-foreground">
           <ChevronLeft className="size-4" /> Campo
         </Link>
-        <h1 className="text-xl font-bold">Parte diario de obra</h1>
+        <h1 className="text-xl font-bold">Reporte diario de obra</h1>
       </div>
 
       <RdoForm proyectos={proyectos ?? []} partidas={partidas ?? []} hoy={fmtDateInput(new Date())} />
+
+      {(proyectos ?? []).length > 0 && <ReporteConsolidado proyectos={proyectos ?? []} />}
 
       <div className="rounded-2xl border bg-white p-4">
         <div className="mb-2 flex items-center gap-2">

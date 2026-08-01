@@ -18,6 +18,7 @@ import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { CurvaSComparativa } from '@/components/proyectos/curva-s-comparativa';
 import { DashboardProyVsReal } from '@/components/proyectos/dashboard-proy-real';
+import { ReporteConsolidado } from '@/components/proyectos/reporte-consolidado';
 import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
@@ -1594,7 +1595,7 @@ function CampoTab({ campo, proyectoId, userRol }: any) {
     <div className="space-y-4">
       <Tabs value={sub} onChange={setSub} tabs={[
         { value: 'asistencias', label: `Asistencia (${asistencias.length})` },
-        { value: 'partes', label: `Partes diarios (${partes.length})` },
+        { value: 'partes', label: `Reportes de obra (${partes.length})` },
         { value: 'evidencias', label: `Evidencias (${evidencias.length})` },
         { value: 'sst', label: `SST (${sstTotal})` },
       ]} />
@@ -1627,6 +1628,7 @@ function CampoTab({ campo, proyectoId, userRol }: any) {
 
       {sub === 'partes' && (
         <div className="space-y-3">
+          <ReporteConsolidado proyectoId={proyectoId} />
           {partes.length === 0 && <EmptyState titulo="Sin reportes de obra" />}
           {partes.map((p: any) => <ParteCard key={p.id} p={p} proyectoId={proyectoId} userRol={userRol} />)}
         </div>

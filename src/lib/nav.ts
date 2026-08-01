@@ -47,7 +47,7 @@ export const ERP_NAV: { grupo: string; items: NavItem[] }[] = [
 // Navegación de la PWA (campo, bottom-nav)
 export const PWA_NAV: NavItem[] = [
   { href: '/campo', label: 'Inicio', icon: 'Home', roles: ['gerencia', 'jefe_proyectos', 'residente', 'prevencionista', 'logistico'] },
-  { href: '/campo/rdo', label: 'Parte', icon: 'ClipboardList', roles: ['gerencia', 'jefe_proyectos', 'residente'] },
+  { href: '/campo/rdo', label: 'Reporte', icon: 'ClipboardList', roles: ['gerencia', 'jefe_proyectos', 'residente'] },
   { href: '/campo/solicitudes', label: 'Pagos', icon: 'Receipt', roles: ['gerencia', 'jefe_proyectos', 'residente', 'logistico'] },
   { href: '/campo/sst', label: 'SST', icon: 'ShieldCheck', roles: ['gerencia', 'jefe_proyectos', 'prevencionista', 'residente'] },
   { href: '/campo/almacen', label: 'Almacén', icon: 'Package', roles: ['gerencia', 'logistico', 'residente'] },
