@@ -23,17 +23,29 @@ const s = StyleSheet.create({
   thead: { flexDirection: 'row', backgroundColor: AZUR, paddingVertical: 4, paddingHorizontal: 4 },
   th: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7.5 },
   tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingVertical: 3, paddingHorizontal: 4 },
+  trAlt: { backgroundColor: '#f6f6f6' },
   trGrp: { flexDirection: 'row', backgroundColor: '#fbe9ec', paddingVertical: 3, paddingHorizontal: 4 },
   cell: { fontSize: 7.5 },
   cCod: { width: 38 }, cTit: { flex: 1 }, cUnd: { width: 34, textAlign: 'center' },
-  cContr: { width: 70, textAlign: 'right' }, cPct: { width: 42, textAlign: 'right' },
+  cContr: { width: 70, textAlign: 'right' }, cPct: { width: 52, textAlign: 'right' },
   cMon: { width: 70, textAlign: 'right' }, cAcumPct: { width: 42, textAlign: 'right' },
   cAcum: { width: 70, textAlign: 'right' }, cSaldo: { width: 70, textAlign: 'right' },
+  // Resumen ejecutivo compacto (angosto, con filas alternadas)
+  resWrap: { width: 340, borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 4, marginBottom: 10, overflow: 'hidden' },
+  resRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4, paddingHorizontal: 8 },
+  resAlt: { backgroundColor: '#f6f6f6' },
+  resHi: { backgroundColor: '#fbe9ec' },
+  resK: { color: '#333', fontSize: 8.5 },
+  resV: { fontFamily: 'Helvetica-Bold', fontSize: 8.5 },
+  // Desglose del cobro al pie del detalle (angosto, alineado a la derecha)
+  desgWrap: { width: 300, alignSelf: 'flex-end', borderWidth: 1, borderColor: '#e5e5e5', borderRadius: 4, marginTop: 8, marginBottom: 8, overflow: 'hidden' },
+  desgRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3, paddingHorizontal: 8 },
   footer: { position: 'absolute', bottom: 20, left: 32, right: 32, textAlign: 'center', fontSize: 7, color: '#999', borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 6 },
 });
 
 export interface ValPdfData {
   proyecto: string; codigo: string; cliente: string; numero: number; fecha: string;
+  conIgv?: boolean;
   contrato: number; valorizadoPeriodo: number; amortizacion: number; cobroNeto: number;
   adelantoPct: number; tasaAmort: number; adelantoTotal: number; amortizadoAcum: number; saldoAdelanto: number;
   valorizadoAcum: number; saldoContrato: number; responsable?: string; responsableFirma?: string; gerente?: string; gerenteFirma?: string;
@@ -65,10 +77,9 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
     <View style={s.thead}>
       <Text style={[s.th, s.cCod]}>ÍTEM</Text>
       <Text style={[s.th, s.cTit]}>PARTIDA</Text>
-      <Text style={[s.th, s.cUnd]}>UND</Text>
       <Text style={[s.th, s.cContr]}>CONTRACTUAL</Text>
-      <Text style={[s.th, s.cPct]}>% PER.</Text>
-      <Text style={[s.th, s.cMon]}>VAL. PERIODO</Text>
+      <Text style={[s.th, s.cPct]}>% VAL. N°{d.numero}</Text>
+      <Text style={[s.th, s.cMon]}>VAL. N°{d.numero}</Text>
       <Text style={[s.th, s.cAcumPct]}>% ACUM.</Text>
       <Text style={[s.th, s.cAcum]}>VAL. ACUM.</Text>
       <Text style={[s.th, s.cSaldo]}>SALDO</Text>
@@ -95,59 +106,25 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
         </View>
 
         <Text style={s.sectionTitle}>Resumen ejecutivo</Text>
-        <View style={s.box}>
-          <View style={s.rowB}><Text style={s.k}>Monto del contrato</Text><Text style={s.vb}>{fmtMoney(d.contrato)}</Text></View>
-          <View style={s.rowB}><Text style={s.k}>Adelanto recibido (contrato {fmtNumber(d.adelantoPct * 100, 0)}%{d.adelantoTotal > d.contrato * d.adelantoPct ? ' + adic.' : ''})</Text><Text style={s.vb}>- {fmtMoney(d.adelantoTotal)}</Text></View>
-
-          <Text style={[s.k, { marginTop: 6, marginBottom: 2, fontFamily: 'Helvetica-Bold' }]}>Periodo — Valorización N° {d.numero}</Text>
-          {d.desglose ? (
-            <>
-              <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>Subtotal (con margen)</Text><Text style={s.vb}>{fmtMoney(d.desglose.subtotal)}</Text></View>
-              {d.desglose.ggPct > 0 && <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>Gastos generales ({fmtNumber(d.desglose.ggPct * 100, 0)}%)</Text><Text style={s.vb}>{fmtMoney(d.desglose.gg)}</Text></View>}
-              {d.desglose.gaPct > 0 && <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>Gastos administrativos ({fmtNumber(d.desglose.gaPct * 100, 0)}%)</Text><Text style={s.vb}>{fmtMoney(d.desglose.ga)}</Text></View>}
-              {d.desglose.utilPct > 0 && <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>Utilidad ({fmtNumber(d.desglose.utilPct * 100, 0)}%)</Text><Text style={s.vb}>{fmtMoney(d.desglose.util)}</Text></View>}
-              {d.desglose.igvPct > 0 && <View style={s.rowB}><Text style={[s.k, { paddingLeft: 10 }]}>I.G.V. ({fmtNumber(d.desglose.igvPct * 100, 0)}%)</Text><Text style={s.vb}>{fmtMoney(d.desglose.igv)}</Text></View>}
-              <View style={s.rowB}><Text style={[s.k, s.vb]}>Valorización del periodo</Text><Text style={s.vb}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
-            </>
-          ) : (
-            <View style={s.rowB}><Text style={s.k}>Valorización del periodo</Text><Text style={s.vb}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
-          )}
-          <View style={s.rowB}><Text style={s.k}>Amortización del adelanto ({fmtNumber(d.tasaAmort * 100, 1)}%)</Text><Text style={s.vb}>- {fmtMoney(d.amortizacion)}</Text></View>
-          <View style={s.rowB}><Text style={[s.k, s.vb]}>Cobro neto del periodo</Text><Text style={[s.vb, s.hi]}>{fmtMoney(d.cobroNeto)}</Text></View>
-
-          <Text style={[s.k, { marginTop: 6, marginBottom: 2, fontFamily: 'Helvetica-Bold' }]}>Acumulado del proyecto</Text>
-          <View style={s.rowB}><Text style={s.k}>Valorización acumulada</Text><Text style={s.vb}>{fmtMoney(d.valorizadoAcum)}</Text></View>
-          <View style={s.rowB}><Text style={s.k}>Adelanto amortizado acumulado</Text><Text style={s.vb}>- {fmtMoney(d.amortizadoAcum)}</Text></View>
-          <View style={s.rowB}><Text style={s.k}>Saldo del adelanto por amortizar</Text><Text style={s.vb}>{fmtMoney(d.saldoAdelanto)}</Text></View>
-          <View style={[s.rowB, { borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 4, marginTop: 2 }]}><Text style={[s.k, s.vb]}>Saldo por valorizar</Text><Text style={[s.vb, s.hi]}>{fmtMoney(d.saldoContrato)}</Text></View>
+        <View style={s.resWrap}>
+          <View style={s.resRow}><Text style={s.resK}>Monto del contrato</Text><Text style={s.resV}>{fmtMoney(d.contrato)}</Text></View>
+          <View style={[s.resRow, s.resAlt]}><Text style={s.resK}>Adelanto recibido (contrato {fmtNumber(d.adelantoPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.adelantoTotal)}</Text></View>
+          <View style={s.resRow}><Text style={s.resK}>Valorizaciones acumuladas anteriores</Text><Text style={s.resV}>{fmtMoney(d.valorizadoAcum - d.valorizadoPeriodo)}</Text></View>
+          <View style={[s.resRow, s.resHi]}><Text style={[s.resK, s.vb]}>Valorización N° {d.numero}</Text><Text style={s.resV}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
+          <View style={[s.resRow, s.resHi, { borderTopWidth: 0.5, borderTopColor: '#f0c9d1' }]}><Text style={[s.resK, s.vb, s.hi]}>Saldo por valorizar</Text><Text style={[s.resV, s.hi]}>{fmtMoney(d.saldoContrato)}</Text></View>
         </View>
-
-        {d.historial.length > 1 && (
-          <>
-            <Text style={s.sectionTitle}>Valorizaciones acumuladas</Text>
-            <View style={[s.box, { paddingVertical: 6 }]}>
-              {d.historial.map((h) => (
-                <View key={h.numero} style={s.rowB}>
-                  <Text style={s.k}>Valorización N° {h.numero} {h.numero === d.numero ? '(actual)' : ''} · {h.fecha}</Text>
-                  <Text style={s.vb}>{fmtMoney(h.monto)}</Text>
-                </View>
-              ))}
-              <View style={[s.rowB, { borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 4, marginTop: 2 }]}>
-                <Text style={[s.k, s.vb]}>Total acumulado</Text><Text style={[s.vb, s.hi]}>{fmtMoney(d.valorizadoAcum)}</Text>
-              </View>
-            </View>
-          </>
-        )}
+        <Text style={{ fontSize: 7, color: '#888', marginTop: -6, marginBottom: 8 }}>
+          Montos {d.conIgv === false ? 'sin IGV (netos)' : 'con IGV incluido'}. El detalle del cobro (margen, IGV y amortización) se muestra al final.
+        </Text>
 
         {chunks.map((chunk, ci) => (
           <View key={ci} break={ci > 0}>
             <Text style={s.sectionTitle}>Detalle por partida{ci > 0 ? ' (continuación)' : ''}</Text>
             <Thead />
             {chunk.map((r, i) => (
-              <View key={i} style={s.tr} wrap={false}>
+              <View key={i} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
                 <Text style={[s.cell, s.cCod]}>{r.codigo}</Text>
                 <Text style={[s.cell, s.cTit]}>{r.titulo}</Text>
-                <Text style={[s.cell, s.cUnd]}>{r.unidad}</Text>
                 <Text style={[s.cell, s.cContr]}>{fmtMoney(r.contractual)}</Text>
                 <Text style={[s.cell, s.cPct]}>{fmtNumber(r.pct * 100, 0)}%</Text>
                 <Text style={[s.cell, s.cMon]}>{fmtMoney(r.monto)}</Text>
@@ -161,16 +138,33 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
            queda sola. Si no cabe al pie, salta a la página siguiente acompañada de los
            totales y la conformidad, con la cabecera fija repetida arriba. */
         <View wrap={false} minPresenceAhead={40}>
-          <View style={[s.tr, { borderTopWidth: 1, borderTopColor: AZUR }]}>
+          <View style={[s.tr, s.trGrp, { borderTopWidth: 1, borderTopColor: AZUR }]}>
             <Text style={[s.cell, s.cCod]}></Text>
             <Text style={[s.cell, s.cTit, s.vb]}>TOTALES</Text>
-            <Text style={[s.cell, s.cUnd]}></Text>
             <Text style={[s.cell, s.cContr, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.contractual, 0))}</Text>
             <Text style={[s.cell, s.cPct]}></Text>
             <Text style={[s.cell, s.cMon, s.vb]}>{fmtMoney(d.valorizadoPeriodo)}</Text>
             <Text style={[s.cell, s.cAcumPct]}></Text>
             <Text style={[s.cell, s.cAcum, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.valorizadoAcum, 0))}</Text>
             <Text style={[s.cell, s.cSaldo, s.vb]}>{fmtMoney(d.rows.reduce((a, r) => a + r.saldo, 0))}</Text>
+          </View>
+
+          {/* Desglose del cobro: del valorizado a lo neto (margen, IGV, amortización). */}
+          <View style={s.desgWrap} wrap={false}>
+            {d.desglose ? (
+              <>
+                <View style={s.desgRow}><Text style={s.resK}>Subtotal (con margen)</Text><Text style={s.resV}>{fmtMoney(d.desglose.subtotal)}</Text></View>
+                {d.desglose.ggPct > 0 && <View style={[s.desgRow, s.resAlt]}><Text style={s.resK}>Gastos generales ({fmtNumber(d.desglose.ggPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.desglose.gg)}</Text></View>}
+                {d.desglose.gaPct > 0 && <View style={s.desgRow}><Text style={s.resK}>Gastos administrativos ({fmtNumber(d.desglose.gaPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.desglose.ga)}</Text></View>}
+                {d.desglose.utilPct > 0 && <View style={[s.desgRow, s.resAlt]}><Text style={s.resK}>Utilidad ({fmtNumber(d.desglose.utilPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.desglose.util)}</Text></View>}
+                {d.desglose.igvPct > 0 && <View style={s.desgRow}><Text style={s.resK}>I.G.V. ({fmtNumber(d.desglose.igvPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.desglose.igv)}</Text></View>}
+                <View style={[s.desgRow, s.resAlt]}><Text style={[s.resK, s.vb]}>Valorización del periodo</Text><Text style={s.resV}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
+              </>
+            ) : (
+              <View style={s.desgRow}><Text style={[s.resK, s.vb]}>Valorización del periodo</Text><Text style={s.resV}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
+            )}
+            <View style={s.desgRow}><Text style={s.resK}>Amortización del adelanto ({fmtNumber(d.tasaAmort * 100, 1)}%)</Text><Text style={s.resV}>- {fmtMoney(d.amortizacion)}</Text></View>
+            <View style={[s.desgRow, s.resHi, { borderTopWidth: 0.5, borderTopColor: '#f0c9d1' }]}><Text style={[s.resK, s.vb, s.hi]}>Cobro neto del periodo</Text><Text style={[s.resV, s.hi]}>{fmtMoney(d.cobroNeto)}</Text></View>
           </View>
 
           <View style={{ marginTop: 10 }}>

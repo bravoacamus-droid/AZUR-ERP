@@ -1203,9 +1203,12 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                 </div>
               </div>
             )}
-            <div className="flex items-end gap-2">
+            <div className="flex flex-wrap items-end gap-2">
               <a href={`/proyectos/${proy.id}/valorizacion/${activeVal.id}/pdf`} target="_blank" rel="noreferrer" className="flex-1">
                 <Button variant="outline" className="w-full"><FileBarChart /> Resumen PDF</Button>
+              </a>
+              <a href={`/proyectos/${proy.id}/valorizacion/${activeVal.id}/pdf?igv=0`} target="_blank" rel="noreferrer" className="flex-1">
+                <Button variant="outline" className="w-full"><FileBarChart /> PDF sin IGV</Button>
               </a>
               {canManage && <Button variant="gradient" className="flex-1" onClick={cobrar} disabled={busy}><CheckCircle2 /> Registrar cobro</Button>}
             </div>

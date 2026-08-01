@@ -7,7 +7,7 @@ import { ValorizacionPDF, type ValPdfData } from './valorizacion-pdf';
 
 export const runtime = 'nodejs';
 
-export async function GET(_req: Request, { params }: { params: { id: string; valId: string } }) {
+export async function GET(req: Request, { params }: { params: { id: string; valId: string } }) {
   const supabase = createClient();
   const { data: proy } = await supabase
     .from('proyectos')
@@ -104,20 +104,25 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
   const esPrecio = proy.base_valorizacion === 'precio';
   const factorVal = esPrecio && costoDirecto > 0 ? contrato / costoDirecto : 1;
 
-  // Desglose del cobro (como en la cotización): parte un monto a precio del cliente
-  // en subtotal con margen + GG + GA + utilidad + IGV, con los % aprobados del proyecto.
+  // Opción "sin impuestos": ?igv=0 emite la valorización con los montos netos de IGV.
   const ggPct = Number(proy.gg_pct ?? 0), gaPct = Number(proy.ga_pct ?? 0), utilPct = Number(proy.utilidad_pct ?? 0), igvPct = Number(proy.igv_pct ?? 0);
+  const conIgv = new URL(req.url).searchParams.get('igv') !== '0';
+  const kIgv = conIgv || igvPct <= 0 ? 1 : 1 / (1 + igvPct); // quita el IGV de los montos que lo incluyen
+  const fCli = factorVal * kIgv; // costo → precio al cliente (con o sin IGV)
+
+  // Desglose del cobro: parte el monto (que llega CON IGV) en subtotal con margen
+  // + GG + GA + utilidad (+ IGV si el reporte lo incluye), con los % del proyecto.
   const desglosar = (T: number) => {
-    const sub = T / ((1 + ggPct + gaPct + utilPct) * (1 + igvPct));
+    const base = igvPct > 0 ? T / (1 + igvPct) : T; // neto de IGV
+    const sub = base / (1 + ggPct + gaPct + utilPct);
     const gg = sub * ggPct, ga = sub * gaPct, util = sub * utilPct;
-    const igv = (sub + gg + ga + util) * igvPct;
-    return { subtotal: sub, gg, ga, util, igv, total: T };
+    return { subtotal: sub, gg, ga, util, igv: conIgv ? base * igvPct : 0, total: conIgv ? T : base };
   };
 
   const rows = ((val.valorizacion_items as any[]) ?? [])
     .map((vi) => {
       const it = itemById.get(vi.proyecto_item_id);
-      const contractual = Number(it?.total_costo ?? 0) * factorVal;
+      const contractual = Number(it?.total_costo ?? 0) * fCli;
       const pctAcum = acumPct.get(vi.proyecto_item_id) ?? Number(vi.pct_avance);
       const valorizadoAcum = pctAcum * contractual;
       return {
@@ -126,7 +131,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
         unidad: it?.unidad ?? '',
         contractual,
         pct: Number(vi.pct_avance),
-        monto: Number(vi.total) * factorVal,
+        monto: Number(vi.total) * fCli,
         pctAcum,
         valorizadoAcum,
         saldo: contractual - valorizadoAcum,
@@ -140,25 +145,26 @@ export async function GET(_req: Request, { params }: { params: { id: string; val
     cliente: (proy.cliente as { razon_social?: string } | null)?.razon_social ?? '',
     numero: val.numero,
     fecha: fmtDate(val.fecha_corte),
-    contrato,
-    valorizadoPeriodo: periodo,
-    amortizacion: dil.amortizacion,
-    cobroNeto: dil.cobroNeto,
+    conIgv,
+    contrato: contrato * kIgv,
+    valorizadoPeriodo: periodo * kIgv,
+    amortizacion: dil.amortizacion * kIgv,
+    cobroNeto: dil.cobroNeto * kIgv,
     adelantoPct,
     tasaAmort,
-    adelantoTotal,
-    amortizadoAcum,
-    saldoAdelanto,
-    valorizadoAcum,
-    saldoContrato: contrato - valorizadoAcum,
+    adelantoTotal: adelantoTotal * kIgv,
+    amortizadoAcum: amortizadoAcum * kIgv,
+    saldoAdelanto: saldoAdelanto * kIgv,
+    valorizadoAcum: valorizadoAcum * kIgv,
+    saldoContrato: (contrato - valorizadoAcum) * kIgv,
     responsable,
     responsableFirma,
     gerente,
     gerenteFirma,
     firmantes,
-    desglose: esPrecio ? { ...desglosar(periodo), ggPct, gaPct, utilPct, igvPct } : undefined,
+    desglose: esPrecio ? { ...desglosar(periodo), ggPct, gaPct, utilPct, igvPct: conIgv ? igvPct : 0 } : undefined,
     rows,
-    historial,
+    historial: historial.map((h) => ({ ...h, monto: h.monto * kIgv })),
     medios: (medios ?? []).map((m) => ({
       banco: m.banco, titular: m.titular,
       cuentaSoles: m.cuenta_soles ?? undefined, cciSoles: m.cci_soles ?? undefined,
