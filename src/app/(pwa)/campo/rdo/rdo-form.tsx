@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
-import { crearRdo } from './actions';
+import { crearRdo, adjuntarFotosRdo } from './actions';
 import { enqueue, isOnline } from '@/lib/offline-queue';
 
 type Proyecto = { id: string; nombre: string };
@@ -44,6 +44,7 @@ export function RdoForm({
   const [observaciones, setObservaciones] = useState('');
   const [incidencias, setIncidencias] = useState('');
   const [actividades, setActividades] = useState<Actividad[]>([nuevaActividad()]);
+  const [fotos, setFotos] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
@@ -80,7 +81,23 @@ export function RdoForm({
 
     function limpiar() {
       setClima(''); setPersonal(''); setEquipos(''); setMateriales('');
-      setObservaciones(''); setIncidencias(''); setActividades([nuevaActividad()]);
+      setObservaciones(''); setIncidencias(''); setActividades([nuevaActividad()]); setFotos([]);
+    }
+
+    // Sube las fotos al bucket y las registra en el reporte recién creado.
+    async function subirFotos(rdoId: string) {
+      if (!fotos.length) return;
+      const supabase = createClient();
+      const subidas: { url: string }[] = [];
+      for (const file of fotos) {
+        const safe = file.name.replace(/[^\w.\-]/g, '_');
+        const path = `${proyectoId}/${Date.now()}-${safe}`;
+        const { error } = await supabase.storage.from('evidencias').upload(path, file, { cacheControl: '3600', upsert: false });
+        if (error) continue;
+        const { data: { publicUrl } } = supabase.storage.from('evidencias').getPublicUrl(path);
+        subidas.push({ url: publicUrl });
+      }
+      if (subidas.length) await adjuntarFotosRdo(rdoId, proyectoId, subidas);
     }
 
     // Sin conexión → encolar para sincronizar luego (Sección 8.9)
@@ -94,9 +111,10 @@ export function RdoForm({
 
     try {
       const res = await crearRdo(payload);
+      if (res.ok && res.id) await subirFotos(res.id);
       setLoading(false);
       if (res.ok) {
-        setMsg({ type: 'ok', text: 'Parte diario registrado ✅' });
+        setMsg({ type: 'ok', text: `Reporte registrado ✅${fotos.length ? ` con ${fotos.length} foto(s)` : ''}` });
         limpiar();
         router.refresh();
       } else {
@@ -228,8 +246,20 @@ export function RdoForm({
         ))}
       </div>
 
+      <Field label="Fotos de respaldo">
+        <input
+          type="file"
+          accept="image/*"
+          capture="environment"
+          multiple
+          onChange={(e) => setFotos(Array.from(e.target.files ?? []))}
+          className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-azur-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-azur-600"
+        />
+        {fotos.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{fotos.length} foto(s) seleccionada(s). Se subirán al guardar (requiere conexión).</p>}
+      </Field>
+
       <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>
-        {loading && <Loader2 className="animate-spin" />} Guardar parte
+        {loading && <Loader2 className="animate-spin" />} Guardar reporte
       </Button>
 
       {msg && (

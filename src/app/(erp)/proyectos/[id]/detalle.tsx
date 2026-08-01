@@ -38,6 +38,7 @@ import {
   guardarPresupuestoTipoGasto, agregarAdelanto, eliminarAdelanto, guardarFirmantesProyecto,
 } from '../actions';
 import { createClient } from '@/lib/supabase/client';
+import { revisarRdo } from '@/app/(pwa)/campo/rdo/actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -115,7 +116,7 @@ export function ProyectoDetalle(props: any) {
       {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
       {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
-      {tab === 'campo' && <CampoTab campo={campo} />}
+      {tab === 'campo' && <CampoTab campo={campo} proyectoId={proy.id} userRol={userRol} />}
       {tab === 'mantenimiento' && <Mantenimiento proy={proy} servicios={servicios} canManage={canManage} />}
       {tab === 'liquidacion' && <Liquidacion proy={proy} items={items} valorizaciones={valorizaciones} adicionales={adicionales} dash={dash} canManage={canManage} />}
       {tab === 'expediente' && <Expediente proy={proy} documentos={documentos} canManage={canManage} />}
@@ -1514,7 +1515,78 @@ function Liquidacion({ proy, items, valorizaciones, adicionales, dash, canManage
 }
 
 // ───────────────────────────── CAMPO ──────────────────────────────────
-function CampoTab({ campo }: any) {
+const RDO_ESTADO: Record<string, { label: string; variant: any }> = {
+  borrador: { label: 'Borrador', variant: 'muted' },
+  enviado: { label: 'Enviado · por revisar', variant: 'info' },
+  aprobado: { label: 'Aprobado', variant: 'success' },
+  observado: { label: 'Observado', variant: 'danger' },
+};
+
+function ParteCard({ p, proyectoId, userRol }: any) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const estado = p.estado ?? 'borrador';
+  const est = RDO_ESTADO[estado] ?? RDO_ESTADO.borrador;
+  const puedeRevisar = (userRol === 'jefe_proyectos' || userRol === 'gerencia') && estado === 'enviado';
+
+  async function aprobar() {
+    setBusy(true); const r = await revisarRdo(p.id, true); setBusy(false);
+    if (!r.ok) alert(r.error); else router.refresh();
+  }
+  async function observar() {
+    const motivo = window.prompt('Motivo de la observación:') ?? '';
+    if (!motivo.trim()) return;
+    setBusy(true); const r = await revisarRdo(p.id, false, motivo); setBusy(false);
+    if (!r.ok) alert(r.error); else router.refresh();
+  }
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-sm">{fmtDate(p.fecha)} · {p.autor?.nombre ?? ''}</CardTitle>
+          <div className="flex items-center gap-2">
+            {p.clima && <Badge variant="info">{p.clima}</Badge>}
+            <Badge variant={est.variant}>{est.label}</Badge>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {p.rdo_actividades?.length > 0 && (
+          <ul className="space-y-1">
+            {p.rdo_actividades.map((a: any) => (
+              <li key={a.id} className="flex items-center justify-between rounded border px-2 py-1">
+                <span>{a.descripcion}</span>
+                {a.avance_pct != null && <Badge variant="muted">{Math.round(Number(a.avance_pct) * 100)}%</Badge>}
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+          {p.personal_count != null && <span>👷 Personal: {p.personal_count}</span>}
+          {p.equipos && <span>🔧 {p.equipos}</span>}
+          {p.materiales_recibidos && <span>📦 {p.materiales_recibidos}</span>}
+        </div>
+        {p.observaciones && <p className="text-xs"><b>Obs:</b> {p.observaciones}</p>}
+        {p.incidencias && <p className="text-xs text-azur-700"><b>Incidencias:</b> {p.incidencias}</p>}
+        {estado === 'observado' && p.obs_revision && <p className="rounded bg-red-50 px-2 py-1 text-xs text-red-700"><b>Observación:</b> {p.obs_revision}</p>}
+        <div className="flex flex-wrap items-center gap-2 pt-1">
+          <a href={`/proyectos/${proyectoId}/rdo/${p.id}/pdf`} target="_blank" rel="noreferrer">
+            <Button size="sm" variant="outline"><FileBarChart className="size-3.5" /> PDF</Button>
+          </a>
+          {puedeRevisar && (
+            <>
+              <Button size="sm" variant="gradient" onClick={aprobar} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Aprobar</Button>
+              <Button size="sm" variant="outline" onClick={observar} disabled={busy}><X className="size-3.5" /> Observar</Button>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CampoTab({ campo, proyectoId, userRol }: any) {
   const [sub, setSub] = useState('asistencias');
   const { asistencias, partes, evidencias, sstCharlas, sstObs, sstInc } = campo;
   const sstTotal = sstCharlas.length + sstObs.length + sstInc.length;
@@ -1555,36 +1627,8 @@ function CampoTab({ campo }: any) {
 
       {sub === 'partes' && (
         <div className="space-y-3">
-          {partes.length === 0 && <EmptyState titulo="Sin partes diarios" />}
-          {partes.map((p: any) => (
-            <Card key={p.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm">{fmtDate(p.fecha)} · {p.autor?.nombre ?? ''}</CardTitle>
-                  {p.clima && <Badge variant="info">{p.clima}</Badge>}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                {p.rdo_actividades?.length > 0 && (
-                  <ul className="space-y-1">
-                    {p.rdo_actividades.map((a: any) => (
-                      <li key={a.id} className="flex items-center justify-between rounded border px-2 py-1">
-                        <span>{a.descripcion}</span>
-                        {a.avance_pct != null && <Badge variant="muted">{Math.round(Number(a.avance_pct) * 100)}%</Badge>}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                  {p.personal_count != null && <span>👷 Personal: {p.personal_count}</span>}
-                  {p.equipos && <span>🔧 {p.equipos}</span>}
-                  {p.materiales_recibidos && <span>📦 {p.materiales_recibidos}</span>}
-                </div>
-                {p.observaciones && <p className="text-xs"><b>Obs:</b> {p.observaciones}</p>}
-                {p.incidencias && <p className="text-xs text-azur-700"><b>Incidencias:</b> {p.incidencias}</p>}
-              </CardContent>
-            </Card>
-          ))}
+          {partes.length === 0 && <EmptyState titulo="Sin reportes de obra" />}
+          {partes.map((p: any) => <ParteCard key={p.id} p={p} proyectoId={proyectoId} userRol={userRol} />)}
         </div>
       )}
 
