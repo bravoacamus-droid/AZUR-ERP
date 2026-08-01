@@ -19,10 +19,11 @@ type Actividad = {
   descripcion: string;
   proyecto_item_id: string;
   avance_pct: string;
+  estado: string;
 };
 
 function nuevaActividad(): Actividad {
-  return { descripcion: '', proyecto_item_id: '', avance_pct: '' };
+  return { descripcion: '', proyecto_item_id: '', avance_pct: '', estado: '' };
 }
 
 export function RdoForm({
@@ -38,6 +39,8 @@ export function RdoForm({
   const [proyectoId, setProyectoId] = useState(proyectos[0]?.id ?? '');
   const [fecha, setFecha] = useState(hoy);
   const [clima, setClima] = useState('');
+  const [jornada, setJornada] = useState('');
+  const [programacion, setProgramacion] = useState('');
   const [personal, setPersonal] = useState('');
   const [equipos, setEquipos] = useState('');
   const [materiales, setMateriales] = useState('');
@@ -65,9 +68,11 @@ export function RdoForm({
       proyecto_id: proyectoId,
       fecha,
       clima: clima || null,
+      jornada: jornada || null,
       personal_count: personal ? Number(personal) : null,
       equipos: equipos || null,
       materiales_recibidos: materiales || null,
+      programacion: programacion || null,
       observaciones: observaciones || null,
       incidencias: incidencias || null,
       actividades: actividades
@@ -76,11 +81,12 @@ export function RdoForm({
           descripcion: a.descripcion.trim(),
           proyecto_item_id: a.proyecto_item_id || null,
           avance_pct: a.avance_pct ? Number(a.avance_pct) : null,
+          estado: a.estado || null,
         })),
     };
 
     function limpiar() {
-      setClima(''); setPersonal(''); setEquipos(''); setMateriales('');
+      setClima(''); setJornada(''); setProgramacion(''); setPersonal(''); setEquipos(''); setMateriales('');
       setObservaciones(''); setIncidencias(''); setActividades([nuevaActividad()]); setFotos([]);
     }
 
@@ -163,9 +169,14 @@ export function RdoForm({
         </Field>
       </div>
 
-      <Field label="Clima">
-        <Input value={clima} onChange={(e) => setClima(e.target.value)} placeholder="Soleado, lluvioso..." />
-      </Field>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Clima">
+          <Input value={clima} onChange={(e) => setClima(e.target.value)} placeholder="Soleado, lluvioso..." />
+        </Field>
+        <Field label="Jornada">
+          <Input value={jornada} onChange={(e) => setJornada(e.target.value)} placeholder="08:00 - 17:00 h" />
+        </Field>
+      </div>
 
       <Field label="Equipos">
         <Textarea value={equipos} onChange={(e) => setEquipos(e.target.value)} placeholder="Equipos en obra" />
@@ -177,6 +188,10 @@ export function RdoForm({
           onChange={(e) => setMateriales(e.target.value)}
           placeholder="Materiales recibidos"
         />
+      </Field>
+
+      <Field label="Programación para la siguiente jornada">
+        <Textarea value={programacion} onChange={(e) => setProgramacion(e.target.value)} placeholder="Una línea por punto (aparecen como viñetas en el PDF)" />
       </Field>
 
       <Field label="Observaciones">
@@ -220,18 +235,18 @@ export function RdoForm({
                 </Button>
               )}
             </div>
+            <Select
+              value={a.proyecto_item_id}
+              onChange={(e) => setActividad(i, { proyecto_item_id: e.target.value })}
+            >
+              <option value="">Partida (opcional)</option>
+              {partidasProyecto.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.titulo}
+                </option>
+              ))}
+            </Select>
             <div className="grid grid-cols-2 gap-2">
-              <Select
-                value={a.proyecto_item_id}
-                onChange={(e) => setActividad(i, { proyecto_item_id: e.target.value })}
-              >
-                <option value="">Partida (opcional)</option>
-                {partidasProyecto.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.titulo}
-                  </option>
-                ))}
-              </Select>
               <Input
                 type="number"
                 min={0}
@@ -241,6 +256,12 @@ export function RdoForm({
                 onChange={(e) => setActividad(i, { avance_pct: e.target.value })}
                 placeholder="Avance %"
               />
+              <Select value={a.estado} onChange={(e) => setActividad(i, { estado: e.target.value })}>
+                <option value="">Estado…</option>
+                <option value="Iniciado">Iniciado</option>
+                <option value="En ejecución">En ejecución</option>
+                <option value="Completado">Completado</option>
+              </Select>
             </div>
           </div>
         ))}

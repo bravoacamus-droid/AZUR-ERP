@@ -11,15 +11,18 @@ const actividadSchema = z.object({
   descripcion: z.string().trim().min(1, 'Descripción requerida'),
   proyecto_item_id: z.string().uuid().nullable(),
   avance_pct: z.number().min(0).max(100).nullable(),
+  estado: z.string().trim().nullable().optional(),
 });
 
 const rdoSchema = z.object({
   proyecto_id: z.string().uuid('Selecciona un proyecto'),
   fecha: z.string().min(1, 'Fecha requerida'),
   clima: z.string().trim().nullable(),
+  jornada: z.string().trim().nullable().optional(),
   personal_count: z.number().int().min(0).nullable(),
   equipos: z.string().trim().nullable(),
   materiales_recibidos: z.string().trim().nullable(),
+  programacion: z.string().trim().nullable().optional(),
   observaciones: z.string().trim().nullable(),
   incidencias: z.string().trim().nullable(),
   actividades: z.array(actividadSchema),
@@ -35,7 +38,7 @@ export async function crearRdo(input: RdoInput): Promise<Res> {
     return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
   }
   const d = parsed.data;
-  const supabase = createClient();
+  const supabase = createClient() as any; // columnas nuevas (jornada/programacion/estado) aún no tipadas
 
   const { data: parte, error } = await supabase
     .from('partes_diarios')
@@ -43,9 +46,11 @@ export async function crearRdo(input: RdoInput): Promise<Res> {
       proyecto_id: d.proyecto_id,
       fecha: d.fecha,
       clima: d.clima || null,
+      jornada: d.jornada || null,
       personal_count: d.personal_count,
       equipos: d.equipos || null,
       materiales_recibidos: d.materiales_recibidos || null,
+      programacion: d.programacion || null,
       observaciones: d.observaciones || null,
       incidencias: d.incidencias || null,
       created_by: session.id,
@@ -63,6 +68,7 @@ export async function crearRdo(input: RdoInput): Promise<Res> {
         descripcion: a.descripcion,
         proyecto_item_id: a.proyecto_item_id,
         avance_pct: a.avance_pct,
+        estado: a.estado || null,
       })),
     );
     if (actError) return { ok: false, error: actError.message };

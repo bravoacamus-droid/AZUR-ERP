@@ -10,6 +10,7 @@ export type Res = { ok: boolean; error?: string };
 const perfilSchema = z.object({
   nombre: z.string().min(2, 'Nombre requerido'),
   telefono: z.string().optional().or(z.literal('')).transform((v) => (v ? v : null)),
+  cip: z.string().optional().or(z.literal('')).transform((v) => (v ? v : null)),
 });
 
 export async function actualizarPerfil(input: z.input<typeof perfilSchema>): Promise<Res> {
@@ -17,10 +18,10 @@ export async function actualizarPerfil(input: z.input<typeof perfilSchema>): Pro
   const parsed = perfilSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
 
-  const supabase = createClient();
+  const supabase = createClient() as any; // cip aún no está en los tipos generados
   const { error } = await supabase
     .from('profiles')
-    .update({ nombre: parsed.data.nombre, telefono: parsed.data.telefono })
+    .update({ nombre: parsed.data.nombre, telefono: parsed.data.telefono, cip: parsed.data.cip })
     .eq('id', session.id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/perfil');

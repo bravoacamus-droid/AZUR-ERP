@@ -18,6 +18,7 @@ export type PerfilData = {
   email: string;
   rol: string;
   telefono: string | null;
+  cip: string | null;
   avatar_url: string | null;
   firma_data: string | null;
 };
@@ -25,6 +26,7 @@ export type PerfilData = {
 export function PerfilClient({ perfil }: { perfil: PerfilData }) {
   const [nombre, setNombre] = React.useState(perfil.nombre);
   const [telefono, setTelefono] = React.useState(perfil.telefono ?? '');
+  const [cip, setCip] = React.useState(perfil.cip ?? '');
   const [avatarUrl, setAvatarUrl] = React.useState(perfil.avatar_url);
   const [firma, setFirma] = React.useState<string | null>(perfil.firma_data);
   const [firmaBusy, setFirmaBusy] = React.useState(false);
@@ -58,7 +60,7 @@ export function PerfilClient({ perfil }: { perfil: PerfilData }) {
     e.preventDefault();
     setSaving(true); setError(null); setOk(false);
     try {
-      const res = await actualizarPerfil({ nombre, telefono });
+      const res = await actualizarPerfil({ nombre, telefono, cip });
       if (!res.ok) { setError(res.error ?? 'No se pudo guardar'); return; }
       setOk(true);
     } catch (err) {
@@ -130,7 +132,10 @@ export function PerfilClient({ perfil }: { perfil: PerfilData }) {
                 <Field label="Email" hint="No editable"><Input value={perfil.email} disabled /></Field>
                 <Field label="Teléfono"><Input value={telefono} onChange={(e) => setTelefono(e.target.value)} /></Field>
               </div>
-              <Field label="Rol" hint="Asignado por administración"><Input value={rolLabel(perfil.rol)} disabled /></Field>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <Field label="CIP (colegiatura)" hint="Aparece en los reportes de obra"><Input value={cip} onChange={(e) => setCip(e.target.value)} placeholder="Ej. 184520" /></Field>
+                <Field label="Rol" hint="Asignado por administración"><Input value={rolLabel(perfil.rol)} disabled /></Field>
+              </div>
               {error && <p className="rounded-lg bg-azur-50 px-3 py-2 text-sm font-medium text-azur-700">{error}</p>}
               {ok && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">Perfil actualizado.</p>}
               <div className="flex justify-end">

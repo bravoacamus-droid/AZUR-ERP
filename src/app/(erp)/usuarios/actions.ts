@@ -104,6 +104,7 @@ const editarSchema = z.object({
   id: z.string().uuid(),
   nombre: z.string().min(2, 'Nombre requerido'),
   telefono: z.string().optional().or(z.literal('')).transform((v) => (v ? v : null)),
+  cip: z.string().optional().or(z.literal('')).transform((v) => (v ? v : null)),
   email: z.string().email('Email inválido').optional(),
 });
 
@@ -111,14 +112,14 @@ export async function actualizarUsuario(input: z.input<typeof editarSchema>): Pr
   await guard();
   const parsed = editarSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
-  const { id, nombre, telefono, email } = parsed.data;
+  const { id, nombre, telefono, cip, email } = parsed.data;
   const admin = createAdminClient();
   // El correo vive en auth: se actualiza ahí y se refleja en profiles.
   if (email) {
     const { error: eAuth } = await admin.auth.admin.updateUserById(id, { email, email_confirm: true });
     if (eAuth) return { ok: false, error: eAuth.message };
   }
-  const patch: Record<string, unknown> = { nombre, telefono };
+  const patch: Record<string, unknown> = { nombre, telefono, cip };
   if (email) patch.email = email;
   const { error } = await admin.from('profiles').update(patch as never).eq('id', id);
   if (error) return { ok: false, error: error.message };

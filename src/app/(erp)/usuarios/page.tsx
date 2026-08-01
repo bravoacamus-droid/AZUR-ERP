@@ -12,14 +12,14 @@ export default async function UsuariosPage() {
   const [{ data }, { data: roles }] = await Promise.all([
     supabase
       .from('profiles')
-      .select('id, nombre, email, rol, telefono, activo, avatar_url, rol_personalizado_id, firma_data')
+      .select('id, nombre, email, rol, telefono, cip, activo, avatar_url, rol_personalizado_id, firma_data')
       .order('nombre'),
     supabase.from('roles_personalizados').select('id, nombre, permisos, activo').order('nombre'),
   ]);
 
   return (
     <UsuariosClient
-      usuarios={(data ?? []) as Profile[]}
+      usuarios={(data ?? []) as unknown as Profile[]}
       roles={(roles ?? []) as RolPers[]}
       miId={session.id}
       canEdit={puedeEditar(session.permisos, 'usuarios')}

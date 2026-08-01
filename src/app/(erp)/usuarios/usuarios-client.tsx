@@ -25,6 +25,7 @@ export type Profile = {
   email: string;
   rol: Rol;
   telefono: string | null;
+  cip: string | null;
   activo: boolean;
   avatar_url: string | null;
   rol_personalizado_id: string | null;
@@ -94,13 +95,13 @@ function NuevoUsuarioModal({ roles, onClose }: { roles: RolPers[]; onClose: () =
 function EditarUsuarioModal({ u, onClose }: { u: Profile; onClose: () => void }) {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const [f, setF] = React.useState({ nombre: u.nombre, email: u.email, telefono: u.telefono ?? '' });
+  const [f, setF] = React.useState({ nombre: u.nombre, email: u.email, telefono: u.telefono ?? '', cip: u.cip ?? '' });
   const [firma, setFirma] = React.useState<string | null>(u.firma_data);
   const [firmaBusy, setFirmaBusy] = React.useState(false);
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true); setError(null);
-    const res = await actualizarUsuario({ id: u.id, nombre: f.nombre, telefono: f.telefono, email: f.email !== u.email ? f.email : undefined });
+    const res = await actualizarUsuario({ id: u.id, nombre: f.nombre, telefono: f.telefono, cip: f.cip, email: f.email !== u.email ? f.email : undefined });
     setSaving(false);
     if (!res.ok) { setError(res.error ?? 'Error'); return; }
     onClose();
@@ -130,6 +131,7 @@ function EditarUsuarioModal({ u, onClose }: { u: Profile; onClose: () => void })
           <Field label="Email" required><Input type="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required /></Field>
           <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={f.telefono} onChange={(e) => setF({ ...f, telefono: soloDigitos(e.target.value) })} /></Field>
         </div>
+        <Field label="CIP (colegiatura)"><Input value={f.cip} onChange={(e) => setF({ ...f, cip: e.target.value })} placeholder="Ej. 184520" /></Field>
         <div className="rounded-lg border p-3">
           <p className="mb-2 text-sm font-medium">Firma (PNG sin fondo)</p>
           {firma ? (
