@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Line, Polyline, Circle } from '@react-pdf/renderer';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 
 const AZUR = '#E20627';
@@ -43,6 +43,9 @@ const s = StyleSheet.create({
 
 export interface ConsolidadoData {
   proyecto: string; ubicacion?: string; codigo: string; desde: string; hasta: string; nReportes: number; residentes?: string;
+  estadoFiltro?: string;
+  curva: { fecha: string; acum: number }[];
+  curvaFinal: number;
   partidas: { actividad: string; partida?: string; avanceAcum: number }[];
   dias: { fecha: string; residente?: string; nActividades: number; personal?: number | null; estado: string }[];
   fotos: { url: string; descripcion?: string; fecha: string }[];
@@ -50,6 +53,28 @@ export interface ConsolidadoData {
 }
 
 const ESTADO_LBL: Record<string, string> = { borrador: 'Borrador', enviado: 'Enviado', aprobado: 'Aprobado', observado: 'Observado' };
+
+// Curva de avance acumulado del periodo (line chart con primitivas SVG).
+function CurvaAvance({ puntos, max }: { puntos: { fecha: string; acum: number }[]; max: number }) {
+  const W = 500, H = 110, padL = 8, padB = 6, padT = 8;
+  const n = puntos.length;
+  const x = (i: number) => (n <= 1 ? W / 2 : padL + (i * (W - padL * 2)) / (n - 1));
+  const y = (v: number) => padT + (H - padT - padB) - (max > 0 ? (v / max) * (H - padT - padB) : 0);
+  const pts = puntos.map((p, i) => `${x(i).toFixed(1)},${y(p.acum).toFixed(1)}`).join(' ');
+  return (
+    <View style={{ marginBottom: 6 }}>
+      <Svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 118 }}>
+        <Line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="#e0e0e0" strokeWidth={1} />
+        <Line x1={padL} y1={H - padB} x2={W - padL} y2={H - padB} stroke="#e0e0e0" strokeWidth={1} />
+        {n > 1 && <Polyline points={pts} fill="none" stroke={AZUR} strokeWidth={2} />}
+        {puntos.map((p, i) => <Circle key={i} cx={x(i)} cy={y(p.acum)} r={2.6} fill={AZUR} />)}
+      </Svg>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
+        {puntos.map((p, i) => <Text key={i} style={{ fontSize: 6.5, color: '#666' }}>{p.fecha}</Text>)}
+      </View>
+    </View>
+  );
+}
 
 export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
   return (
@@ -74,12 +99,23 @@ export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
           </View>
           <View style={s.gRowLast}>
             <Text style={s.gLabel}>RESIDENTE(S)</Text><Text style={s.gVal}>{d.residentes || '—'}</Text>
-            <Text style={s.gLabel}>REPORTES</Text><Text style={s.gValLast}>{d.nReportes} en el periodo</Text>
+            <Text style={s.gLabel}>REPORTES</Text><Text style={s.gValLast}>{d.nReportes} en el periodo{d.estadoFiltro && d.estadoFiltro !== 'Todos' ? ` · ${d.estadoFiltro}` : ''}</Text>
           </View>
         </View>
 
+        {/* Curva de avance del periodo */}
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>1. CURVA DE AVANCE ACUMULADO DEL PERIODO</Text></View>
+        {d.curva.length === 0 ? (
+          <Text style={{ fontSize: 8, color: '#888' }}>Sin datos de avance en el periodo.</Text>
+        ) : (
+          <>
+            <CurvaAvance puntos={d.curva} max={d.curvaFinal} />
+            <Text style={{ fontSize: 7.5, color: '#666', marginBottom: 4 }}>Avance acumulado del periodo (suma de los avances diarios): <Text style={{ fontFamily: 'Helvetica-Bold', color: AZUR }}>+{(d.curvaFinal * 100).toFixed(1)}%</Text></Text>
+          </>
+        )}
+
         {/* Avance acumulado por partida */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>1. AVANCE ACUMULADO DEL PERIODO POR ACTIVIDAD / PARTIDA</Text></View>
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>2. AVANCE ACUMULADO DEL PERIODO POR ACTIVIDAD / PARTIDA</Text></View>
         <View style={s.thead}>
           <Text style={[s.cAct, s.th]}>ACTIVIDAD</Text>
           <Text style={[s.cPart, s.th]}>PARTIDA</Text>
@@ -96,7 +132,7 @@ export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
         ))}
 
         {/* Resumen por día */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>2. RESUMEN DIARIO DEL PERIODO</Text></View>
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>3. RESUMEN DIARIO DEL PERIODO</Text></View>
         <View style={s.thead}>
           <Text style={[s.dFecha, s.th]}>FECHA</Text>
           <Text style={[s.dResid, s.th]}>RESIDENTE</Text>
@@ -115,7 +151,7 @@ export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
         ))}
 
         {/* Registro fotográfico consolidado */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>3. REGISTRO FOTOGRÁFICO DEL PERIODO</Text></View>
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>4. REGISTRO FOTOGRÁFICO DEL PERIODO</Text></View>
         {d.fotos.length === 0 ? (
           <Text style={{ fontSize: 8, color: '#888' }}>Sin fotografías en el periodo.</Text>
         ) : (
@@ -133,7 +169,7 @@ export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
         {/* Observaciones e incidencias */}
         {d.notas.length > 0 && (
           <>
-            <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>4. OBSERVACIONES E INCIDENCIAS DEL PERIODO</Text></View>
+            <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>5. OBSERVACIONES E INCIDENCIAS DEL PERIODO</Text></View>
             {d.notas.map((n, i) => (
               <View key={i} wrap={false}>
                 {n.observaciones ? <Text style={s.nota}><Text style={{ fontFamily: 'Helvetica-Bold' }}>{n.fecha}: </Text>{n.observaciones}</Text> : null}

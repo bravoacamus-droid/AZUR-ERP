@@ -14,17 +14,19 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const url = new URL(req.url);
   const desde = url.searchParams.get('desde') || isoMenos(6);
   const hasta = url.searchParams.get('hasta') || isoHoy();
+  const estadoFiltro = url.searchParams.get('estado') || ''; // '' = todos; 'aprobado' = solo aprobados
 
   const { data: proy } = await supabase.from('proyectos').select('nombre, codigo, ubicacion').eq('id', params.id).single();
   if (!proy) return new Response('No encontrado', { status: 404 });
 
-  const { data: partes } = await supabase
+  let q = supabase
     .from('partes_diarios')
     .select('id, fecha, estado, personal_count, observaciones, incidencias, autor:profiles!created_by(nombre), rdo_actividades(descripcion, avance_pct, estado, proyecto_item_id)')
     .eq('proyecto_id', params.id)
     .gte('fecha', desde)
-    .lte('fecha', hasta)
-    .order('fecha');
+    .lte('fecha', hasta);
+  if (estadoFiltro === 'aprobado') q = q.eq('estado', 'aprobado');
+  const { data: partes } = await q.order('fecha');
 
   const lista = partes ?? [];
   const rdoIds = lista.map((p: any) => p.id);
@@ -47,6 +49,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   const residentes = Array.from(new Set(lista.map((p: any) => p.autor?.nombre).filter(Boolean))).join(', ');
 
+  // Curva de avance del periodo: acumula el avance diario total (suma de % de las
+  // actividades de cada día) a lo largo de las fechas del rango.
+  let acumCurva = 0;
+  const curva = lista.map((p: any) => {
+    const diario = (p.rdo_actividades ?? []).reduce((a: number, x: any) => a + (x.avance_pct == null ? 0 : Number(x.avance_pct)), 0);
+    acumCurva += diario;
+    return { fecha: fmtDate(p.fecha), acum: acumCurva };
+  });
+
   const d: ConsolidadoData = {
     proyecto: proy.nombre,
     ubicacion: proy.ubicacion ?? undefined,
@@ -55,6 +66,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     hasta: fmtDate(hasta),
     nReportes: lista.length,
     residentes: residentes || undefined,
+    estadoFiltro: estadoFiltro === 'aprobado' ? 'Solo aprobados' : 'Todos',
+    curva,
+    curvaFinal: acumCurva,
     partidas: Array.from(agg.values()).sort((a, b) => b.avanceAcum - a.avanceAcum),
     dias: lista.map((p: any) => ({
       fecha: fmtDate(p.fecha),

@@ -25,8 +25,9 @@ export function ReporteConsolidado({
   const [proy, setProy] = React.useState(proyectoId ?? proyectos?.[0]?.id ?? '');
   const [desde, setDesde] = React.useState(lunesActual());
   const [hasta, setHasta] = React.useState(hoyISO());
+  const [estado, setEstado] = React.useState('');
   const pid = proyectoId ?? proy;
-  const url = pid ? `/proyectos/${pid}/rdo/consolidado/pdf?desde=${desde}&hasta=${hasta}` : '';
+  const url = pid ? `/proyectos/${pid}/rdo/consolidado/pdf?desde=${desde}&hasta=${hasta}${estado ? `&estado=${estado}` : ''}` : '';
 
   const setSemana = (offset: number) => {
     const base = new Date();
@@ -61,6 +62,13 @@ export function ReporteConsolidado({
         <label className="text-xs">
           <span className="mb-0.5 block text-muted-foreground">Hasta</span>
           <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-sm" />
+        </label>
+        <label className="text-xs">
+          <span className="mb-0.5 block text-muted-foreground">Estado</span>
+          <select value={estado} onChange={(e) => setEstado(e.target.value)} className="rounded-lg border bg-white px-2 py-1.5 text-sm">
+            <option value="">Todos</option>
+            <option value="aprobado">Solo aprobados</option>
+          </select>
         </label>
         <a
           href={url || undefined}
