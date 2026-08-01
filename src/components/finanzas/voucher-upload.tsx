@@ -41,7 +41,7 @@ export function VoucherUpload({
       <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed bg-secondary/40 px-3 py-2.5 text-sm hover:bg-secondary">
         {subiendo ? <Loader2 className="size-4 animate-spin" /> : value ? <CheckCircle2 className="size-4 text-emerald-600" /> : <Upload className="size-4" />}
         {subiendo ? 'Subiendo…' : value ? 'Voucher adjunto · cambiar' : 'Adjuntar voucher (PDF/foto)'}
-        <input type="file" accept="image/*,application/pdf" capture="environment" className="hidden" onChange={onFile} disabled={subiendo} />
+        <input type="file" accept="image/*,application/pdf" className="hidden" onChange={onFile} disabled={subiendo} />
       </label>
       {value && (
         <a href={value} target="_blank" rel="noreferrer" className="flex items-center gap-1 text-xs text-azur-600 hover:underline">

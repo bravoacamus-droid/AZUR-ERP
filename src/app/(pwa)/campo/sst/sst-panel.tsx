@@ -39,7 +39,6 @@ function FotoInput({ inputRef, onChange }: { inputRef: RefObject<HTMLInputElemen
         ref={inputRef}
         type="file"
         accept="image/*"
-        capture="environment"
         onChange={(e) => onChange(e.target.files?.[0] ?? null)}
         className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-azur-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-azur-600"
       />

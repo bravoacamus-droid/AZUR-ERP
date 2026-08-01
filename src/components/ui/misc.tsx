@@ -84,7 +84,7 @@ export function Field({
 }) {
   return (
     <div className={cn('space-y-1.5', className)}>
-      <label className="text-sm font-medium text-foreground/90">
+      <label className="block text-sm font-medium text-foreground/90">
         {label} {required && <span className="text-primary">*</span>}
       </label>
       {children}

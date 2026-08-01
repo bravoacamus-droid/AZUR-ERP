@@ -153,7 +153,7 @@ export function RdoForm({
         </Select>
       </Field>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 items-end gap-3">
         <Field label="Fecha" required>
           <Input type="date" value={fecha} onChange={(e) => setFecha(e.target.value)} />
         </Field>
@@ -169,7 +169,7 @@ export function RdoForm({
         </Field>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-2 items-end gap-3">
         <Field label="Clima">
           <Input value={clima} onChange={(e) => setClima(e.target.value)} placeholder="Soleado, lluvioso..." />
         </Field>
@@ -271,7 +271,6 @@ export function RdoForm({
         <input
           type="file"
           accept="image/*"
-          capture="environment"
           multiple
           onChange={(e) => setFotos(Array.from(e.target.files ?? []))}
           className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-azur-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-azur-600"
