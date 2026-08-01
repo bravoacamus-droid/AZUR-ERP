@@ -111,7 +111,7 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
           <View style={[s.resRow, s.resAlt]}><Text style={s.resK}>Adelanto recibido (contrato {fmtNumber(d.adelantoPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.adelantoTotal)}</Text></View>
           <View style={s.resRow}><Text style={s.resK}>Valorizaciones acumuladas anteriores</Text><Text style={s.resV}>{fmtMoney(d.valorizadoAcum - d.valorizadoPeriodo)}</Text></View>
           <View style={[s.resRow, s.resHi]}><Text style={[s.resK, s.vb]}>Valorización N° {d.numero}</Text><Text style={s.resV}>{fmtMoney(d.valorizadoPeriodo)}</Text></View>
-          <View style={[s.resRow, s.resHi, { borderTopWidth: 0.5, borderTopColor: '#f0c9d1' }]}><Text style={[s.resK, s.vb, s.hi]}>Saldo por valorizar</Text><Text style={[s.resV, s.hi]}>{fmtMoney(d.saldoContrato)}</Text></View>
+          <View style={[s.resRow, s.resHi, { borderTopWidth: 0.5, borderTopColor: '#f0c9d1' }]}><Text style={[s.resK, s.vb, s.hi]}>Saldo por pagar</Text><Text style={[s.resV, s.hi]}>{fmtMoney(d.saldoContrato)}</Text></View>
         </View>
         <Text style={{ fontSize: 7, color: '#888', marginTop: -6, marginBottom: 8 }}>
           Montos {d.conIgv === false ? 'sin IGV (netos)' : 'con IGV incluido'}. El detalle del cobro (margen, IGV y amortización) se muestra al final.

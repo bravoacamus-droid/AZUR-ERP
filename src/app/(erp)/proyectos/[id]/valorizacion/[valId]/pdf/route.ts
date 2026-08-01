@@ -156,7 +156,8 @@ export async function GET(req: Request, { params }: { params: { id: string; valI
     amortizadoAcum: amortizadoAcum * kIgv,
     saldoAdelanto: saldoAdelanto * kIgv,
     valorizadoAcum: valorizadoAcum * kIgv,
-    saldoContrato: (contrato - valorizadoAcum) * kIgv,
+    // "Saldo por pagar" (vista cliente): contrato − adelanto − valorizado acumulado.
+    saldoContrato: (contrato - adelantoTotal - valorizadoAcum) * kIgv,
     responsable,
     responsableFirma,
     gerente,
