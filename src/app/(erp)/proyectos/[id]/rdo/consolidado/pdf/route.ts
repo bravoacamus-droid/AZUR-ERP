@@ -16,7 +16,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const hasta = url.searchParams.get('hasta') || isoHoy();
   const estadoFiltro = url.searchParams.get('estado') || ''; // '' = todos; 'aprobado' = solo aprobados
 
-  const { data: proy } = await supabase.from('proyectos').select('nombre, codigo, ubicacion').eq('id', params.id).single();
+  const { data: proy } = await supabase.from('proyectos').select('nombre, codigo, direccion').eq('id', params.id).single();
   if (!proy) return new Response('No encontrado', { status: 404 });
 
   let q = supabase
@@ -60,7 +60,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   const d: ConsolidadoData = {
     proyecto: proy.nombre,
-    ubicacion: proy.ubicacion ?? undefined,
+    ubicacion: proy.direccion ?? undefined,
     codigo: proy.codigo ?? '',
     desde: fmtDate(desde),
     hasta: fmtDate(hasta),

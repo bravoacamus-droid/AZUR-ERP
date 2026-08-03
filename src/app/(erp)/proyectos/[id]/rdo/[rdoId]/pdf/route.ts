@@ -13,7 +13,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; rdo
 
   const { data: parte } = await supabase
     .from('partes_diarios')
-    .select('*, proyectos(nombre, codigo, ubicacion, cliente:clientes(razon_social)), autor:profiles!created_by(nombre, cip, firma_data), revisor:profiles!revisado_by(nombre, cip, firma_data)')
+    .select('*, proyectos(nombre, codigo, direccion, cliente:clientes(razon_social)), autor:profiles!created_by(nombre, cip, firma_data), revisor:profiles!revisado_by(nombre, cip, firma_data)')
     .eq('id', params.rdoId)
     .single();
   if (!parte || parte.proyecto_id !== params.id) return new Response('No encontrado', { status: 404 });
@@ -27,7 +27,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; rdo
 
   const itemById = new Map((allItems ?? []).map((i: any) => [i.id, i]));
 
-  const proy = parte.proyectos as { nombre?: string; codigo?: string; ubicacion?: string; cliente?: { razon_social?: string } | null } | null;
+  const proy = parte.proyectos as { nombre?: string; codigo?: string; direccion?: string; cliente?: { razon_social?: string } | null } | null;
   const autor = parte.autor as { nombre?: string; cip?: string; firma_data?: string | null } | null;
   const revisor = parte.revisor as { nombre?: string; cip?: string; firma_data?: string | null } | null;
   // Supervisor: quien revisó; si aún no, el jefe de proyectos del equipo.
@@ -36,7 +36,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; rdo
 
   const d: RdoPdfData = {
     proyecto: proy?.nombre ?? 'Proyecto',
-    ubicacion: proy?.ubicacion ?? undefined,
+    ubicacion: proy?.direccion ?? undefined,
     codigo: proy?.codigo ?? '',
     cliente: proy?.cliente?.razon_social ?? undefined,
     fecha: fmtDate(parte.fecha),
