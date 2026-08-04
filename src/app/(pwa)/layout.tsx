@@ -5,6 +5,7 @@ import { navForPermisos } from '@/lib/nav';
 import { BottomNav } from '@/components/shell/bottom-nav';
 import { NotificationBell } from '@/components/shell/notification-bell';
 import { UserMenu } from '@/components/shell/user-menu';
+import { BackButton } from '@/components/shell/back-button';
 import { Logo } from '@/components/brand/logo';
 import { InstallPrompt } from '@/components/pwa/install-prompt';
 import { OfflineSync } from '@/components/pwa/offline-sync';
@@ -19,7 +20,10 @@ export default async function PwaLayout({ children }: { children: React.ReactNod
   return (
     <div className="mx-auto flex min-h-screen max-w-lg flex-col bg-secondary/30">
       <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-white/90 px-4 pt-safe backdrop-blur-md">
-        <Logo size={32} withText={false} />
+        <div className="flex items-center gap-1">
+          <BackButton />
+          <Logo size={32} withText={false} />
+        </div>
         <span className="text-sm font-semibold">AZUR Campo</span>
         <div className="flex items-center gap-1.5">
           <NotificationBell userId={session.id} />

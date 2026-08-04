@@ -84,7 +84,7 @@ export interface RdoPdfData {
   proyecto: string; ubicacion?: string; codigo: string; cliente?: string; fecha: string; estado: string;
   residente?: string; residenteCip?: string; residenteFirma?: string;
   supervisor?: string; supervisorCip?: string; supervisorFirma?: string;
-  jornada?: string; personal?: number | null; programacion?: string;
+  jornada?: string; personal?: number | null; clima?: string; equipos?: string; materiales?: string; programacion?: string;
   observaciones?: string; incidencias?: string; obsRevision?: string; revisadoFecha?: string;
   actividades: RdoActividadPdf[];
   fotos: { url: string; descripcion?: string }[];
@@ -92,8 +92,23 @@ export interface RdoPdfData {
 
 export function RdoPDF({ d }: { d: RdoPdfData }) {
   const chip = CHIP_ESTADO[d.estado] ?? CHIP_ESTADO.borrador;
-  const conNombreCip = (n?: string, cip?: string) => (n ? `${n}${cip ? ` (CIP ${cip})` : ''}` : '—');
+  const conNombreCip = (n?: string, cip?: string) => `${n ?? ''}${n && cip ? ` (CIP ${cip})` : ''}`;
   const progLineas = (d.programacion || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  // Datos generales: solo se muestran los campos con valor (si no se llena, no aparece).
+  const datos: { k: string; v: string }[] = [
+    { k: 'PROYECTO', v: d.proyecto },
+    ...(d.ubicacion ? [{ k: 'UBICACIÓN', v: d.ubicacion }] : []),
+    ...(d.residente ? [{ k: 'RESIDENTE', v: conNombreCip(d.residente, d.residenteCip) }] : []),
+    ...(d.supervisor ? [{ k: 'SUPERVISOR', v: conNombreCip(d.supervisor, d.supervisorCip) }] : []),
+    ...(d.jornada ? [{ k: 'JORNADA', v: d.jornada }] : []),
+    ...(d.personal != null ? [{ k: 'PERSONAL EN OBRA', v: `${d.personal} trabajadores` }] : []),
+    ...(d.clima ? [{ k: 'CLIMA', v: d.clima }] : []),
+    ...(d.equipos ? [{ k: 'EQUIPOS', v: d.equipos }] : []),
+    ...(d.materiales ? [{ k: 'MATERIALES RECIBIDOS', v: d.materiales }] : []),
+  ];
+  const filasDatos: { k: string; v: string }[][] = [];
+  for (let i = 0; i < datos.length; i += 2) filasDatos.push(datos.slice(i, i + 2));
+  const haySeccion3 = progLineas.length > 0 || !!d.observaciones || !!d.incidencias;
 
   return (
     <Document title={`Reporte Diario de Obra — ${d.codigo} — ${d.fecha}`}>
@@ -111,20 +126,14 @@ export function RdoPDF({ d }: { d: RdoPdfData }) {
           </View>
         </View>
 
-        {/* Datos generales */}
+        {/* Datos generales (solo campos con valor) */}
         <View style={s.grid}>
-          <View style={s.gRow}>
-            <Text style={s.gLabel}>PROYECTO</Text><Text style={s.gVal}>{d.proyecto}</Text>
-            <Text style={s.gLabel}>UBICACIÓN</Text><Text style={s.gValLast}>{d.ubicacion || '—'}</Text>
-          </View>
-          <View style={s.gRow}>
-            <Text style={s.gLabel}>RESIDENTE</Text><Text style={s.gVal}>{conNombreCip(d.residente, d.residenteCip)}</Text>
-            <Text style={s.gLabel}>SUPERVISOR</Text><Text style={s.gValLast}>{conNombreCip(d.supervisor, d.supervisorCip)}</Text>
-          </View>
-          <View style={s.gRowLast}>
-            <Text style={s.gLabel}>JORNADA</Text><Text style={s.gVal}>{d.jornada || '—'}</Text>
-            <Text style={s.gLabel}>PERSONAL{'\n'}EN OBRA</Text><Text style={s.gValLast}>{d.personal != null ? `${d.personal} trabajadores` : '—'}</Text>
-          </View>
+          {filasDatos.map((fila, i) => (
+            <View key={i} style={i === filasDatos.length - 1 ? s.gRowLast : s.gRow}>
+              <Text style={s.gLabel}>{fila[0].k}</Text><Text style={fila[1] ? s.gVal : s.gValLast}>{fila[0].v}</Text>
+              {fila[1] ? <><Text style={s.gLabel}>{fila[1].k}</Text><Text style={s.gValLast}>{fila[1].v}</Text></> : null}
+            </View>
+          ))}
         </View>
 
         {/* 1. Actividades */}
@@ -165,21 +174,24 @@ export function RdoPDF({ d }: { d: RdoPdfData }) {
           </View>
         )}
 
-        {/* 3. Programación y observaciones */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>3. PROGRAMACIÓN PARA LA SIGUIENTE JORNADA Y OBSERVACIONES</Text></View>
-        <View style={s.box3} wrap={false}>
-          {progLineas.length > 0 ? (
-            <>
-              <Text style={s.box3Tit}>Plan de trabajo programado:</Text>
-              {progLineas.map((l, i) => (
-                <View key={i} style={s.bullet}><Text style={s.bulletDot}>•</Text><Text style={s.bulletTxt}>{l}</Text></View>
-              ))}
-            </>
-          ) : null}
-          {d.observaciones ? <Text style={{ fontSize: 8.5, marginTop: progLineas.length ? 6 : 0 }}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Observaciones: </Text>{d.observaciones}</Text> : null}
-          {d.incidencias ? <Text style={{ fontSize: 8.5, color: AZUR, marginTop: 3 }}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Incidencias: </Text>{d.incidencias}</Text> : null}
-          {!progLineas.length && !d.observaciones && !d.incidencias ? <Text style={{ fontSize: 8, color: '#888' }}>Sin observaciones registradas.</Text> : null}
-        </View>
+        {/* 3. Programación y observaciones (solo si hay contenido) */}
+        {haySeccion3 && (
+          <>
+            <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>3. PROGRAMACIÓN PARA LA SIGUIENTE JORNADA Y OBSERVACIONES</Text></View>
+            <View style={s.box3} wrap={false}>
+              {progLineas.length > 0 ? (
+                <>
+                  <Text style={s.box3Tit}>Plan de trabajo programado:</Text>
+                  {progLineas.map((l, i) => (
+                    <View key={i} style={s.bullet}><Text style={s.bulletDot}>•</Text><Text style={s.bulletTxt}>{l}</Text></View>
+                  ))}
+                </>
+              ) : null}
+              {d.observaciones ? <Text style={{ fontSize: 8.5, marginTop: progLineas.length ? 6 : 0 }}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Observaciones: </Text>{d.observaciones}</Text> : null}
+              {d.incidencias ? <Text style={{ fontSize: 8.5, color: AZUR, marginTop: 3 }}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Incidencias: </Text>{d.incidencias}</Text> : null}
+            </View>
+          </>
+        )}
 
         {d.obsRevision ? (
           <View style={s.obsBox}><Text style={{ fontSize: 8.5, color: '#b91c1c' }}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Observación del jefe de proyectos: </Text>{d.obsRevision}</Text></View>
