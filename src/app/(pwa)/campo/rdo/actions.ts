@@ -67,7 +67,8 @@ export async function crearRdo(input: RdoInput): Promise<Res> {
         rdo_id: parte.id,
         descripcion: a.descripcion,
         proyecto_item_id: a.proyecto_item_id,
-        avance_pct: a.avance_pct,
+        // El usuario ingresa 0–100; se guarda como fracción 0–1 (como el resto del sistema).
+        avance_pct: a.avance_pct == null ? null : a.avance_pct / 100,
         estado: a.estado || null,
       })),
     );
