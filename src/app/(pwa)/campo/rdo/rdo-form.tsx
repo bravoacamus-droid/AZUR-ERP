@@ -139,7 +139,7 @@ export function RdoForm({
     <div className="space-y-4 rounded-2xl border bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <ClipboardList className="size-5 text-azur-600" />
-        <p className="font-semibold">Nuevo parte diario</p>
+        <p className="font-semibold">Nuevo reporte diario</p>
       </div>
 
       <Field label="Proyecto" required>
@@ -178,33 +178,10 @@ export function RdoForm({
         </Field>
       </div>
 
-      <Field label="Equipos">
-        <Textarea value={equipos} onChange={(e) => setEquipos(e.target.value)} placeholder="Equipos en obra" />
-      </Field>
-
-      <Field label="Materiales recibidos">
-        <Textarea
-          value={materiales}
-          onChange={(e) => setMateriales(e.target.value)}
-          placeholder="Materiales recibidos"
-        />
-      </Field>
-
-      <Field label="Programación para la siguiente jornada">
-        <Textarea value={programacion} onChange={(e) => setProgramacion(e.target.value)} placeholder="Una línea por punto (aparecen como viñetas en el PDF)" />
-      </Field>
-
-      <Field label="Observaciones">
-        <Textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
-      </Field>
-
-      <Field label="Incidencias">
-        <Textarea value={incidencias} onChange={(e) => setIncidencias(e.target.value)} />
-      </Field>
-
-      <div className="space-y-3">
+      {/* Actividades: la parte más relevante del reporte, va arriba. */}
+      <div className="space-y-3 rounded-xl border-2 border-azur-100 bg-azur-50/30 p-3">
         <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-muted-foreground">Actividades</p>
+          <p className="text-sm font-semibold text-azur-700">Actividades y avance</p>
           <Button
             type="button"
             variant="outline"
@@ -216,7 +193,7 @@ export function RdoForm({
         </div>
 
         {actividades.map((a, i) => (
-          <div key={i} className="space-y-2 rounded-xl border bg-secondary/30 p-3">
+          <div key={i} className="space-y-2 rounded-xl border bg-white p-3">
             <div className="flex items-start gap-2">
               <Textarea
                 className="min-h-[60px]"
@@ -266,6 +243,30 @@ export function RdoForm({
           </div>
         ))}
       </div>
+
+      <Field label="Equipos">
+        <Textarea value={equipos} onChange={(e) => setEquipos(e.target.value)} placeholder="Equipos en obra" />
+      </Field>
+
+      <Field label="Materiales recibidos">
+        <Textarea
+          value={materiales}
+          onChange={(e) => setMateriales(e.target.value)}
+          placeholder="Materiales recibidos"
+        />
+      </Field>
+
+      <Field label="Programación para la siguiente jornada">
+        <Textarea value={programacion} onChange={(e) => setProgramacion(e.target.value)} placeholder="Una línea por punto (aparecen como viñetas en el PDF)" />
+      </Field>
+
+      <Field label="Observaciones">
+        <Textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+      </Field>
+
+      <Field label="Incidencias">
+        <Textarea value={incidencias} onChange={(e) => setIncidencias(e.target.value)} />
+      </Field>
 
       <Field label="Fotos de respaldo">
         <input
