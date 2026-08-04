@@ -57,7 +57,7 @@ export default async function RdoPage() {
       <div className="rounded-2xl border bg-white p-4">
         <div className="mb-2 flex items-center gap-2">
           <ClipboardList className="size-4 text-azur-600" />
-          <p className="text-sm font-semibold">Mis últimos partes</p>
+          <p className="text-sm font-semibold">Mis últimos reportes</p>
         </div>
         {partes.length === 0 ? (
           <EmptyState titulo="Sin partes" descripcion="Aún no has registrado partes diarios." />

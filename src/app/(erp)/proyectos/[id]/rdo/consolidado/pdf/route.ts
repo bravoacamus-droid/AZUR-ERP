@@ -15,9 +15,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const desde = url.searchParams.get('desde') || isoMenos(6);
   const hasta = url.searchParams.get('hasta') || isoHoy();
   const estadoFiltro = url.searchParams.get('estado') || ''; // '' = todos; 'aprobado' = solo aprobados
+  const incluirResumen = url.searchParams.get('resumen') === '1'; // resumen diario = uso interno (opcional)
 
   const { data: proy } = await supabase.from('proyectos').select('nombre, codigo, direccion').eq('id', params.id).single();
   if (!proy) return new Response('No encontrado', { status: 404 });
+
+  // Supervisor = jefe de proyectos del equipo.
+  const { data: equipo } = await supabase.from('proyecto_equipo').select('profile:profiles(nombre, rol)').eq('proyecto_id', params.id);
+  const supervisor = (equipo ?? []).map((e: any) => e.profile).find((p: any) => p?.rol === 'jefe_proyectos')?.nombre as string | undefined;
 
   let q = supabase
     .from('partes_diarios')
@@ -49,15 +54,6 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   const residentes = Array.from(new Set(lista.map((p: any) => p.autor?.nombre).filter(Boolean))).join(', ');
 
-  // Curva de avance del periodo: acumula el avance diario total (suma de % de las
-  // actividades de cada día) a lo largo de las fechas del rango.
-  let acumCurva = 0;
-  const curva = lista.map((p: any) => {
-    const diario = (p.rdo_actividades ?? []).reduce((a: number, x: any) => a + (x.avance_pct == null ? 0 : Number(x.avance_pct)), 0);
-    acumCurva += diario;
-    return { fecha: fmtDate(p.fecha), acum: acumCurva };
-  });
-
   const d: ConsolidadoData = {
     proyecto: proy.nombre,
     ubicacion: proy.direccion ?? undefined,
@@ -66,17 +62,17 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     hasta: fmtDate(hasta),
     nReportes: lista.length,
     residentes: residentes || undefined,
+    supervisor,
     estadoFiltro: estadoFiltro === 'aprobado' ? 'Solo aprobados' : 'Todos',
-    curva,
-    curvaFinal: acumCurva,
     partidas: Array.from(agg.values()).sort((a, b) => b.avanceAcum - a.avanceAcum),
-    dias: lista.map((p: any) => ({
+    // Resumen diario solo si se pide (uso interno, no para el cliente).
+    dias: incluirResumen ? lista.map((p: any) => ({
       fecha: fmtDate(p.fecha),
       residente: p.autor?.nombre ?? undefined,
       nActividades: (p.rdo_actividades ?? []).length,
       personal: p.personal_count ?? undefined,
       estado: p.estado ?? 'borrador',
-    })),
+    })) : [],
     fotos: (fotos ?? []).map((f: any) => ({ url: f.url, descripcion: f.descripcion ?? undefined, fecha: fmtDate(fechaByRdo.get(f.rdo_id) as string) })),
     notas: lista.filter((p: any) => p.observaciones || p.incidencias).map((p: any) => ({ fecha: fmtDate(p.fecha), observaciones: p.observaciones ?? undefined, incidencias: p.incidencias ?? undefined })),
   };

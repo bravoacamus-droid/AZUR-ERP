@@ -8,7 +8,7 @@ import { enviarRdo, eliminarRdo } from './actions';
 
 const ESTADO: Record<string, { label: string; cls: string }> = {
   borrador: { label: 'Borrador', cls: 'bg-slate-100 text-slate-600' },
-  enviado: { label: 'Enviado', cls: 'bg-sky-100 text-sky-700' },
+  enviado: { label: 'Enviado a revisión', cls: 'bg-sky-100 text-sky-700' },
   aprobado: { label: 'Aprobado', cls: 'bg-emerald-100 text-emerald-700' },
   observado: { label: 'Observado', cls: 'bg-red-100 text-red-700' },
 };

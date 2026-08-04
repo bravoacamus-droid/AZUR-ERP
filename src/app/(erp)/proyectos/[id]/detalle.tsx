@@ -106,7 +106,7 @@ export function ProyectoDetalle(props: any) {
           { value: 'adicionales', label: 'Adicionales' },
           { value: 'equipo', label: 'Equipo' },
           ...(esMantenimiento ? [{ value: 'mantenimiento', label: 'Mantenimiento' }] : []),
-          { value: 'campo', label: 'Campo' },
+          { value: 'campo', label: `Campo${(campo?.partes ?? []).filter((p: any) => p.estado === 'enviado').length ? ` · ${(campo?.partes ?? []).filter((p: any) => p.estado === 'enviado').length} por revisar` : ''}` },
           { value: 'liquidacion', label: 'Liquidación' },
           { value: 'expediente', label: 'Expediente' },
         ]}
@@ -1595,7 +1595,7 @@ function CampoTab({ campo, proyectoId, userRol }: any) {
     <div className="space-y-4">
       <Tabs value={sub} onChange={setSub} tabs={[
         { value: 'asistencias', label: `Asistencia (${asistencias.length})` },
-        { value: 'partes', label: `Reportes de obra (${partes.length})` },
+        { value: 'partes', label: `Reportes de obra${partes.filter((p: any) => p.estado === 'enviado').length ? ` · ${partes.filter((p: any) => p.estado === 'enviado').length} por revisar` : ''} (${partes.length})` },
         { value: 'evidencias', label: `Evidencias (${evidencias.length})` },
         { value: 'sst', label: `SST (${sstTotal})` },
       ]} />

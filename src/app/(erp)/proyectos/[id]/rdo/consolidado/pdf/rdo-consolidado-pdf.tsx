@@ -1,4 +1,4 @@
-import { Document, Page, View, Text, Image, StyleSheet, Svg, Line, Polyline, Circle } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 
 const AZUR = '#E20627';
@@ -43,40 +43,22 @@ const s = StyleSheet.create({
 
 export interface ConsolidadoData {
   proyecto: string; ubicacion?: string; codigo: string; desde: string; hasta: string; nReportes: number; residentes?: string;
+  supervisor?: string;
   estadoFiltro?: string;
-  curva: { fecha: string; acum: number }[];
-  curvaFinal: number;
   partidas: { actividad: string; partida?: string; avanceAcum: number }[];
   dias: { fecha: string; residente?: string; nActividades: number; personal?: number | null; estado: string }[];
   fotos: { url: string; descripcion?: string; fecha: string }[];
   notas: { fecha: string; observaciones?: string; incidencias?: string }[];
 }
 
-const ESTADO_LBL: Record<string, string> = { borrador: 'Borrador', enviado: 'Enviado', aprobado: 'Aprobado', observado: 'Observado' };
-
-// Curva de avance acumulado del periodo (line chart con primitivas SVG).
-function CurvaAvance({ puntos, max }: { puntos: { fecha: string; acum: number }[]; max: number }) {
-  const W = 500, H = 110, padL = 8, padB = 6, padT = 8;
-  const n = puntos.length;
-  const x = (i: number) => (n <= 1 ? W / 2 : padL + (i * (W - padL * 2)) / (n - 1));
-  const y = (v: number) => padT + (H - padT - padB) - (max > 0 ? (v / max) * (H - padT - padB) : 0);
-  const pts = puntos.map((p, i) => `${x(i).toFixed(1)},${y(p.acum).toFixed(1)}`).join(' ');
-  return (
-    <View style={{ marginBottom: 6 }}>
-      <Svg viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: 118 }}>
-        <Line x1={padL} y1={padT} x2={padL} y2={H - padB} stroke="#e0e0e0" strokeWidth={1} />
-        <Line x1={padL} y1={H - padB} x2={W - padL} y2={H - padB} stroke="#e0e0e0" strokeWidth={1} />
-        {n > 1 && <Polyline points={pts} fill="none" stroke={AZUR} strokeWidth={2} />}
-        {puntos.map((p, i) => <Circle key={i} cx={x(i)} cy={y(p.acum)} r={2.6} fill={AZUR} />)}
-      </Svg>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 4 }}>
-        {puntos.map((p, i) => <Text key={i} style={{ fontSize: 6.5, color: '#666' }}>{p.fecha}</Text>)}
-      </View>
-    </View>
-  );
-}
+const ESTADO_LBL: Record<string, string> = { borrador: 'Borrador', enviado: 'Enviado a revisión', aprobado: 'Aprobado', observado: 'Observado' };
 
 export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
+  // El resumen diario es opcional (uso interno). La numeración de secciones se
+  // ajusta según se incluya o no.
+  const mostrarResumen = d.dias.length > 0;
+  const nFotos = mostrarResumen ? 3 : 2;
+  const nObs = mostrarResumen ? 4 : 3;
   return (
     <Document title={`Reporte consolidado — ${d.codigo} — ${d.desde} al ${d.hasta}`}>
       <Page size="A4" style={s.page}>
@@ -88,7 +70,7 @@ export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
           </View>
           <View>
             <Text style={s.title}>REPORTE CONSOLIDADO DE OBRA</Text>
-            <Text style={s.fecha}>Del {d.desde} al {d.hasta}</Text>
+            <Text style={s.fecha}>Del {d.desde} al {d.hasta}{d.estadoFiltro && d.estadoFiltro !== 'Todos' ? ` · ${d.estadoFiltro}` : ''}</Text>
           </View>
         </View>
 
@@ -99,23 +81,12 @@ export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
           </View>
           <View style={s.gRowLast}>
             <Text style={s.gLabel}>RESIDENTE(S)</Text><Text style={s.gVal}>{d.residentes || '—'}</Text>
-            <Text style={s.gLabel}>REPORTES</Text><Text style={s.gValLast}>{d.nReportes} en el periodo{d.estadoFiltro && d.estadoFiltro !== 'Todos' ? ` · ${d.estadoFiltro}` : ''}</Text>
+            <Text style={s.gLabel}>SUPERVISOR</Text><Text style={s.gValLast}>{d.supervisor || '—'}</Text>
           </View>
         </View>
 
-        {/* Curva de avance del periodo */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>1. CURVA DE AVANCE ACUMULADO DEL PERIODO</Text></View>
-        {d.curva.length === 0 ? (
-          <Text style={{ fontSize: 8, color: '#888' }}>Sin datos de avance en el periodo.</Text>
-        ) : (
-          <>
-            <CurvaAvance puntos={d.curva} max={d.curvaFinal} />
-            <Text style={{ fontSize: 7.5, color: '#666', marginBottom: 4 }}>Avance acumulado del periodo (suma de los avances diarios): <Text style={{ fontFamily: 'Helvetica-Bold', color: AZUR }}>+{(d.curvaFinal * 100).toFixed(1)}%</Text></Text>
-          </>
-        )}
-
         {/* Avance acumulado por partida */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>2. AVANCE ACUMULADO DEL PERIODO POR ACTIVIDAD / PARTIDA</Text></View>
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>1. AVANCE ACUMULADO DEL PERIODO POR ACTIVIDAD / PARTIDA</Text></View>
         <View style={s.thead}>
           <Text style={[s.cAct, s.th]}>ACTIVIDAD</Text>
           <Text style={[s.cPart, s.th]}>PARTIDA</Text>
@@ -131,27 +102,31 @@ export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
           </View>
         ))}
 
-        {/* Resumen por día */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>3. RESUMEN DIARIO DEL PERIODO</Text></View>
-        <View style={s.thead}>
-          <Text style={[s.dFecha, s.th]}>FECHA</Text>
-          <Text style={[s.dResid, s.th]}>RESIDENTE</Text>
-          <Text style={[s.dAct, s.th]}>ACTIVID.</Text>
-          <Text style={[s.dPers, s.th]}>PERSONAL</Text>
-          <Text style={[s.dEst, s.th]}>ESTADO</Text>
-        </View>
-        {d.dias.map((r, i) => (
-          <View key={i} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
-            <Text style={[s.cell, s.dFecha]}>{r.fecha}</Text>
-            <Text style={[s.cell, s.dResid]}>{r.residente ?? '—'}</Text>
-            <Text style={[s.cell, s.dAct]}>{r.nActividades}</Text>
-            <Text style={[s.cell, s.dPers]}>{r.personal ?? '—'}</Text>
-            <Text style={[s.cell, s.dEst]}>{ESTADO_LBL[r.estado] ?? r.estado}</Text>
-          </View>
-        ))}
+        {/* Resumen por día (opcional · uso interno) */}
+        {mostrarResumen && (
+          <>
+            <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>2. RESUMEN DIARIO DEL PERIODO (uso interno)</Text></View>
+            <View style={s.thead}>
+              <Text style={[s.dFecha, s.th]}>FECHA</Text>
+              <Text style={[s.dResid, s.th]}>RESIDENTE</Text>
+              <Text style={[s.dAct, s.th]}>ACTIVID.</Text>
+              <Text style={[s.dPers, s.th]}>PERSONAL</Text>
+              <Text style={[s.dEst, s.th]}>ESTADO</Text>
+            </View>
+            {d.dias.map((r, i) => (
+              <View key={i} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+                <Text style={[s.cell, s.dFecha]}>{r.fecha}</Text>
+                <Text style={[s.cell, s.dResid]}>{r.residente ?? '—'}</Text>
+                <Text style={[s.cell, s.dAct]}>{r.nActividades}</Text>
+                <Text style={[s.cell, s.dPers]}>{r.personal ?? '—'}</Text>
+                <Text style={[s.cell, s.dEst]}>{ESTADO_LBL[r.estado] ?? r.estado}</Text>
+              </View>
+            ))}
+          </>
+        )}
 
         {/* Registro fotográfico consolidado */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>4. REGISTRO FOTOGRÁFICO DEL PERIODO</Text></View>
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>{nFotos}. REGISTRO FOTOGRÁFICO DEL PERIODO</Text></View>
         {d.fotos.length === 0 ? (
           <Text style={{ fontSize: 8, color: '#888' }}>Sin fotografías en el periodo.</Text>
         ) : (
@@ -169,7 +144,7 @@ export function RdoConsolidadoPDF({ d }: { d: ConsolidadoData }) {
         {/* Observaciones e incidencias */}
         {d.notas.length > 0 && (
           <>
-            <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>5. OBSERVACIONES E INCIDENCIAS DEL PERIODO</Text></View>
+            <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>{nObs}. OBSERVACIONES E INCIDENCIAS DEL PERIODO</Text></View>
             {d.notas.map((n, i) => (
               <View key={i} wrap={false}>
                 {n.observaciones ? <Text style={s.nota}><Text style={{ fontFamily: 'Helvetica-Bold' }}>{n.fecha}: </Text>{n.observaciones}</Text> : null}

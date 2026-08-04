@@ -26,8 +26,9 @@ export function ReporteConsolidado({
   const [desde, setDesde] = React.useState(lunesActual());
   const [hasta, setHasta] = React.useState(hoyISO());
   const [estado, setEstado] = React.useState('');
+  const [resumen, setResumen] = React.useState(false);
   const pid = proyectoId ?? proy;
-  const url = pid ? `/proyectos/${pid}/rdo/consolidado/pdf?desde=${desde}&hasta=${hasta}${estado ? `&estado=${estado}` : ''}` : '';
+  const url = pid ? `/proyectos/${pid}/rdo/consolidado/pdf?desde=${desde}&hasta=${hasta}${estado ? `&estado=${estado}` : ''}${resumen ? '&resumen=1' : ''}` : '';
 
   const setSemana = (offset: number) => {
     const base = new Date();
@@ -79,6 +80,10 @@ export function ReporteConsolidado({
           <FileStack className="size-4" /> Generar
         </a>
       </div>
+      <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+        <input type="checkbox" checked={resumen} onChange={(e) => setResumen(e.target.checked)} />
+        Incluir resumen diario (uso interno · no mostrar al cliente)
+      </label>
       <div className="mt-2 flex gap-2 text-[11px]">
         <button type="button" onClick={() => setSemana(0)} className="rounded-full border px-2 py-0.5 text-muted-foreground hover:bg-secondary">Esta semana</button>
         <button type="button" onClick={() => setSemana(-1)} className="rounded-full border px-2 py-0.5 text-muted-foreground hover:bg-secondary">Semana pasada</button>
