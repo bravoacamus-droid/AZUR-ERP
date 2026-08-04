@@ -109,7 +109,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
   // Datos de campo (capturados desde la PWA) para supervisión del Jefe
   const [asistencias, partesDiarios, evidencias, sstCharlas, sstObs, sstInc] = await Promise.all([
     supabase.from('asistencias').select('*, persona:profiles(nombre)').eq('proyecto_id', params.id).order('registrado_at', { ascending: false }).limit(50),
-    supabase.from('partes_diarios').select('*, autor:profiles(nombre), rdo_actividades(*)').eq('proyecto_id', params.id).order('fecha', { ascending: false }).limit(30),
+    supabase.from('partes_diarios').select('*, autor:profiles!created_by(nombre), rdo_actividades(*)').eq('proyecto_id', params.id).order('fecha', { ascending: false }).limit(30),
     supabase.from('evidencias').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }).limit(60),
     supabase.from('sst_charlas').select('*').eq('proyecto_id', params.id).order('fecha', { ascending: false }).limit(20),
     supabase.from('sst_observaciones').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }).limit(20),
