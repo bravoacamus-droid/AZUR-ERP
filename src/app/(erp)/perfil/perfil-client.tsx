@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { PageHeader } from '@/components/ui/page';
 import { rolLabel } from '@/lib/roles';
 import { actualizarPerfil, guardarAvatar, guardarMiFirma } from './actions';
+import { optimizarImagen } from '@/lib/img';
 
 export type PerfilData = {
   id: string;
@@ -71,13 +72,13 @@ export function PerfilClient({ perfil }: { perfil: PerfilData }) {
   };
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const original = e.target.files?.[0];
+    if (!original) return;
     setUploading(true); setAvatarError(null);
     try {
       const supabase = createClient();
-      const ext = file.name.split('.').pop() ?? 'jpg';
-      const path = `${perfil.id}/${Date.now()}.${ext}`;
+      const file = await optimizarImagen(original, 512, 0.85); // avatar pequeño, HEIC→JPEG
+      const path = `${perfil.id}/${Date.now()}.jpg`;
       const { error: upErr } = await supabase.storage.from('avatars').upload(path, file, { upsert: true });
       if (upErr) { setAvatarError(upErr.message); return; }
       const { data } = supabase.storage.from('avatars').getPublicUrl(path);

@@ -11,6 +11,7 @@ import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
 import { crearRdo, adjuntarFotosRdo } from './actions';
 import { enqueue, isOnline } from '@/lib/offline-queue';
+import { optimizarImagen } from '@/lib/img';
 
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
@@ -95,7 +96,8 @@ export function RdoForm({
       if (!fotos.length) return;
       const supabase = createClient();
       const subidas: { url: string }[] = [];
-      for (const file of fotos) {
+      for (const original of fotos) {
+        const file = await optimizarImagen(original); // HEIC→JPEG + comprime
         const safe = file.name.replace(/[^\w.\-]/g, '_');
         const path = `${proyectoId}/${Date.now()}-${safe}`;
         const { error } = await supabase.storage.from('evidencias').upload(path, file, { cacheControl: '3600', upsert: false });

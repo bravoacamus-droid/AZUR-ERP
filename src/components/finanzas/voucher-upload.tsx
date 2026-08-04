@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Upload, Loader2, CheckCircle2, FileText } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { optimizarImagen } from '@/lib/img';
 
 // Sube un voucher (PDF/foto) al bucket 'vouchers' y devuelve la URL pública.
 export function VoucherUpload({
@@ -18,12 +19,13 @@ export function VoucherUpload({
   const [error, setError] = useState<string | null>(null);
 
   async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const original = e.target.files?.[0];
+    if (!original) return;
     setSubiendo(true);
     setError(null);
     try {
       const supabase = createClient();
+      const file = await optimizarImagen(original); // imágenes→JPEG comprimido; PDFs se dejan igual
       const path = `${carpeta}/${Date.now()}-${file.name.replace(/[^\w.\-]/g, '_')}`;
       const { error: upErr } = await supabase.storage.from('vouchers').upload(path, file, { upsert: false });
       if (upErr) throw upErr;

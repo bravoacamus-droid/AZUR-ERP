@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
+import { optimizarImagen } from '@/lib/img';
 
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
@@ -62,10 +63,11 @@ export function EvidenciaForm({
       data: { user },
     } = await supabase.auth.getUser();
 
-    const safeName = file.name.replace(/[^\w.\-]/g, '_');
+    const opt = await optimizarImagen(file); // HEIC→JPEG + comprime
+    const safeName = opt.name.replace(/[^\w.\-]/g, '_');
     const path = `${proyectoId}/${Date.now()}-${safeName}`;
 
-    const { error: upErr } = await supabase.storage.from('evidencias').upload(path, file, {
+    const { error: upErr } = await supabase.storage.from('evidencias').upload(path, opt, {
       cacheControl: '3600',
       upsert: false,
     });

@@ -12,6 +12,7 @@ import { Field } from '@/components/ui/misc';
 import { Tabs } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { fmtDateTime } from '@/lib/format';
+import { optimizarImagen } from '@/lib/img';
 
 type Proyecto = { id: string; nombre: string };
 type Charla = { id: string; tema: string; asistentes: string | null; created_at: string };
@@ -20,8 +21,9 @@ type Incidente = { id: string; descripcion: string; gravedad: string | null; cre
 
 type Msg = { type: 'ok' | 'err'; text: string } | null;
 
-async function subirFoto(file: File, proyectoId: string): Promise<string | null> {
+async function subirFoto(original: File, proyectoId: string): Promise<string | null> {
   const supabase = createClient();
+  const file = await optimizarImagen(original); // HEIC→JPEG + comprime
   const safeName = file.name.replace(/[^\w.\-]/g, '_');
   const path = `${proyectoId || 'sst'}/${Date.now()}-${safeName}`;
   const { error } = await supabase.storage.from('evidencias').upload(path, file, { upsert: false });
