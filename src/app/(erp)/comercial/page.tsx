@@ -12,6 +12,7 @@ import { ESTADO_COTIZACION } from '@/lib/estados';
 import { fmtDate } from '@/lib/format';
 import { CotizacionRowActions } from './row-actions';
 import { SearchBox, Pagination } from '@/components/ui/list-tools';
+import { ComercialDashboard } from '@/components/comercial/comercial-dashboard';
 
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 20;
@@ -21,7 +22,7 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
   const esGerencia = session.rol === 'gerencia';
   const supabase = createClient();
 
-  const tab = searchParams.tab === 'plantillas' ? 'plantillas' : 'cotizaciones';
+  const tab = searchParams.tab === 'plantillas' || searchParams.tab === 'dashboard' ? searchParams.tab : 'cotizaciones';
   const q = (searchParams.q ?? '').trim();
   const page = Math.max(1, Number(searchParams.page) || 1);
   const desde = (page - 1) * PAGE_SIZE;
@@ -42,6 +43,35 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
     .select('id, codigo, proyecto_nombre, estado, fecha, cliente:clientes(razon_social), linea:lineas_negocio(codigo)')
     .eq('es_plantilla', true)
     .order('created_at', { ascending: false });
+
+  // Agregados para el dashboard comercial (solo cuando se ve esa pestaña).
+  let dash: null | { porEstado: Record<string, number>; porLinea: { nombre: string; n: number }[]; porMes: { mes: string; creadas: number; aceptadas: number }[]; montoGanado: number; total: number } = null;
+  if (tab === 'dashboard') {
+    const [{ data: allCots }, { data: proys }] = await Promise.all([
+      supabase.from('cotizaciones').select('id, estado, created_at, linea:lineas_negocio(nombre)').eq('es_plantilla', false),
+      supabase.from('proyectos').select('cotizacion_id, contrato_total').not('cotizacion_id', 'is', null),
+    ]);
+    const cots2 = allCots ?? [];
+    const porEstado: Record<string, number> = {};
+    const lineaMap = new Map<string, number>();
+    const mesMap = new Map<string, { creadas: number; aceptadas: number }>();
+    cots2.forEach((c) => {
+      porEstado[c.estado] = (porEstado[c.estado] ?? 0) + 1;
+      const ln = (c.linea as { nombre?: string } | null)?.nombre ?? 'Sin línea';
+      lineaMap.set(ln, (lineaMap.get(ln) ?? 0) + 1);
+      const mes = String(c.created_at).slice(0, 7);
+      const m = mesMap.get(mes) ?? { creadas: 0, aceptadas: 0 };
+      m.creadas += 1; if (c.estado === 'aceptada') m.aceptadas += 1; mesMap.set(mes, m);
+    });
+    const montoGanado = (proys ?? []).reduce((a, p) => a + Number(p.contrato_total ?? 0), 0);
+    dash = {
+      porEstado,
+      porLinea: [...lineaMap.entries()].map(([nombre, n]) => ({ nombre, n })).sort((a, b) => b.n - a.n),
+      porMes: [...mesMap.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-8).map(([mes, v]) => ({ mes, ...v })),
+      montoGanado,
+      total: cots2.length,
+    };
+  }
 
   return (
     <div className="space-y-6">
@@ -65,9 +95,14 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
         <Link href="/comercial?tab=plantillas" className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === 'plantillas' ? 'border-azur-600 text-azur-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
           Plantillas ({(plantillas ?? []).length})
         </Link>
+        <Link href="/comercial?tab=dashboard" className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === 'dashboard' ? 'border-azur-600 text-azur-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+          Dashboard
+        </Link>
       </div>
 
-      {tab === 'plantillas' ? (
+      {tab === 'dashboard' && <ComercialDashboard dash={dash} />}
+
+      {tab !== 'dashboard' && (tab === 'plantillas' ? (
         <Card>
           <CardContent className="p-0">
             {(plantillas ?? []).length === 0 ? (
@@ -159,7 +194,7 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
         </CardContent>
       </Card>
       </>
-      )}
+      ))}
     </div>
   );
 }
