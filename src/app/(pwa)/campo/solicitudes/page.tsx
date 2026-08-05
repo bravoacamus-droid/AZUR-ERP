@@ -14,10 +14,11 @@ export default async function SolicitudesPage() {
   const session = await requireSession();
   const supabase = createClient();
 
-  const [{ data: proyectos }, { data: partidas }, { data: contrapartes }, { data: solicitudes }] = await Promise.all([
+  const [{ data: proyectos }, { data: partidas }, { data: contrapartes }, { data: categorias }, { data: solicitudes }] = await Promise.all([
     supabase.from('proyectos').select('id, nombre').order('created_at', { ascending: false }),
     supabase.from('proyecto_items').select('id, titulo, proyecto_id').eq('es_hoja', true).order('orden'),
-    supabase.from('contrapartes').select('id, razon_social, ruc_dni, banco, cuenta, cci').order('razon_social'),
+    (supabase as unknown as { from: (t: string) => any }).from('contrapartes').select('id, razon_social, ruc_dni, banco, cuenta, cci').eq('validado', true).order('razon_social'),
+    (supabase as unknown as { from: (t: string) => any }).from('categorias_gasto').select('id, nombre, tipo_base').eq('activo', true).order('nombre'),
     supabase
       .from('solicitudes_pago')
       .select('id, codigo, tipo, monto, status, beneficiario_nombre, created_at')
@@ -35,7 +36,7 @@ export default async function SolicitudesPage() {
         <h1 className="text-xl font-bold">Solicitud de pago</h1>
       </div>
 
-      <SolicitudForm proyectos={proyectos ?? []} partidas={partidas ?? []} contrapartes={contrapartes ?? []} />
+      <SolicitudForm proyectos={proyectos ?? []} partidas={partidas ?? []} contrapartes={contrapartes ?? []} categorias={categorias ?? []} />
 
       <div className="rounded-2xl border bg-white p-4">
         <div className="mb-2 flex items-center gap-2">

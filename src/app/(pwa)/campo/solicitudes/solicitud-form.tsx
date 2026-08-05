@@ -9,7 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
 import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
-import { crearSolicitud, type SolicitudInput } from './actions';
+import { crearSolicitud, registrarProveedor, type SolicitudInput } from './actions';
 import { enqueue, isOnline } from '@/lib/offline-queue';
 import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 
@@ -25,20 +25,36 @@ const CONSTANCIAS = [
 ];
 
 type Contraparte = { id: string; razon_social: string; ruc_dni?: string | null; banco?: string | null; cuenta?: string | null; cci?: string | null };
+type Categoria = { id: string; nombre: string; tipo_base: string };
 
 export function SolicitudForm({
   proyectos,
   partidas,
   contrapartes = [],
+  categorias = [],
 }: {
   proyectos: Proyecto[];
   partidas: Partida[];
   contrapartes?: Contraparte[];
+  categorias?: Categoria[];
 }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<(typeof TIPOS)[number]>('contratistas');
+  const [categoriaSel, setCategoriaSel] = useState('');
   const [proyectoId, setProyectoId] = useState(proyectos[0]?.id ?? '');
   const [contraparteId, setContraparteId] = useState('');
+  const [prov, setProv] = useState({ open: false, razon_social: '', ruc_dni: '', banco: '', cuenta: '', cci: '' });
+  const [provBusy, setProvBusy] = useState(false);
+  const [provMsg, setProvMsg] = useState<string | null>(null);
+  async function enviarProveedor() {
+    if (!prov.razon_social.trim()) return;
+    setProvBusy(true); setProvMsg(null);
+    const r = await registrarProveedor({ razon_social: prov.razon_social, ruc_dni: prov.ruc_dni || null, banco: prov.banco || null, cuenta: prov.cuenta || null, cci: prov.cci || null });
+    setProvBusy(false);
+    if (!r.ok) { setProvMsg(r.error ?? 'Error'); return; }
+    setProv({ open: false, razon_social: '', ruc_dni: '', banco: '', cuenta: '', cci: '' });
+    setProvMsg('Proveedor enviado a validación del administrador ✅');
+  }
   const [partidaPpto, setPartidaPpto] = useState('');
   const [beneficiario, setBeneficiario] = useState('');
   const [especialidad, setEspecialidad] = useState('');
@@ -84,6 +100,7 @@ export function SolicitudForm({
       especialidad: especialidad || null,
       categoria_etapa: categoria || null,
       monto: Number(monto),
+      categoria: categoriaSel || null,
       constancia: (constancia || null) as SolicitudInput['constancia'],
       sustento_url: sustento || null,
       descripcion: descripcion || null,
@@ -95,7 +112,7 @@ export function SolicitudForm({
       detraccion_monto: tieneDetraccion ? Number(detraccion) || 0 : 0,
     };
     function limpiar() {
-      setPartidaPpto(''); setBeneficiario(''); setEspecialidad(''); setCategoria('');
+      setPartidaPpto(''); setBeneficiario(''); setEspecialidad(''); setCategoria(''); setCategoriaSel('');
       setMonto(''); setConstancia(''); setSustento(''); setDescripcion(''); setCtaBancaria('');
       setRucDni(''); setRazonSocial(''); setContraparteId(''); setMoneda('PEN'); setTieneDetraccion(false); setDetraccion('');
     }
@@ -133,13 +150,15 @@ export function SolicitudForm({
         <p className="font-semibold">Nueva solicitud de pago</p>
       </div>
 
-      <Field label="Tipo" required>
-        <Select value={tipo} onChange={(e) => setTipo(e.target.value as (typeof TIPOS)[number])}>
-          {TIPOS.map((t) => (
-            <option key={t} value={t}>
-              {TIPO_SOLICITUD_LABEL[t]}
-            </option>
-          ))}
+      <Field label="Tipo / categoría" required>
+        <Select
+          value={categoriaSel ? `cat:${categorias.find((c) => c.nombre === categoriaSel)?.id ?? ''}` : `base:${tipo}`}
+          onChange={(e) => { const v = e.target.value; if (v.startsWith('base:')) { setTipo(v.slice(5) as (typeof TIPOS)[number]); setCategoriaSel(''); } else { const c = categorias.find((x) => x.id === v.slice(4)); if (c) { setTipo(c.tipo_base as (typeof TIPOS)[number]); setCategoriaSel(c.nombre); } } }}
+        >
+          <optgroup label="Tipos base">
+            {TIPOS.map((t) => <option key={t} value={`base:${t}`}>{TIPO_SOLICITUD_LABEL[t]}</option>)}
+          </optgroup>
+          {categorias.length > 0 && <optgroup label="Categorías">{categorias.map((c) => <option key={c.id} value={`cat:${c.id}`}>{c.nombre}</option>)}</optgroup>}
         </Select>
       </Field>
 
@@ -173,6 +192,25 @@ export function SolicitudForm({
           </Select>
         </Field>
       )}
+
+      <div className="rounded-xl border border-dashed p-2">
+        <button type="button" onClick={() => setProv((p) => ({ ...p, open: !p.open }))} className="text-xs font-medium text-azur-600">
+          {prov.open ? '− Cerrar' : '+ Registrar proveedor nuevo (lo valida el administrador)'}
+        </button>
+        {prov.open && (
+          <div className="mt-2 space-y-2">
+            <Input placeholder="Razón social *" value={prov.razon_social} onChange={(e) => setProv((p) => ({ ...p, razon_social: e.target.value }))} />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="RUC / DNI" value={prov.ruc_dni} onChange={(e) => setProv((p) => ({ ...p, ruc_dni: e.target.value }))} />
+              <Input placeholder="Banco" value={prov.banco} onChange={(e) => setProv((p) => ({ ...p, banco: e.target.value }))} />
+              <Input placeholder="Cuenta" value={prov.cuenta} onChange={(e) => setProv((p) => ({ ...p, cuenta: e.target.value }))} />
+              <Input placeholder="CCI" value={prov.cci} onChange={(e) => setProv((p) => ({ ...p, cci: e.target.value }))} />
+            </div>
+            <Button type="button" size="sm" variant="outline" disabled={provBusy} onClick={enviarProveedor}>{provBusy && <Loader2 className="animate-spin" />} Enviar a validación</Button>
+          </div>
+        )}
+        {provMsg && <p className="mt-1 text-xs text-muted-foreground">{provMsg}</p>}
+      </div>
 
       <Field label="Beneficiario">
         <Input value={beneficiario} onChange={(e) => { setBeneficiario(e.target.value); if (contraparteId) setContraparteId(''); }} placeholder="Nombre del beneficiario" />

@@ -13,6 +13,41 @@ type Res = { ok: boolean; error?: string; id?: string };
 // Umbral configurable que obliga aprobación final de Gerencia (Sección 5.2 / 12).
 const UMBRAL_GERENCIA = 20000;
 
+// ── Categorías de gasto configurables (admin/gerencia) ──────────────────
+export async function guardarCategoria(input: { id?: string; nombre: string; tipo_base: string }): Promise<Res> {
+  const session = await requireSession();
+  if (session.rol !== 'administrador' && session.rol !== 'gerencia') return { ok: false, error: 'Solo administración o gerencia' };
+  const nombre = (input.nombre ?? '').trim();
+  if (nombre.length < 2) return { ok: false, error: 'Nombre requerido' };
+  const supabase = createClient() as any;
+  const payload = { nombre, tipo_base: input.tipo_base };
+  if (input.id) { const { error } = await supabase.from('categorias_gasto').update(payload).eq('id', input.id); if (error) return { ok: false, error: error.message }; }
+  else { const { error } = await supabase.from('categorias_gasto').insert({ ...payload, created_by: session.id }); if (error) return { ok: false, error: error.message }; }
+  revalidatePath('/finanzas');
+  return { ok: true };
+}
+
+export async function eliminarCategoria(id: string): Promise<Res> {
+  const session = await requireSession();
+  if (session.rol !== 'administrador' && session.rol !== 'gerencia') return { ok: false, error: 'Solo administración o gerencia' };
+  const supabase = createClient() as any;
+  const { error } = await supabase.from('categorias_gasto').update({ activo: false }).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/finanzas');
+  return { ok: true };
+}
+
+// ── Alta de proveedor: valida el administrador (lo dio de alta el residente) ──
+export async function validarProveedor(id: string, aprobado: boolean): Promise<Res> {
+  const session = await requireSession();
+  if (session.rol !== 'administrador' && session.rol !== 'gerencia') return { ok: false, error: 'Solo administración o gerencia' };
+  const supabase = createClient() as any;
+  if (aprobado) { const { error } = await supabase.from('contrapartes').update({ validado: true }).eq('id', id); if (error) return { ok: false, error: error.message }; }
+  else { const { error } = await supabase.from('contrapartes').delete().eq('id', id); if (error) return { ok: false, error: error.message }; }
+  revalidatePath('/finanzas');
+  return { ok: true };
+}
+
 // ── N1: Jefe de Proyectos aprueba ───────────────────────────────────────
 export async function aprobarSolicitud(id: string): Promise<Res> {
   const session = await requireModulo('finanzas', 'editar');

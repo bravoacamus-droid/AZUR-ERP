@@ -23,6 +23,7 @@ import {
   aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
   emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja, crearCajaChica,
   editarSolicitud, eliminarSolicitud, validarCuentaProveedor, validarCuentaCliente,
+  guardarCategoria, eliminarCategoria, validarProveedor,
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
 import { actualizarTarifaTrabajador, marcarTareoPagado } from '@/app/(pwa)/campo/tareo/actions';
@@ -35,7 +36,7 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, contrapartes = [], jornales = [], jornalesTotal = 0 }: any) {
+export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, contrapartes = [], proveedoresPend = [], categorias = [], jornales = [], jornalesTotal = 0 }: any) {
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
@@ -46,7 +47,7 @@ export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, arm
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
       ]} />
-      {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} />}
+      {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} proveedoresPend={proveedoresPend} categorias={categorias} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'jornales' && <Jornales rol={rol} jornales={jornales} total={jornalesTotal} />}
       {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
@@ -154,10 +155,12 @@ function Jornales({ rol, jornales, total }: any) {
 }
 
 const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
-const SOL_VACIA = { id: '', tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
+const SOL_VACIA = { id: '', tipo: 'contratistas', categoria: '', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
 
-function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [], contrapartes = [] }: any) {
+function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [], contrapartes = [], proveedoresPend = [], categorias = [] }: any) {
   const router = useRouter();
+  const esAdmin = rol === 'administrador' || rol === 'gerencia';
+  const [gestCat, setGestCat] = useState(false);
   const [fDesde, setFDesde] = useState('');
   const [fHasta, setFHasta] = useState('');
   const [fEstado, setFEstado] = useState('');
@@ -207,13 +210,13 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
     const detr = ns.tiene_detraccion ? Number(ns.detraccion_monto) || 0 : 0;
     const res = ns.id
       ? await editarSolicitud(ns.id, {
-          tipo: ns.tipo, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
+          tipo: ns.tipo, categoria: ns.categoria || null, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
           beneficiario_nombre: ns.beneficiario_nombre || null, monto: Number(ns.monto),
           constancia: ns.constancia || null, sustento_url: ns.sustento_url || null, descripcion: ns.descripcion || null, cta_bancaria: ns.cta_bancaria || null,
           ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null, moneda: ns.moneda, detraccion_monto: detr,
         })
       : await crearSolicitud({
-          tipo: ns.tipo, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
+          tipo: ns.tipo, categoria: ns.categoria || null, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
           beneficiario_nombre: ns.beneficiario_nombre || null, especialidad: null, categoria_etapa: null,
           monto: Number(ns.monto), constancia: (ns.constancia || null) as any, sustento_url: ns.sustento_url || null, descripcion: ns.descripcion || null,
           cta_bancaria: ns.cta_bancaria || null, ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null,
@@ -225,7 +228,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
     else setNsMsg(res.error ?? 'No se pudo guardar.');
   }
   function abrirEditar(s: any) {
-    setNs({ id: s.id, tipo: s.tipo, proyecto_id: s.proyecto_id || '', beneficiario_nombre: s.beneficiario_nombre || '', monto: String(s.monto ?? ''), constancia: s.constancia || '', sustento_url: s.sustento_url || '', ruc_dni: s.ruc_dni || '', razon_social: s.razon_social || '', cta_bancaria: s.cta_bancaria || '', contraparte_id: s.contraparte_id || '', moneda: s.moneda || 'PEN', tiene_detraccion: Number(s.detraccion_monto) > 0, detraccion_monto: String(s.detraccion_monto || ''), partida_ppto: s.partida_ppto || '', descripcion: s.descripcion || '' });
+    setNs({ id: s.id, tipo: s.tipo, categoria: s.categoria || '', proyecto_id: s.proyecto_id || '', beneficiario_nombre: s.beneficiario_nombre || '', monto: String(s.monto ?? ''), constancia: s.constancia || '', sustento_url: s.sustento_url || '', ruc_dni: s.ruc_dni || '', razon_social: s.razon_social || '', cta_bancaria: s.cta_bancaria || '', contraparte_id: s.contraparte_id || '', moneda: s.moneda || 'PEN', tiene_detraccion: Number(s.detraccion_monto) > 0, detraccion_monto: String(s.detraccion_monto || ''), partida_ppto: s.partida_ppto || '', descripcion: s.descripcion || '' });
     setNsMsg(null); setNueva(true);
   }
   async function borrarSolicitud(s: any) {
@@ -239,8 +242,28 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
       <p className="text-xs text-muted-foreground">
         Flujo: <strong>Solicitada</strong> (campo) → <strong>Aprobada</strong> (Jefe de Proyectos) → <strong>Programada</strong> (Administración) → <strong>Pagada</strong> (Gerencia) → <strong>Conciliada</strong> (automático)
       </p>
-      {canEdit && <Button size="sm" variant="gradient" onClick={() => { setNueva(true); setNs(SOL_VACIA); setNsMsg(null); }}><Plus /> Nueva solicitud de pago</Button>}
+      <div className="flex flex-wrap gap-2">
+        {esAdmin && <Button size="sm" variant="outline" onClick={() => setGestCat(true)}><Pencil className="size-3.5" /> Categorías</Button>}
+        {canEdit && <Button size="sm" variant="gradient" onClick={() => { setNueva(true); setNs(SOL_VACIA); setNsMsg(null); }}><Plus /> Nueva solicitud de pago</Button>}
+      </div>
     </div>
+
+    {esAdmin && proveedoresPend.length > 0 && (
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Proveedores por validar ({proveedoresPend.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {proveedoresPend.map((c: any) => (
+            <div key={c.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border p-2 text-sm">
+              <div><p className="font-medium">{c.razon_social}</p><p className="text-xs text-muted-foreground">{c.ruc_dni ?? 's/ RUC'}{c.cci || c.cuenta ? ` · ${c.cci || c.cuenta}` : ''}{c.banco ? ` · ${c.banco}` : ''}</p></div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="gradient" onClick={async () => { setBusy(true); await validarProveedor(c.id, true); router.refresh(); setBusy(false); }}><CheckCircle2 className="size-3.5" /> Validar</Button>
+                <Button size="sm" variant="ghost" onClick={async () => { if (window.confirm('¿Rechazar y eliminar este proveedor?')) { setBusy(true); await validarProveedor(c.id, false); router.refresh(); setBusy(false); } }}><XCircle className="size-4 text-azur-600" /></Button>
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )}
     <div className="mb-3 flex flex-wrap items-end gap-2 rounded-xl border bg-white p-3 text-xs">
       <label><span className="mb-0.5 block text-muted-foreground">Desde</span><Input type="date" value={fDesde} onChange={(e) => setFDesde(e.target.value)} /></label>
       <label><span className="mb-0.5 block text-muted-foreground">Hasta</span><Input type="date" value={fHasta} onChange={(e) => setFHasta(e.target.value)} /></label>
@@ -269,7 +292,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
                 return (
                   <TableRow key={s.id}>
                     <TableCell className="font-medium">{s.codigo}</TableCell>
-                    <TableCell><Badge variant="outline">{TIPO_SOLICITUD_LABEL[s.tipo] ?? s.tipo}</Badge></TableCell>
+                    <TableCell><Badge variant="outline">{s.categoria || TIPO_SOLICITUD_LABEL[s.tipo] || s.tipo}</Badge></TableCell>
                     <TableCell className="text-muted-foreground">{s.proyecto?.nombre ?? '—'}</TableCell>
                     <TableCell>{s.beneficiario_nombre ?? s.razon_social ?? '—'}</TableCell>
                     <TableCell className="tabular-nums">{fmtMoney(Number(s.monto))}</TableCell>
@@ -380,7 +403,12 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
         <Button variant="gradient" disabled={busy} onClick={crearNueva}>{busy ? <Loader2 className="animate-spin" /> : null} {ns.id ? 'Guardar' : 'Enviar'}</Button></>}>
       <div className="space-y-2">
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Tipo"><Select value={ns.tipo} onChange={(e) => setNs((f: any) => ({ ...f, tipo: e.target.value }))}>{TIPOS_SOL.map((t) => <option key={t} value={t}>{TIPO_SOLICITUD_LABEL[t] ?? t}</option>)}</Select></Field>
+          <Field label="Tipo / categoría"><Select
+            value={ns.categoria ? `cat:${categorias.find((c: any) => c.nombre === ns.categoria)?.id ?? ''}` : `base:${ns.tipo}`}
+            onChange={(e) => { const v = e.target.value; if (v.startsWith('base:')) setNs((f: any) => ({ ...f, tipo: v.slice(5), categoria: '' })); else { const c = categorias.find((x: any) => x.id === v.slice(4)); setNs((f: any) => ({ ...f, tipo: c?.tipo_base ?? f.tipo, categoria: c?.nombre ?? '' })); } }}>
+            <optgroup label="Tipos base">{TIPOS_SOL.map((t) => <option key={t} value={`base:${t}`}>{TIPO_SOLICITUD_LABEL[t] ?? t}</option>)}</optgroup>
+            {categorias.length > 0 && <optgroup label="Categorías">{categorias.map((c: any) => <option key={c.id} value={`cat:${c.id}`}>{c.nombre}</option>)}</optgroup>}
+          </Select></Field>
           <Field label="Proyecto"><Select value={ns.proyecto_id} onChange={(e) => setNs((f: any) => ({ ...f, proyecto_id: e.target.value }))}><option value="">Sin proyecto</option>{proyectos.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select></Field>
         </div>
         {contrapartes.length > 0 && (
@@ -410,7 +438,48 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
         {nsMsg && <p className="text-sm text-azur-600">{nsMsg}</p>}
       </div>
     </Modal>
+
+    {gestCat && <GestionCategorias categorias={categorias} onClose={() => setGestCat(false)} />}
     </div>
+  );
+}
+
+function GestionCategorias({ categorias, onClose }: any) {
+  const router = useRouter();
+  const [nombre, setNombre] = useState('');
+  const [tipoBase, setTipoBase] = useState<string>('servicios');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  async function agregar() {
+    if (!nombre.trim()) return;
+    setBusy(true); setErr(null);
+    const r = await guardarCategoria({ nombre, tipo_base: tipoBase });
+    setBusy(false);
+    if (!r.ok) { setErr(r.error ?? 'Error'); return; }
+    setNombre(''); router.refresh();
+  }
+  async function quitar(id: string) {
+    setBusy(true); await eliminarCategoria(id); setBusy(false); router.refresh();
+  }
+  return (
+    <Modal open onClose={onClose} title="Categorías de gasto" description="Se agregan al desplegable de la solicitud. Cada una se agrupa en un tipo base para los reportes.">
+      <div className="space-y-3">
+        <div className="grid grid-cols-[1fr_auto_auto] items-end gap-2">
+          <Field label="Nueva categoría"><Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej. Alquiler de equipos" /></Field>
+          <Field label="Grupo base"><Select value={tipoBase} onChange={(e) => setTipoBase(e.target.value)}>{TIPOS_SOL.map((t) => <option key={t} value={t}>{TIPO_SOLICITUD_LABEL[t] ?? t}</option>)}</Select></Field>
+          <Button variant="gradient" disabled={busy} onClick={agregar}><Plus /> Agregar</Button>
+        </div>
+        {err && <p className="text-sm text-azur-600">{err}</p>}
+        <div className="divide-y rounded-lg border">
+          {categorias.length === 0 ? <p className="p-3 text-sm text-muted-foreground">Sin categorías personalizadas.</p> : categorias.map((c: any) => (
+            <div key={c.id} className="flex items-center justify-between px-3 py-2 text-sm">
+              <span>{c.nombre} <span className="text-xs text-muted-foreground">· {TIPO_SOLICITUD_LABEL[c.tipo_base] ?? c.tipo_base}</span></span>
+              <Button size="sm" variant="ghost" disabled={busy} onClick={() => quitar(c.id)}><Trash2 className="size-4 text-azur-600" /></Button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </Modal>
   );
 }
 
