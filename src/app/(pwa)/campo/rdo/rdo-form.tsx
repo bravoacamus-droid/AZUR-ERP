@@ -41,11 +41,13 @@ export function RdoForm({
   partidas,
   hoy,
   inicial,
+  volverA = '/campo/rdo',
 }: {
   proyectos: Proyecto[];
   partidas: Partida[];
   hoy: string;
   inicial?: RdoInicial;
+  volverA?: string;
 }) {
   const router = useRouter();
   const esEdicion = !!inicial;
@@ -137,7 +139,7 @@ export function RdoForm({
       const res = await actualizarRdo(inicial!.id, payload);
       if (res.ok) await subirFotos(inicial!.id);
       setLoading(false);
-      if (res.ok) { router.push('/campo/rdo'); router.refresh(); }
+      if (res.ok) { router.push(volverA); router.refresh(); }
       else setMsg({ type: 'err', text: res.error ?? 'No se pudo guardar.' });
       return;
     }
@@ -331,7 +333,7 @@ export function RdoForm({
       <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>
         {loading && <Loader2 className="animate-spin" />} {esEdicion ? 'Guardar cambios' : 'Guardar reporte'}
       </Button>
-      {esEdicion && <Button variant="outline" className="w-full" onClick={() => router.push('/campo/rdo')}>Cancelar</Button>}
+      {esEdicion && <Button variant="outline" className="w-full" onClick={() => router.push(volverA)}>Cancelar</Button>}
 
       {msg && (
         <p className={`text-center text-sm ${msg.type === 'ok' ? 'text-emerald-600' : 'text-azur-600'}`}>
