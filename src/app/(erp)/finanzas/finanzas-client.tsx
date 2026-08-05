@@ -154,7 +154,7 @@ function Jornales({ rol, jornales, total }: any) {
 }
 
 const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
-const SOL_VACIA = { id: '', tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', ruc_dni: '', razon_social: '', cta_bancaria: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
+const SOL_VACIA = { id: '', tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
 
 function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [] }: any) {
   const router = useRouter();
@@ -195,13 +195,13 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
       ? await editarSolicitud(ns.id, {
           tipo: ns.tipo, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
           beneficiario_nombre: ns.beneficiario_nombre || null, monto: Number(ns.monto),
-          constancia: ns.constancia || null, descripcion: ns.descripcion || null, cta_bancaria: ns.cta_bancaria || null,
+          constancia: ns.constancia || null, sustento_url: ns.sustento_url || null, descripcion: ns.descripcion || null, cta_bancaria: ns.cta_bancaria || null,
           ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null, moneda: ns.moneda, detraccion_monto: detr,
         })
       : await crearSolicitud({
           tipo: ns.tipo, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
           beneficiario_nombre: ns.beneficiario_nombre || null, especialidad: null, categoria_etapa: null,
-          monto: Number(ns.monto), constancia: (ns.constancia || null) as any, descripcion: ns.descripcion || null,
+          monto: Number(ns.monto), constancia: (ns.constancia || null) as any, sustento_url: ns.sustento_url || null, descripcion: ns.descripcion || null,
           cta_bancaria: ns.cta_bancaria || null, ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null,
           moneda: ns.moneda as 'PEN' | 'USD', detraccion_monto: detr,
         });
@@ -210,7 +210,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
     else setNsMsg(res.error ?? 'No se pudo guardar.');
   }
   function abrirEditar(s: any) {
-    setNs({ id: s.id, tipo: s.tipo, proyecto_id: s.proyecto_id || '', beneficiario_nombre: s.beneficiario_nombre || '', monto: String(s.monto ?? ''), constancia: s.constancia || '', ruc_dni: s.ruc_dni || '', razon_social: s.razon_social || '', cta_bancaria: s.cta_bancaria || '', moneda: s.moneda || 'PEN', tiene_detraccion: Number(s.detraccion_monto) > 0, detraccion_monto: String(s.detraccion_monto || ''), partida_ppto: s.partida_ppto || '', descripcion: s.descripcion || '' });
+    setNs({ id: s.id, tipo: s.tipo, proyecto_id: s.proyecto_id || '', beneficiario_nombre: s.beneficiario_nombre || '', monto: String(s.monto ?? ''), constancia: s.constancia || '', sustento_url: s.sustento_url || '', ruc_dni: s.ruc_dni || '', razon_social: s.razon_social || '', cta_bancaria: s.cta_bancaria || '', moneda: s.moneda || 'PEN', tiene_detraccion: Number(s.detraccion_monto) > 0, detraccion_monto: String(s.detraccion_monto || ''), partida_ppto: s.partida_ppto || '', descripcion: s.descripcion || '' });
     setNsMsg(null); setNueva(true);
   }
   async function borrarSolicitud(s: any) {
@@ -361,7 +361,8 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
         <div className="grid grid-cols-3 gap-2">
           <Field label="Monto"><Input type="number" value={ns.monto} onChange={(e) => setNs((f: any) => ({ ...f, monto: e.target.value }))} placeholder="0.00" /></Field>
           <Field label="Moneda"><Select value={ns.moneda} onChange={(e) => setNs((f: any) => ({ ...f, moneda: e.target.value }))}><option value="PEN">Soles</option><option value="USD">Dólares</option></Select></Field>
-          <Field label="Constancia"><Select value={ns.constancia} onChange={(e) => setNs((f: any) => ({ ...f, constancia: e.target.value }))}><option value="">— Ninguna —</option><option value="factura">Factura</option><option value="boleta">Boleta</option><option value="rhe">RHE</option></Select></Field>
+          <Field label="Constancia"><Select value={ns.constancia} onChange={(e) => setNs((f: any) => ({ ...f, constancia: e.target.value }))}><option value="">— Ninguna —</option><option value="factura">Factura</option><option value="boleta">Boleta</option><option value="rhe">RHE</option><option value="evidencia">Evidencia (captura / nota de venta)</option></Select></Field>
+          <Field label="Sustento (foto o PDF)"><VoucherUpload value={ns.sustento_url} onChange={(u) => setNs((f: any) => ({ ...f, sustento_url: u }))} carpeta="sustentos" /></Field>
         </div>
         <Field label="RUC / DNI"><Input value={ns.ruc_dni} onChange={(e) => setNs((f: any) => ({ ...f, ruc_dni: e.target.value.replace(/\D/g, '') }))} inputMode="numeric" maxLength={11} /></Field>
         <Field label="Razón social"><Input value={ns.razon_social} onChange={(e) => setNs((f: any) => ({ ...f, razon_social: e.target.value }))} /></Field>
@@ -419,6 +420,9 @@ function DetalleSolicitud({ s, full }: { s: any; full?: boolean }) {
           </div>
         ))}
       </div>
+      {s.sustento_url && (
+        <a href={s.sustento_url} target="_blank" rel="noreferrer" className="mt-2 mr-3 inline-block text-xs text-azur-600 hover:underline">Ver sustento</a>
+      )}
       {full && s.voucher_url && (
         <a href={s.voucher_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-azur-600 hover:underline">Ver voucher / comprobante</a>
       )}

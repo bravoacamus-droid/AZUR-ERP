@@ -11,6 +11,7 @@ import { Field } from '@/components/ui/misc';
 import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { crearSolicitud, type SolicitudInput } from './actions';
 import { enqueue, isOnline } from '@/lib/offline-queue';
+import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
@@ -20,6 +21,7 @@ const CONSTANCIAS = [
   { value: 'factura', label: 'Factura' },
   { value: 'boleta', label: 'Boleta' },
   { value: 'rhe', label: 'RHE' },
+  { value: 'evidencia', label: 'Evidencia (captura / nota de venta)' },
 ];
 
 export function SolicitudForm({
@@ -38,6 +40,7 @@ export function SolicitudForm({
   const [categoria, setCategoria] = useState('');
   const [monto, setMonto] = useState('');
   const [constancia, setConstancia] = useState('');
+  const [sustento, setSustento] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [ctaBancaria, setCtaBancaria] = useState('');
   const [rucDni, setRucDni] = useState('');
@@ -66,6 +69,7 @@ export function SolicitudForm({
       categoria_etapa: categoria || null,
       monto: Number(monto),
       constancia: (constancia || null) as SolicitudInput['constancia'],
+      sustento_url: sustento || null,
       descripcion: descripcion || null,
       cta_bancaria: ctaBancaria || null,
       ruc_dni: rucDni || null,
@@ -75,7 +79,7 @@ export function SolicitudForm({
     };
     function limpiar() {
       setPartidaPpto(''); setBeneficiario(''); setEspecialidad(''); setCategoria('');
-      setMonto(''); setConstancia(''); setDescripcion(''); setCtaBancaria('');
+      setMonto(''); setConstancia(''); setSustento(''); setDescripcion(''); setCtaBancaria('');
       setRucDni(''); setRazonSocial(''); setMoneda('PEN'); setTieneDetraccion(false); setDetraccion('');
     }
 
@@ -180,6 +184,10 @@ export function SolicitudForm({
           </Select>
         </Field>
       </div>
+
+      <Field label="Sustento (foto o PDF)" hint="Factura, boleta, RH, nota de venta o captura Yape/Plin">
+        <VoucherUpload value={sustento} onChange={setSustento} carpeta="sustentos" />
+      </Field>
 
       <Field label="Descripción">
         <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
