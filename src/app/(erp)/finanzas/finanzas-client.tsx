@@ -35,7 +35,7 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, jornales = [], jornalesTotal = 0 }: any) {
+export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, contrapartes = [], jornales = [], jornalesTotal = 0 }: any) {
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
@@ -46,7 +46,7 @@ export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, arm
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
       ]} />
-      {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} />}
+      {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'jornales' && <Jornales rol={rol} jornales={jornales} total={jornalesTotal} />}
       {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
@@ -154,10 +154,24 @@ function Jornales({ rol, jornales, total }: any) {
 }
 
 const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
-const SOL_VACIA = { id: '', tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
+const SOL_VACIA = { id: '', tipo: 'contratistas', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
 
-function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [] }: any) {
+function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [], contrapartes = [] }: any) {
   const router = useRouter();
+  const [fDesde, setFDesde] = useState('');
+  const [fHasta, setFHasta] = useState('');
+  const [fEstado, setFEstado] = useState('');
+  const [fBusca, setFBusca] = useState('');
+  const visibles = (solicitudes as any[]).filter((s) => {
+    const dia = String(s.created_at ?? '').slice(0, 10);
+    if (fDesde && dia < fDesde) return false;
+    if (fHasta && dia > fHasta) return false;
+    if (fEstado && s.status !== fEstado) return false;
+    if (fBusca) { const q = fBusca.toLowerCase(); const hay = `${s.codigo} ${s.beneficiario_nombre ?? ''} ${s.razon_social ?? ''} ${s.proyecto?.nombre ?? ''}`.toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  });
+  // Agrupa por día (created_at) para no mostrar una lista interminable.
+  const porDia = [...visibles.reduce((m: Map<string, any[]>, s) => { const k = String(s.created_at ?? '').slice(0, 10); const a = m.get(k) ?? []; a.push(s); m.set(k, a); return m; }, new Map<string, any[]>()).entries()].sort((a, b) => b[0].localeCompare(a[0]));
   const [nueva, setNueva] = useState(false);
   const [ns, setNs] = useState<any>(SOL_VACIA);
   const [nsMsg, setNsMsg] = useState<string | null>(null);
@@ -203,6 +217,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
           beneficiario_nombre: ns.beneficiario_nombre || null, especialidad: null, categoria_etapa: null,
           monto: Number(ns.monto), constancia: (ns.constancia || null) as any, sustento_url: ns.sustento_url || null, descripcion: ns.descripcion || null,
           cta_bancaria: ns.cta_bancaria || null, ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null,
+          contraparte_id: ns.contraparte_id || null,
           moneda: ns.moneda as 'PEN' | 'USD', detraccion_monto: detr,
         });
     setBusy(false);
@@ -210,7 +225,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
     else setNsMsg(res.error ?? 'No se pudo guardar.');
   }
   function abrirEditar(s: any) {
-    setNs({ id: s.id, tipo: s.tipo, proyecto_id: s.proyecto_id || '', beneficiario_nombre: s.beneficiario_nombre || '', monto: String(s.monto ?? ''), constancia: s.constancia || '', sustento_url: s.sustento_url || '', ruc_dni: s.ruc_dni || '', razon_social: s.razon_social || '', cta_bancaria: s.cta_bancaria || '', moneda: s.moneda || 'PEN', tiene_detraccion: Number(s.detraccion_monto) > 0, detraccion_monto: String(s.detraccion_monto || ''), partida_ppto: s.partida_ppto || '', descripcion: s.descripcion || '' });
+    setNs({ id: s.id, tipo: s.tipo, proyecto_id: s.proyecto_id || '', beneficiario_nombre: s.beneficiario_nombre || '', monto: String(s.monto ?? ''), constancia: s.constancia || '', sustento_url: s.sustento_url || '', ruc_dni: s.ruc_dni || '', razon_social: s.razon_social || '', cta_bancaria: s.cta_bancaria || '', contraparte_id: s.contraparte_id || '', moneda: s.moneda || 'PEN', tiene_detraccion: Number(s.detraccion_monto) > 0, detraccion_monto: String(s.detraccion_monto || ''), partida_ppto: s.partida_ppto || '', descripcion: s.descripcion || '' });
     setNsMsg(null); setNueva(true);
   }
   async function borrarSolicitud(s: any) {
@@ -226,10 +241,16 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
       </p>
       {canEdit && <Button size="sm" variant="gradient" onClick={() => { setNueva(true); setNs(SOL_VACIA); setNsMsg(null); }}><Plus /> Nueva solicitud de pago</Button>}
     </div>
+    <div className="mb-3 flex flex-wrap items-end gap-2 rounded-xl border bg-white p-3 text-xs">
+      <label><span className="mb-0.5 block text-muted-foreground">Desde</span><Input type="date" value={fDesde} onChange={(e) => setFDesde(e.target.value)} /></label>
+      <label><span className="mb-0.5 block text-muted-foreground">Hasta</span><Input type="date" value={fHasta} onChange={(e) => setFHasta(e.target.value)} /></label>
+      <label><span className="mb-0.5 block text-muted-foreground">Estado</span><Select value={fEstado} onChange={(e) => setFEstado(e.target.value)}><option value="">Todos</option><option value="solicitada">Solicitada</option><option value="aprobada">Aprobada</option><option value="programada">Programada</option><option value="pagada">Pagada</option><option value="conciliada">Conciliada</option><option value="rechazada">Rechazada</option></Select></label>
+      <label className="min-w-[160px] flex-1"><span className="mb-0.5 block text-muted-foreground">Buscar</span><Input value={fBusca} onChange={(e) => setFBusca(e.target.value)} placeholder="Código, beneficiario, proyecto…" /></label>
+    </div>
     <Card>
       <CardContent className="p-0">
-        {solicitudes.length === 0 ? (
-          <div className="p-6"><EmptyState titulo="Sin solicitudes" /></div>
+        {visibles.length === 0 ? (
+          <div className="p-6"><EmptyState titulo="Sin solicitudes en el filtro" /></div>
         ) : (
           <Table>
             <TableHeader>
@@ -240,7 +261,10 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {solicitudes.map((s: any) => {
+              {porDia.map(([dia, filas]: [string, any[]]) => (
+                <Fragment key={dia}>
+                  <TableRow><TableCell colSpan={7} className="bg-muted/40 py-1.5 text-xs font-semibold">{fmtDate(dia)} · {filas.length} operación(es)</TableCell></TableRow>
+                  {filas.map((s: any) => {
                 const st = STATUS_SOLICITUD[s.status] ?? { label: s.status, variant: 'muted' as const };
                 return (
                   <TableRow key={s.id}>
@@ -286,7 +310,9 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
                     </TableCell>
                   </TableRow>
                 );
-              })}
+                  })}
+                </Fragment>
+              ))}
             </TableBody>
           </Table>
         )}
@@ -357,6 +383,14 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
           <Field label="Tipo"><Select value={ns.tipo} onChange={(e) => setNs((f: any) => ({ ...f, tipo: e.target.value }))}>{TIPOS_SOL.map((t) => <option key={t} value={t}>{TIPO_SOLICITUD_LABEL[t] ?? t}</option>)}</Select></Field>
           <Field label="Proyecto"><Select value={ns.proyecto_id} onChange={(e) => setNs((f: any) => ({ ...f, proyecto_id: e.target.value }))}><option value="">Sin proyecto</option>{proyectos.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select></Field>
         </div>
+        {contrapartes.length > 0 && (
+          <Field label="Proveedor del maestro" hint="Autocompleta RUC, razón social y cuenta">
+            <Select value={ns.contraparte_id || ''} onChange={(e) => { const c = contrapartes.find((x: any) => x.id === e.target.value); setNs((f: any) => ({ ...f, contraparte_id: e.target.value, beneficiario_nombre: c ? c.razon_social : f.beneficiario_nombre, razon_social: c ? c.razon_social : f.razon_social, ruc_dni: c ? (c.ruc_dni ?? '') : f.ruc_dni, cta_bancaria: c ? (c.cci || c.cuenta || '') : f.cta_bancaria })); }}>
+              <option value="">— Elegir del maestro (o escribir abajo) —</option>
+              {contrapartes.map((c: any) => <option key={c.id} value={c.id}>{c.razon_social}{c.ruc_dni ? ` · ${c.ruc_dni}` : ''}</option>)}
+            </Select>
+          </Field>
+        )}
         <Field label="Beneficiario"><Input value={ns.beneficiario_nombre} onChange={(e) => setNs((f: any) => ({ ...f, beneficiario_nombre: e.target.value }))} placeholder="Nombre del beneficiario" /></Field>
         <div className="grid grid-cols-3 gap-2">
           <Field label="Monto"><Input type="number" value={ns.monto} onChange={(e) => setNs((f: any) => ({ ...f, monto: e.target.value }))} placeholder="0.00" /></Field>

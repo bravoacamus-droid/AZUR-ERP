@@ -24,16 +24,21 @@ const CONSTANCIAS = [
   { value: 'evidencia', label: 'Evidencia (captura / nota de venta)' },
 ];
 
+type Contraparte = { id: string; razon_social: string; ruc_dni?: string | null; banco?: string | null; cuenta?: string | null; cci?: string | null };
+
 export function SolicitudForm({
   proyectos,
   partidas,
+  contrapartes = [],
 }: {
   proyectos: Proyecto[];
   partidas: Partida[];
+  contrapartes?: Contraparte[];
 }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<(typeof TIPOS)[number]>('contratistas');
   const [proyectoId, setProyectoId] = useState(proyectos[0]?.id ?? '');
+  const [contraparteId, setContraparteId] = useState('');
   const [partidaPpto, setPartidaPpto] = useState('');
   const [beneficiario, setBeneficiario] = useState('');
   const [especialidad, setEspecialidad] = useState('');
@@ -52,6 +57,17 @@ export function SolicitudForm({
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const partidasProyecto = partidas.filter((p) => p.proyecto_id === proyectoId);
+
+  function elegirProveedor(id: string) {
+    setContraparteId(id);
+    const c = contrapartes.find((x) => x.id === id);
+    if (c) {
+      setBeneficiario(c.razon_social);
+      setRazonSocial(c.razon_social);
+      setRucDni(c.ruc_dni ?? '');
+      setCtaBancaria(c.cci || c.cuenta || '');
+    }
+  }
 
   async function onSubmit() {
     setMsg(null);
@@ -74,13 +90,14 @@ export function SolicitudForm({
       cta_bancaria: ctaBancaria || null,
       ruc_dni: rucDni || null,
       razon_social: razonSocial || null,
+      contraparte_id: contraparteId || null,
       moneda: moneda as 'PEN' | 'USD',
       detraccion_monto: tieneDetraccion ? Number(detraccion) || 0 : 0,
     };
     function limpiar() {
       setPartidaPpto(''); setBeneficiario(''); setEspecialidad(''); setCategoria('');
       setMonto(''); setConstancia(''); setSustento(''); setDescripcion(''); setCtaBancaria('');
-      setRucDni(''); setRazonSocial(''); setMoneda('PEN'); setTieneDetraccion(false); setDetraccion('');
+      setRucDni(''); setRazonSocial(''); setContraparteId(''); setMoneda('PEN'); setTieneDetraccion(false); setDetraccion('');
     }
 
     if (!isOnline()) {
@@ -148,8 +165,17 @@ export function SolicitudForm({
         </Select>
       </Field>
 
+      {contrapartes.length > 0 && (
+        <Field label="Proveedor del maestro" hint="Autocompleta RUC, razón social y cuenta">
+          <Select value={contraparteId} onChange={(e) => elegirProveedor(e.target.value)}>
+            <option value="">— Elegir del maestro (o escribir abajo) —</option>
+            {contrapartes.map((c) => <option key={c.id} value={c.id}>{c.razon_social}{c.ruc_dni ? ` · ${c.ruc_dni}` : ''}</option>)}
+          </Select>
+        </Field>
+      )}
+
       <Field label="Beneficiario">
-        <Input value={beneficiario} onChange={(e) => setBeneficiario(e.target.value)} placeholder="Nombre del beneficiario" />
+        <Input value={beneficiario} onChange={(e) => { setBeneficiario(e.target.value); if (contraparteId) setContraparteId(''); }} placeholder="Nombre del beneficiario" />
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
