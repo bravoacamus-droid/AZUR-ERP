@@ -10,6 +10,8 @@ import { EmptyState } from '@/components/ui/misc';
 import { ESTADO_PROYECTO } from '@/lib/estados';
 import { fmtMoney, fmtDate } from '@/lib/format';
 import { SearchBox, Pagination } from '@/components/ui/list-tools';
+import { PortafolioOverview } from '@/components/proyectos/portafolio-overview';
+import { saludGlobal } from '@/lib/salud';
 
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 20;
@@ -17,6 +19,33 @@ const PAGE_SIZE = 20;
 export default async function ProyectosPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {
   await requireModulo('proyectos', 'ver');
   const supabase = createClient();
+
+  // Overview de portafolio (gerencia): salud, avance físico vs tiempo, margen.
+  const [{ data: dashRows }, { data: fechas }] = await Promise.all([
+    supabase.from('v_dashboard_proyecto').select('proyecto_id, codigo, nombre, linea_id, estado, tipo_proyecto, proyectado, pagos, gasto, valorizado'),
+    supabase.from('proyectos').select('id, fecha_inicio, fecha_fin, estado'),
+  ]);
+  const fechaMap = new Map((fechas ?? []).map((f) => [f.id, f]));
+  const hoy = Date.now();
+  const portafolio = (dashRows ?? [])
+    .filter((d) => !['liquidado', 'cerrado', 'cancelado'].includes(String(d.estado)))
+    .map((d) => {
+      const contrato = Number(d.proyectado ?? 0);
+      const valorizado = Number(d.valorizado ?? 0);
+      const gasto = Number(d.gasto ?? 0);
+      const fisico = contrato > 0 ? valorizado / contrato : 0;
+      const f = fechaMap.get(d.proyecto_id as string) as { fecha_inicio?: string; fecha_fin?: string } | undefined;
+      let tiempo = 0;
+      if (f?.fecha_inicio && f?.fecha_fin) {
+        const ini = +new Date(f.fecha_inicio), fin = +new Date(f.fecha_fin);
+        tiempo = fin > ini ? Math.min(1, Math.max(0, (hoy - ini) / (fin - ini))) : (hoy >= fin ? 1 : 0);
+      }
+      return {
+        id: d.proyecto_id as string, codigo: d.codigo, nombre: d.nombre ?? 'Proyecto', estado: String(d.estado),
+        contrato, valorizado, gasto, fisico, tiempo, gap: fisico - tiempo, margen: valorizado - gasto,
+        salud: saludGlobal({ proyecto_id: d.proyecto_id as string, codigo: d.codigo, nombre: d.nombre ?? '', linea_id: d.linea_id, estado: String(d.estado), tipo_proyecto: String(d.tipo_proyecto ?? ''), proyectado: contrato, pagos: Number(d.pagos ?? 0), gasto, valorizado }),
+      };
+    });
 
   const q = (searchParams.q ?? '').trim();
   const page = Math.max(1, Number(searchParams.page) || 1);
@@ -34,6 +63,8 @@ export default async function ProyectosPage({ searchParams }: { searchParams: { 
   return (
     <div className="space-y-6">
       <PageHeader title="Proyectos" description="Gestión de obra — Last Planner, valorizaciones y control." />
+
+      <PortafolioOverview items={portafolio} />
 
       <SearchBox placeholder="Buscar por nombre o código…" />
 
