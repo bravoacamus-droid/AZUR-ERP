@@ -106,6 +106,11 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     tipos: TIPOS_GASTO.map((t) => ({ ...t, proyectado: proyMap.get(t.tipo) ?? 0, real: realMap.get(t.tipo) ?? 0 })),
   };
 
+  // Tareo del proyecto (para aprobación del jefe)
+  const { data: tareo } = await (supabase as unknown as { from: (t: string) => any }).from('tareo')
+    .select('id, fecha, trabajador_nombre, presente, horas, horas_extra, tarifa_dia, estado')
+    .eq('proyecto_id', params.id).order('fecha', { ascending: false }).limit(300);
+
   // Datos de campo (capturados desde la PWA) para supervisión del Jefe
   const [asistencias, partesDiarios, evidencias, sstCharlas, sstObs, sstInc] = await Promise.all([
     supabase.from('asistencias').select('*, persona:profiles(nombre)').eq('proyecto_id', params.id).order('registrado_at', { ascending: false }).limit(50),
@@ -152,6 +157,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
           sstCharlas: sstCharlas.data ?? [],
           sstObs: sstObs.data ?? [],
           sstInc: sstInc.data ?? [],
+          tareo: tareo ?? [],
         }}
         canManage={puedeEditar(session.permisos, 'proyectos')}
       />

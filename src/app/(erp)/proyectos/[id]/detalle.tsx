@@ -19,6 +19,7 @@ import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { CurvaSComparativa } from '@/components/proyectos/curva-s-comparativa';
 import { DashboardProyVsReal } from '@/components/proyectos/dashboard-proy-real';
 import { ReporteConsolidado } from '@/components/proyectos/reporte-consolidado';
+import { TareoRevision } from '@/components/proyectos/tareo-revision';
 import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
@@ -106,7 +107,7 @@ export function ProyectoDetalle(props: any) {
           { value: 'adicionales', label: 'Adicionales' },
           { value: 'equipo', label: 'Equipo' },
           ...(esMantenimiento ? [{ value: 'mantenimiento', label: 'Mantenimiento' }] : []),
-          { value: 'campo', label: `Campo${(campo?.partes ?? []).filter((p: any) => p.estado === 'enviado').length ? ` · ${(campo?.partes ?? []).filter((p: any) => p.estado === 'enviado').length} por revisar` : ''}` },
+          { value: 'campo', label: (() => { const n = (campo?.partes ?? []).filter((p: any) => p.estado === 'enviado').length + (campo?.tareo ?? []).filter((t: any) => t.estado === 'enviado').length; return `Campo${n ? ` · ${n} por revisar` : ''}`; })() },
           { value: 'liquidacion', label: 'Liquidación' },
           { value: 'expediente', label: 'Expediente' },
         ]}
@@ -1589,13 +1590,15 @@ function ParteCard({ p, proyectoId, userRol }: any) {
 
 function CampoTab({ campo, proyectoId, userRol }: any) {
   const [sub, setSub] = useState('asistencias');
-  const { asistencias, partes, evidencias, sstCharlas, sstObs, sstInc } = campo;
+  const { asistencias, partes, evidencias, sstCharlas, sstObs, sstInc, tareo = [] } = campo;
   const sstTotal = sstCharlas.length + sstObs.length + sstInc.length;
+  const tareoPorAprobar = tareo.filter((t: any) => t.estado === 'enviado').length;
   return (
     <div className="space-y-4">
       <Tabs value={sub} onChange={setSub} tabs={[
         { value: 'asistencias', label: `Asistencia (${asistencias.length})` },
         { value: 'partes', label: `Reportes de obra${partes.filter((p: any) => p.estado === 'enviado').length ? ` · ${partes.filter((p: any) => p.estado === 'enviado').length} por revisar` : ''} (${partes.length})` },
+        { value: 'tareo', label: `Tareo${tareoPorAprobar ? ` · ${tareoPorAprobar} por aprobar` : ''}` },
         { value: 'evidencias', label: `Evidencias (${evidencias.length})` },
         { value: 'sst', label: `SST (${sstTotal})` },
       ]} />
@@ -1633,6 +1636,8 @@ function CampoTab({ campo, proyectoId, userRol }: any) {
           {partes.map((p: any) => <ParteCard key={p.id} p={p} proyectoId={proyectoId} userRol={userRol} />)}
         </div>
       )}
+
+      {sub === 'tareo' && <TareoRevision tareo={tareo} proyectoId={proyectoId} userRol={userRol} />}
 
       {sub === 'evidencias' && (
         evidencias.length === 0 ? <EmptyState titulo="Sin evidencias fotográficas" /> : (
