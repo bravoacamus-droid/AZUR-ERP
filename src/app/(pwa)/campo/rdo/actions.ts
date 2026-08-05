@@ -79,6 +79,63 @@ export async function crearRdo(input: RdoInput): Promise<Res> {
   return { ok: true, id: parte.id };
 }
 
+// Edita un reporte. Autor si está en borrador/observado; jefe/gerencia si está enviado.
+export async function actualizarRdo(id: string, input: RdoInput): Promise<Res> {
+  const session = await requireSession();
+  const parsed = rdoSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
+  const d = parsed.data;
+  const supabase = createClient() as any;
+  const { data: parte } = await supabase.from('partes_diarios').select('created_by, estado').eq('id', id).single();
+  if (!parte) return { ok: false, error: 'Reporte no encontrado' };
+  const esAutor = parte.created_by === session.id;
+  const esJefe = session.rol === 'jefe_proyectos' || session.rol === 'gerencia';
+  const editable = (esAutor && ['borrador', 'observado'].includes(parte.estado)) || (esJefe && parte.estado === 'enviado');
+  if (!editable) return { ok: false, error: 'Este reporte ya no se puede editar en su estado actual.' };
+
+  const { error: e1 } = await supabase.from('partes_diarios').update({
+    fecha: d.fecha,
+    clima: d.clima || null,
+    jornada: d.jornada || null,
+    personal_count: d.personal_count,
+    equipos: d.equipos || null,
+    materiales_recibidos: d.materiales_recibidos || null,
+    programacion: d.programacion || null,
+    observaciones: d.observaciones || null,
+    incidencias: d.incidencias || null,
+  }).eq('id', id);
+  if (e1) return { ok: false, error: e1.message };
+
+  await supabase.from('rdo_actividades').delete().eq('rdo_id', id);
+  const actividades = d.actividades.filter((a) => a.descripcion.trim().length > 0);
+  if (actividades.length > 0) {
+    const { error: e2 } = await supabase.from('rdo_actividades').insert(actividades.map((a) => ({
+      rdo_id: id, descripcion: a.descripcion, proyecto_item_id: a.proyecto_item_id,
+      avance_pct: a.avance_pct == null ? null : a.avance_pct / 100, estado: a.estado || null,
+    })));
+    if (e2) return { ok: false, error: e2.message };
+  }
+  revalidatePath('/campo/rdo');
+  return { ok: true, id };
+}
+
+// Elimina una foto de un reporte (mientras es editable por el usuario).
+export async function eliminarFotoRdo(evidenciaId: string): Promise<Res> {
+  const session = await requireSession();
+  const supabase = createClient() as any;
+  const { data: ev } = await supabase.from('evidencias').select('rdo_id').eq('id', evidenciaId).single();
+  if (!ev?.rdo_id) return { ok: false, error: 'Foto no encontrada' };
+  const { data: parte } = await supabase.from('partes_diarios').select('created_by, estado').eq('id', ev.rdo_id).single();
+  const esAutor = parte?.created_by === session.id;
+  const esJefe = session.rol === 'jefe_proyectos' || session.rol === 'gerencia';
+  const editable = (esAutor && ['borrador', 'observado'].includes(parte?.estado)) || (esJefe && parte?.estado === 'enviado');
+  if (!editable) return { ok: false, error: 'No se puede editar este reporte.' };
+  const { error } = await supabase.from('evidencias').delete().eq('id', evidenciaId);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/campo/rdo');
+  return { ok: true };
+}
+
 // Residente envía el reporte a revisión del jefe de proyectos.
 export async function enviarRdo(id: string): Promise<Res> {
   const session = await requireSession();

@@ -9,12 +9,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
-import { crearRdo, adjuntarFotosRdo } from './actions';
+import { crearRdo, actualizarRdo, adjuntarFotosRdo, eliminarFotoRdo } from './actions';
 import { enqueue, isOnline } from '@/lib/offline-queue';
 import { optimizarImagen } from '@/lib/img';
 
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
+type FotoExistente = { id: string; url: string };
 
 type Actividad = {
   descripcion: string;
@@ -27,32 +28,54 @@ function nuevaActividad(): Actividad {
   return { descripcion: '', proyecto_item_id: '', avance_pct: '', estado: '' };
 }
 
+export type RdoInicial = {
+  id: string; proyecto_id: string; fecha: string; clima?: string | null; jornada?: string | null;
+  personal_count?: number | null; equipos?: string | null; materiales_recibidos?: string | null;
+  programacion?: string | null; observaciones?: string | null; incidencias?: string | null;
+  actividades: { descripcion: string; proyecto_item_id: string | null; avance_pct: number | null; estado: string | null }[];
+  fotos: FotoExistente[];
+};
+
 export function RdoForm({
   proyectos,
   partidas,
   hoy,
+  inicial,
 }: {
   proyectos: Proyecto[];
   partidas: Partida[];
   hoy: string;
+  inicial?: RdoInicial;
 }) {
   const router = useRouter();
-  const [proyectoId, setProyectoId] = useState(proyectos[0]?.id ?? '');
-  const [fecha, setFecha] = useState(hoy);
-  const [clima, setClima] = useState('');
-  const [jornada, setJornada] = useState('');
-  const [programacion, setProgramacion] = useState('');
-  const [personal, setPersonal] = useState('');
-  const [equipos, setEquipos] = useState('');
-  const [materiales, setMateriales] = useState('');
-  const [observaciones, setObservaciones] = useState('');
-  const [incidencias, setIncidencias] = useState('');
-  const [actividades, setActividades] = useState<Actividad[]>([nuevaActividad()]);
+  const esEdicion = !!inicial;
+  const [proyectoId, setProyectoId] = useState(inicial?.proyecto_id ?? proyectos[0]?.id ?? '');
+  const [fecha, setFecha] = useState(inicial?.fecha ?? hoy);
+  const [clima, setClima] = useState(inicial?.clima ?? '');
+  const [jornada, setJornada] = useState(inicial?.jornada ?? '');
+  const [programacion, setProgramacion] = useState(inicial?.programacion ?? '');
+  const [personal, setPersonal] = useState(inicial?.personal_count != null ? String(inicial.personal_count) : '');
+  const [equipos, setEquipos] = useState(inicial?.equipos ?? '');
+  const [materiales, setMateriales] = useState(inicial?.materiales_recibidos ?? '');
+  const [observaciones, setObservaciones] = useState(inicial?.observaciones ?? '');
+  const [incidencias, setIncidencias] = useState(inicial?.incidencias ?? '');
+  const [actividades, setActividades] = useState<Actividad[]>(
+    inicial?.actividades?.length
+      ? inicial.actividades.map((a) => ({ descripcion: a.descripcion, proyecto_item_id: a.proyecto_item_id ?? '', avance_pct: a.avance_pct != null ? String(Math.round(a.avance_pct * 100)) : '', estado: a.estado ?? '' }))
+      : [nuevaActividad()],
+  );
+  const [fotosPrev, setFotosPrev] = useState<FotoExistente[]>(inicial?.fotos ?? []);
   const [fotos, setFotos] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const partidasProyecto = partidas.filter((p) => p.proyecto_id === proyectoId);
+
+  async function quitarFotoPrev(id: string) {
+    const r = await eliminarFotoRdo(id);
+    if (r.ok) setFotosPrev((f) => f.filter((x) => x.id !== id));
+    else setMsg({ type: 'err', text: r.error ?? 'No se pudo eliminar la foto.' });
+  }
 
   function setActividad(i: number, patch: Partial<Actividad>) {
     setActividades((arr) => arr.map((a, idx) => (idx === i ? { ...a, ...patch } : a)));
@@ -108,6 +131,17 @@ export function RdoForm({
       if (subidas.length) await adjuntarFotosRdo(rdoId, proyectoId, subidas);
     }
 
+    // Edición: requiere conexión (actualiza y sube fotos nuevas, luego vuelve).
+    if (esEdicion) {
+      if (!isOnline()) { setLoading(false); setMsg({ type: 'err', text: 'Necesitas conexión para editar.' }); return; }
+      const res = await actualizarRdo(inicial!.id, payload);
+      if (res.ok) await subirFotos(inicial!.id);
+      setLoading(false);
+      if (res.ok) { router.push('/campo/rdo'); router.refresh(); }
+      else setMsg({ type: 'err', text: res.error ?? 'No se pudo guardar.' });
+      return;
+    }
+
     // Sin conexión → encolar para sincronizar luego (Sección 8.9)
     if (!isOnline()) {
       enqueue('rdo', payload);
@@ -141,7 +175,7 @@ export function RdoForm({
     <div className="space-y-4 rounded-2xl border bg-white p-4 shadow-sm">
       <div className="flex items-center gap-2">
         <ClipboardList className="size-5 text-azur-600" />
-        <p className="font-semibold">Nuevo reporte diario</p>
+        <p className="font-semibold">{esEdicion ? 'Editar reporte diario' : 'Nuevo reporte diario'}</p>
       </div>
 
       <Field label="Proyecto" required>
@@ -271,6 +305,19 @@ export function RdoForm({
       </Field>
 
       <Field label="Fotos de respaldo">
+        {fotosPrev.length > 0 && (
+          <div className="mb-2 grid grid-cols-3 gap-2">
+            {fotosPrev.map((f) => (
+              <div key={f.id} className="relative">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={f.url} alt="foto" className="h-20 w-full rounded-lg object-cover" />
+                <button type="button" onClick={() => quitarFotoPrev(f.id)} className="absolute -right-1.5 -top-1.5 flex size-6 items-center justify-center rounded-full bg-azur-600 text-white shadow" aria-label="Eliminar foto">
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
         <input
           type="file"
           accept="image/*"
@@ -278,12 +325,13 @@ export function RdoForm({
           onChange={(e) => setFotos(Array.from(e.target.files ?? []))}
           className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-azur-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-azur-600"
         />
-        {fotos.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{fotos.length} foto(s) seleccionada(s). Se subirán al guardar (requiere conexión).</p>}
+        {fotos.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{fotos.length} foto(s) nueva(s). Se subirán al guardar (requiere conexión).</p>}
       </Field>
 
       <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>
-        {loading && <Loader2 className="animate-spin" />} Guardar reporte
+        {loading && <Loader2 className="animate-spin" />} {esEdicion ? 'Guardar cambios' : 'Guardar reporte'}
       </Button>
+      {esEdicion && <Button variant="outline" className="w-full" onClick={() => router.push('/campo/rdo')}>Cancelar</Button>}
 
       {msg && (
         <p className={`text-center text-sm ${msg.type === 'ok' ? 'text-emerald-600' : 'text-azur-600'}`}>

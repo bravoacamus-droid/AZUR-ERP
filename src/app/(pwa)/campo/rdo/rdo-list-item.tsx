@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Send, FileText, Trash2, Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Send, FileText, Trash2, Loader2, Pencil } from 'lucide-react';
 import { fmtDate } from '@/lib/format';
 import { enviarRdo, eliminarRdo } from './actions';
 
@@ -23,6 +24,7 @@ export function RdoListItem({ p }: { p: ParteItem }) {
   const [busy, setBusy] = useState<'' | 'enviar' | 'eliminar'>('');
   const est = ESTADO[p.estado] ?? ESTADO.borrador;
   const puedeEnviar = p.estado === 'borrador' || p.estado === 'observado';
+  const puedeEditar = p.estado === 'borrador' || p.estado === 'observado';
   const puedeEliminar = p.estado !== 'aprobado';
 
   async function onEnviar() {
@@ -58,6 +60,11 @@ export function RdoListItem({ p }: { p: ParteItem }) {
           <button onClick={onEnviar} disabled={!!busy} className="inline-flex items-center gap-1 rounded-lg bg-azur-gradient px-2.5 py-1 text-xs font-medium text-white disabled:opacity-60">
             {busy === 'enviar' ? <Loader2 className="size-3.5 animate-spin" /> : <Send className="size-3.5" />} Enviar a revisión
           </button>
+        )}
+        {puedeEditar && (
+          <Link href={`/campo/rdo/${p.id}/editar`} className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-foreground">
+            <Pencil className="size-3.5" /> Editar
+          </Link>
         )}
         <a href={`/proyectos/${p.proyecto_id}/rdo/${p.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-foreground">
           <FileText className="size-3.5" /> PDF

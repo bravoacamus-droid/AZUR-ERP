@@ -1579,7 +1579,7 @@ function ParteCard({ p, proyectoId, userRol }: any) {
           {puedeRevisar && (
             <>
               <Button size="sm" variant="gradient" onClick={aprobar} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Aprobar</Button>
-              <Button size="sm" variant="outline" onClick={observar} disabled={busy}><X className="size-3.5" /> Observar</Button>
+              <Button size="sm" variant="outline" onClick={observar} disabled={busy} title="Devuelve el reporte al residente para que lo corrija y reenvíe"><X className="size-3.5" /> Observar / devolver</Button>
             </>
           )}
         </div>
