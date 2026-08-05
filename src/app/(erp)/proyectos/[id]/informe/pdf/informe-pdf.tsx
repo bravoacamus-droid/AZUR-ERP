@@ -2,7 +2,7 @@ import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/render
 import { fmtMoney, fmtNumber } from '@/lib/format';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 
-const AZUR = '#E20627';
+const AZUR = '#C02128';
 const AZUR_DARK = '#BE1723';
 
 const s = StyleSheet.create({

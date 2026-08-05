@@ -5,7 +5,7 @@ import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { saludGlobal, SALUD_LABEL, type DashboardProyecto } from '@/lib/salud';
 
 export const runtime = 'nodejs';
-const AZUR = 'FFE20627';
+const AZUR = 'FFC02128';
 const GREY = 'FFF3F4F6';
 const CATS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
 

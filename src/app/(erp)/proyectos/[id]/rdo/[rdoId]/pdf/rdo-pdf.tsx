@@ -1,7 +1,7 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 
-const AZUR = '#E20627';
+const AZUR = '#C02128';
 const INK = '#1a1a1a';
 const s = StyleSheet.create({
   page: { paddingHorizontal: 34, paddingTop: 22, paddingBottom: 42, fontSize: 9, fontFamily: 'Helvetica', color: INK },

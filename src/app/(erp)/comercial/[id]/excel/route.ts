@@ -6,7 +6,7 @@ import { armarArbol, renumerar, calcularCostosMargen, calcularTotales } from '@/
 
 export const runtime = 'nodejs';
 
-const AZUR = 'FFE20627';
+const AZUR = 'FFC02128';
 const AZUR2 = 'FFBE1723';
 const GREY = 'FFF3F4F6';
 

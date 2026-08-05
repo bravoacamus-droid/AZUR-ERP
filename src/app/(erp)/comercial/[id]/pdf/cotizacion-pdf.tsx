@@ -3,7 +3,7 @@ import { fmtMoney, fmtNumber } from '@/lib/format';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 import { FIRMA_DATA_URI } from '@/lib/brand-firma';
 
-const AZUR = '#E20627';
+const AZUR = '#C02128';
 const AZUR2 = '#BE1723';
 
 // Helvetica built-in (NO Google Fonts — Anexo A.3 Bug #7).

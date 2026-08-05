@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs';
 
 export const runtime = 'nodejs';
 
-const RED = 'FFE20627';
+const RED = 'FFC02128';
 const DARK = 'FF1A1A1A';
 
 // Plantilla brandeada (.xlsx AZUR) para importar el itemizado de una cotización.

@@ -3,7 +3,7 @@ import { fmtMoney, fmtPct } from '@/lib/format';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 import { rolLabel } from '@/lib/roles';
 
-const AZUR = '#E20627';
+const AZUR = '#C02128';
 const s = StyleSheet.create({
   page: { padding: 32, fontSize: 9, fontFamily: 'Helvetica', color: '#1a1a1a' },
   header: { flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 2, borderBottomColor: AZUR, paddingBottom: 10, marginBottom: 14 },
