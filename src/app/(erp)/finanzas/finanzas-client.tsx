@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { Fragment, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -25,6 +25,7 @@ import {
   editarSolicitud, eliminarSolicitud, validarCuentaProveedor, validarCuentaCliente,
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
+import { actualizarTarifaTrabajador, marcarTareoPagado } from '@/app/(pwa)/campo/tareo/actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -34,21 +35,121 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios }: any) {
+export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, jornales = [], jornalesTotal = 0 }: any) {
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
       <Tabs value={tab} onChange={setTab} tabs={[
         { value: 'solicitudes', label: 'Solicitudes de pago' },
         { value: 'cxp', label: 'Cuentas por pagar' },
+        { value: 'jornales', label: `Jornales${jornales.length ? ` (${jornales.length})` : ''}` },
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
       ]} />
       {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
+      {tab === 'jornales' && <Jornales rol={rol} jornales={jornales} total={jornalesTotal} />}
       {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
       {tab === 'cajas' && <Cajas rol={rol} canEdit={canEdit} cajas={cajas} proyectos={proyectos} perfiles={perfiles} dashboards={dashboards} />}
     </div>
+  );
+}
+
+// ── Jornales: tareo aprobado consolidado por persona (con desglose por proyecto) ──
+function Jornales({ rol, jornales, total }: any) {
+  const router = useRouter();
+  const [exp, setExp] = useState<string | null>(null);
+  const [edit, setEdit] = useState<{ id: string; v: string } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const puedePagar = rol === 'administrador' || rol === 'gerencia';
+
+  async function guardarTarifa(trabajadorId: string) {
+    if (!edit) return;
+    setBusy(trabajadorId);
+    const r = await actualizarTarifaTrabajador(trabajadorId, Number(edit.v) || 0);
+    setBusy(null); setEdit(null);
+    if (!r.ok) alert(r.error); else router.refresh();
+  }
+  async function pagar(j: any) {
+    if (!window.confirm(`¿Marcar como pagado el jornal de ${j.nombre} (${fmtMoney(j.monto)})?`)) return;
+    setBusy(j.key);
+    const r = await marcarTareoPagado(j.ids);
+    setBusy(null);
+    if (!r.ok) alert(r.error); else router.refresh();
+  }
+
+  if (!jornales.length) return <EmptyState titulo="Sin jornales por pagar" descripcion="Aquí aparece el tareo aprobado por el jefe de proyectos, consolidado por persona." />;
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between pb-2">
+        <CardTitle className="text-base">Jornales por pagar (tareo aprobado)</CardTitle>
+        <Badge variant="info">Total: {fmtMoney(total)}</Badge>
+      </CardHeader>
+      <CardContent className="p-0">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Trabajador</TableHead>
+                <TableHead className="text-right">Días</TableHead>
+                <TableHead className="text-right">Horas</TableHead>
+                <TableHead className="text-right">Extra</TableHead>
+                <TableHead className="text-right">Tarifa/día</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {jornales.map((j: any) => (
+                <Fragment key={j.key}>
+                  <TableRow>
+                    <TableCell>
+                      <button className="text-left font-medium hover:text-azur-600" onClick={() => setExp(exp === j.key ? null : j.key)}>{j.nombre}</button>
+                      {j.proyectos.length > 1 && <span className="ml-1 text-xs text-muted-foreground">({j.proyectos.length} proyectos)</span>}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{j.dias}</TableCell>
+                    <TableCell className="text-right tabular-nums">{j.horas}</TableCell>
+                    <TableCell className="text-right tabular-nums">{j.extra || '—'}</TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {puedePagar && j.trabajadorId ? (
+                        edit?.id === j.trabajadorId ? (
+                          <span className="flex items-center justify-end gap-1">
+                            <Input className="h-7 w-20 text-right" type="number" value={edit?.v ?? ''} onChange={(e) => setEdit({ id: j.trabajadorId, v: e.target.value })} />
+                            <button onClick={() => guardarTarifa(j.trabajadorId)} className="text-emerald-600">{busy === j.trabajadorId ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}</button>
+                          </span>
+                        ) : (
+                          <button className="inline-flex items-center gap-1 hover:text-azur-600" onClick={() => setEdit({ id: j.trabajadorId, v: String(j.tarifa ?? 0) })}>{fmtMoney(j.tarifa)} <Pencil className="size-3 text-muted-foreground" /></button>
+                        )
+                      ) : fmtMoney(j.tarifa)}
+                    </TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{fmtMoney(j.monto)}</TableCell>
+                    <TableCell className="text-right">
+                      {puedePagar && <Button size="sm" variant="outline" disabled={busy === j.key} onClick={() => pagar(j)}><HandCoins className="size-3.5" /> Pagar</Button>}
+                    </TableCell>
+                  </TableRow>
+                  {exp === j.key && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="bg-muted/30">
+                        <div className="space-y-1 py-1">
+                          {j.proyectos.map((p: any, i: number) => (
+                            <div key={i} className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">{p.nombre}</span>
+                              <span className="tabular-nums">{p.dias} día(s) · {p.horas} h{p.extra ? ` + ${p.extra} extra` : ''} · <strong>{fmtMoney(p.monto)}</strong></span>
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+        {!puedePagar && <p className="p-3 text-xs text-muted-foreground">Solo Administración o Gerencia pueden editar la tarifa y marcar como pagado.</p>}
+      </CardContent>
+    </Card>
   );
 }
 

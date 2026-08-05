@@ -24,6 +24,27 @@ export default async function FinanzasPage() {
   ]);
   const medios = await supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares').order('orden');
 
+  // Jornales: tareo APROBADO (pendiente de pago) consolidado POR PERSONA,
+  // con desglose por proyecto y total (una persona en varios proyectos = 1 fila).
+  const { data: tareoAprob } = await (supabase as unknown as { from: (t: string) => any }).from('tareo')
+    .select('id, proyecto_id, trabajador_id, trabajador_nombre, presente, horas, horas_extra, tarifa_dia, fecha, proyecto:proyectos(nombre)')
+    .eq('estado', 'aprobado').order('fecha');
+  const consMap = new Map<string, any>();
+  (tareoAprob ?? []).forEach((r: any) => {
+    const key = r.trabajador_id || `n:${r.trabajador_nombre}`;
+    const dia = r.presente ? 1 : 0;
+    const tarifa = Number(r.tarifa_dia ?? 0);
+    const p = consMap.get(key) ?? { key, trabajadorId: r.trabajador_id ?? null, nombre: r.trabajador_nombre, tarifa, dias: 0, horas: 0, extra: 0, monto: 0, ids: [] as string[], proyectos: new Map<string, any>() };
+    p.dias += dia; p.horas += Number(r.horas ?? 0); p.extra += Number(r.horas_extra ?? 0);
+    p.monto += dia * tarifa; p.tarifa = tarifa || p.tarifa; p.ids.push(r.id);
+    const pr = p.proyectos.get(r.proyecto_id) ?? { nombre: r.proyecto?.nombre ?? 'Proyecto', dias: 0, horas: 0, extra: 0, monto: 0 };
+    pr.dias += dia; pr.horas += Number(r.horas ?? 0); pr.extra += Number(r.horas_extra ?? 0); pr.monto += dia * tarifa;
+    p.proyectos.set(r.proyecto_id, pr);
+    consMap.set(key, p);
+  });
+  const jornales = [...consMap.values()].map((p) => ({ ...p, proyectos: [...p.proyectos.values()] })).sort((a, b) => b.monto - a.monto);
+  const jornalesTotal = jornales.reduce((a, j) => a + j.monto, 0);
+
   const solicitudes = sols.data ?? [];
   const pendientes = solicitudes.filter((s) => ['solicitada', 'aprobada', 'programada'].includes(s.status));
   const porPagar = pendientes.reduce((a, s) => a + Number(s.monto), 0);
@@ -53,6 +74,8 @@ export default async function FinanzasPage() {
         perfiles={perfiles.data ?? []}
         dashboards={dashboards.data ?? []}
         medios={medios.data ?? []}
+        jornales={jornales}
+        jornalesTotal={jornalesTotal}
       />
     </div>
   );
