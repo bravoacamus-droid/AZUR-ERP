@@ -25,19 +25,22 @@ export async function guardarTrabajador(input: z.input<typeof trabSchema>): Prom
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
   const d = parsed.data;
   const supabase = createClient() as any;
-  const payload = {
+  // Solo jefe de proyectos / gerencia fijan o modifican la tarifa (jornal).
+  const puedeTarifa = session.rol === 'jefe_proyectos' || session.rol === 'gerencia';
+  const payload: Record<string, unknown> = {
     nombre: d.nombre,
     documento: d.documento || null,
     especialidad: d.especialidad || null,
-    tarifa_dia: d.tarifa_dia ?? 0,
     recurrente: d.recurrente ?? false,
   };
   if (d.id) {
+    if (puedeTarifa) payload.tarifa_dia = d.tarifa_dia ?? 0; // otros roles no tocan la tarifa existente
     const { error } = await supabase.from('trabajadores').update(payload).eq('id', d.id);
     if (error) return { ok: false, error: error.message };
     revalidatePath('/campo/tareo');
     return { ok: true, id: d.id };
   }
+  payload.tarifa_dia = puedeTarifa ? (d.tarifa_dia ?? 0) : 0; // el residente registra sin tarifa; la fija el jefe
   const { data, error } = await supabase.from('trabajadores').insert({ ...payload, created_by: session.id }).select('id').single();
   if (error || !data) return { ok: false, error: error?.message ?? 'No se pudo registrar' };
   revalidatePath('/campo/tareo');

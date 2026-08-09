@@ -10,7 +10,7 @@ export default async function CatalogosPage() {
   const canEdit = puedeEditar(session.permisos, 'catalogos');
   const supabase = createClient();
 
-  const [{ data: lineas }, { data: clientes }, { data: contrapartes }, { data: partidas }, { data: insumos }, { data: plantillas }, { data: medios }] =
+  const [{ data: lineas }, { data: clientes }, { data: contrapartes }, { data: partidas }, { data: insumos }, { data: plantillas }, { data: medios }, { data: trabajadores }] =
     await Promise.all([
       supabase.from('lineas_negocio').select('id, nombre, codigo, color').eq('activo', true).order('nombre'),
       supabase.from('clientes').select('id, razon_social, tipo_doc, ruc_dni, contacto_nombre, contacto_email, contacto_telefono, ubicacion, origen').order('razon_social'),
@@ -19,15 +19,18 @@ export default async function CatalogosPage() {
       supabase.from('catalogo_insumos').select('id, codigo, nombre, unidad, precio, tipo').order('nombre'),
       supabase.from('plantillas_cotizacion').select('id, linea_id, nombre, condiciones, servicios_incluidos, servicios_omitidos, garantia').order('nombre'),
       supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion, mostrar_cotizacion, mostrar_valorizacion, mostrar_liquidacion').order('orden'),
+      (supabase as unknown as { from: (t: string) => any }).from('trabajadores').select('id, nombre, documento, especialidad, tarifa_dia, recurrente').eq('activo', true).order('nombre'),
     ]);
 
   return (
     <CatalogosClient
       canEdit={canEdit}
+      puedeTarifa={session.rol === 'jefe_proyectos' || session.rol === 'gerencia'}
       data={{
         lineas: lineas ?? [],
         clientes: clientes ?? [],
         contrapartes: contrapartes ?? [],
+        trabajadores: trabajadores ?? [],
         partidas: partidas ?? [],
         insumos: insumos ?? [],
         plantillas: plantillas ?? [],

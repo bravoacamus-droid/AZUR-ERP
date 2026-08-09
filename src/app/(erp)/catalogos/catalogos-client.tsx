@@ -17,6 +17,8 @@ import { PageHeader } from '@/components/ui/page';
 import { fmtMoney } from '@/lib/format';
 import { soloDigitos, digitosGuiones } from '@/lib/utils';
 import { CuentasBancarias } from '@/components/finanzas/cuentas-bancarias';
+import { guardarTrabajador, eliminarTrabajador } from '@/app/(pwa)/campo/tareo/actions';
+import { Star } from 'lucide-react';
 import {
   guardarCliente,
   importarClientes,
@@ -45,6 +47,10 @@ export type Contraparte = {
 export type Partida = {
   id: string; linea_id: string | null; codigo: string | null; descripcion: string; unidad: string | null; costo_referencial: number | null;
 };
+export type Trabajador = {
+  id: string; nombre: string; documento: string | null; especialidad: string | null;
+  tarifa_dia: number | null; recurrente: boolean;
+};
 export type Insumo = { id: string; codigo: string | null; nombre: string; unidad: string | null; precio: number | null; tipo: string | null };
 export type Plantilla = {
   id: string; linea_id: string | null; nombre: string; condiciones: string | null;
@@ -60,6 +66,7 @@ type Data = {
   lineas: Linea[];
   clientes: Cliente[];
   contrapartes: Contraparte[];
+  trabajadores: Trabajador[];
   partidas: Partida[];
   insumos: Insumo[];
   plantillas: Plantilla[];
@@ -754,6 +761,7 @@ async function deleteRow(tabla: TablaCatalogo, id: string, nombre: string) {
 const TABS = [
   { value: 'clientes', label: 'Clientes' },
   { value: 'contrapartes', label: 'Contratistas/Proveedores' },
+  { value: 'trabajadores', label: 'Trabajadores' },
   { value: 'partidas', label: 'Partidas' },
   { value: 'insumos', label: 'Insumos' },
   { value: 'plantillas', label: 'Plantillas' },
@@ -801,22 +809,107 @@ function PreciosMasivos() {
   );
 }
 
-export function CatalogosClient({ data, canEdit = true }: { data: Data; canEdit?: boolean }) {
+// ─────────────────────── Trabajadores (maestro de tareo) ───────────────────────
+const TarifaCtx = React.createContext(false);
+
+function TrabajadoresTab({ rows }: { rows: Trabajador[] }) {
+  const [open, setOpen] = React.useState(false);
+  const [editing, setEditing] = React.useState<Trabajador | null>(null);
+  const router = useRouter();
+  const abrirNuevo = () => { setEditing(null); setOpen(true); };
+  const abrirEditar = (t: Trabajador) => { setEditing(t); setOpen(true); };
+  async function baja(t: Trabajador) {
+    if (!window.confirm(`¿Dar de baja a ${t.nombre}? No aparecerá en el tareo.`)) return;
+    await eliminarTrabajador(t.id); router.refresh();
+  }
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">Maestro de jornaleros para el tareo. La tarifa (jornal) solo la edita Jefe de Proyectos o Gerencia.</p>
+        {useCanEdit() && <Button variant="gradient" onClick={abrirNuevo}><Plus className="size-4" /> Nuevo trabajador</Button>}
+      </div>
+      {rows.length === 0 ? (
+        <EmptyState icon={<HardHat className="size-8" />} titulo="Sin trabajadores" descripcion="Registra la cuadrilla para seleccionarla en el tareo." />
+      ) : (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Nombre</TableHead><TableHead>Documento</TableHead><TableHead>Especialidad</TableHead>
+                <TableHead className="text-right">Tarifa/día</TableHead><TableHead>Frecuente</TableHead><TableHead className="text-right">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {rows.map((t) => (
+                <TableRow key={t.id}>
+                  <TableCell className="font-medium">{t.nombre}</TableCell>
+                  <TableCell className="tabular-nums">{t.documento ?? '—'}</TableCell>
+                  <TableCell>{t.especialidad ?? '—'}</TableCell>
+                  <TableCell className="text-right tabular-nums">{t.tarifa_dia ? fmtMoney(Number(t.tarifa_dia)) : '—'}</TableCell>
+                  <TableCell>{t.recurrente ? <Badge variant="warning"><Star className="mr-1 size-3" /> Sí</Badge> : '—'}</TableCell>
+                  <TableCell><RowActions onEdit={() => abrirEditar(t)} onDelete={() => baja(t)} /></TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      )}
+      {open && <TrabajadorForm trabajador={editing} onClose={() => setOpen(false)} />}
+    </div>
+  );
+}
+
+function TrabajadorForm({ trabajador, onClose }: { trabajador: Trabajador | null; onClose: () => void }) {
+  const { saving, error, run } = useGuardar();
+  const puedeTarifa = React.useContext(TarifaCtx);
+  const router = useRouter();
+  const [f, setF] = React.useState({
+    nombre: trabajador?.nombre ?? '', documento: trabajador?.documento ?? '',
+    especialidad: trabajador?.especialidad ?? '', tarifa_dia: trabajador?.tarifa_dia != null ? String(trabajador.tarifa_dia) : '',
+    recurrente: trabajador?.recurrente ?? false,
+  });
+  const submit = () => run(() => guardarTrabajador({
+    id: trabajador?.id, nombre: f.nombre, documento: f.documento || null, especialidad: f.especialidad || null,
+    tarifa_dia: f.tarifa_dia ? Number(f.tarifa_dia) : 0, recurrente: f.recurrente,
+  }), () => { onClose(); router.refresh(); });
+  return (
+    <Modal open onClose={onClose} title={trabajador ? 'Editar trabajador' : 'Nuevo trabajador'}
+      footer={<><Button variant="outline" onClick={onClose}>Cancelar</Button><Button variant="gradient" disabled={saving} onClick={submit}>{saving ? 'Guardando…' : 'Guardar'}</Button></>}>
+      <div className="space-y-3">
+        <Field label="Nombre completo" required><Input value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} /></Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Documento (DNI/CE)"><Input value={f.documento} onChange={(e) => setF({ ...f, documento: e.target.value })} /></Field>
+          <Field label="Especialidad"><Input value={f.especialidad} onChange={(e) => setF({ ...f, especialidad: e.target.value })} placeholder="Operario, oficial, peón…" /></Field>
+        </div>
+        <Field label="Tarifa por día (S/)" hint={puedeTarifa ? undefined : 'Solo Jefe de Proyectos o Gerencia puede fijar la tarifa'}>
+          <Input type="number" step="0.01" inputMode="decimal" value={f.tarifa_dia} onChange={(e) => setF({ ...f, tarifa_dia: e.target.value })} disabled={!puedeTarifa} />
+        </Field>
+        <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-azur-600" checked={f.recurrente} onChange={(e) => setF({ ...f, recurrente: e.target.checked })} /> Marcar como frecuente (aparece primero en el tareo)</label>
+        <ErrorMsg msg={error} />
+      </div>
+    </Modal>
+  );
+}
+
+export function CatalogosClient({ data, canEdit = true, puedeTarifa = false }: { data: Data; canEdit?: boolean; puedeTarifa?: boolean }) {
   const [tab, setTab] = React.useState('clientes');
   return (
     <CanEditCtx.Provider value={canEdit}>
+    <TarifaCtx.Provider value={puedeTarifa}>
     <div className="space-y-6">
-      <PageHeader title="Catálogos" description="Maestros de datos: clientes, contrapartes, partidas, insumos, plantillas y medios de pago." action={canEdit ? <PreciosMasivos /> : undefined} />
+      <PageHeader title="Catálogos" description="Maestros de datos: clientes, contrapartes, trabajadores, partidas, insumos, plantillas y medios de pago." action={canEdit ? <PreciosMasivos /> : undefined} />
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
       <div>
         {tab === 'clientes' && <ClientesTab rows={data.clientes} />}
         {tab === 'contrapartes' && <ContrapartesTab rows={data.contrapartes} />}
+        {tab === 'trabajadores' && <TrabajadoresTab rows={data.trabajadores} />}
         {tab === 'partidas' && <PartidasTab rows={data.partidas} lineas={data.lineas} />}
         {tab === 'insumos' && <InsumosTab rows={data.insumos} />}
         {tab === 'plantillas' && <PlantillasTab rows={data.plantillas} lineas={data.lineas} />}
         {tab === 'medios' && <MediosTab rows={data.medios} />}
       </div>
     </div>
+    </TarifaCtx.Provider>
     </CanEditCtx.Provider>
   );
 }
