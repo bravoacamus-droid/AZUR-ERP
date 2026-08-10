@@ -55,42 +55,35 @@ export async function GET(req: Request, { params }: { params: { id: string; valI
   const codigos = renumerar(armarArbol((allItems ?? []) as never) as never);
   const itemById = new Map((allItems ?? []).map((i) => [i.id, i]));
 
-  // Base de valorización. En modo "precio" el contrato es el precio de venta,
-  // pero los montos guardados (monto_valorizado, valorizacion_items.total) están
-  // en COSTO. factorVal escala costo→precio; se aplica tanto a las filas (fCli)
-  // como a los montos acumulados para que todo el PDF quede en las mismas unidades.
+  // Base de valorización. En modo "precio" el contrato es el precio de venta y
+  // los ítems están en COSTO; factorVal escala costo→precio.
   const contrato = Number(proy.contrato_total);
   const costoDirecto = (allItems ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? 0) : 0), 0);
   const esPrecio = proy.base_valorizacion === 'precio';
   const factorVal = esPrecio && costoDirecto > 0 ? contrato / costoDirecto : 1;
 
-  // % acumulado por ítem hasta esta valorización (inclusive)
+  // % acumulado por ítem y monto por valorización, derivados de los ÍTEMS
+  // (base costo × factor = precio), NO del campo guardado `monto_valorizado`.
+  // Así la CABECERA del PDF siempre cuadra con la SUMA DE LAS FILAS, aunque el
+  // dato guardado sea inconsistente o cambien el contrato/costo después.
   const { data: valsHasta } = await supabase
     .from('valorizaciones')
-    .select('numero, valorizacion_items(proyecto_item_id, pct_avance)')
-    .eq('proyecto_id', params.id)
-    .lte('numero', val.numero);
-  const acumPct = new Map<string, number>();
-  (valsHasta ?? []).forEach((v) => (v.valorizacion_items as any[] ?? []).forEach((vi) => {
-    acumPct.set(vi.proyecto_item_id, (acumPct.get(vi.proyecto_item_id) ?? 0) + Number(vi.pct_avance));
-  }));
-
-  // acumulado del proyecto hasta esta valorización
-  const { data: vals } = await supabase
-    .from('valorizaciones')
-    .select('monto_valorizado, numero, fecha_corte')
+    .select('numero, fecha_corte, valorizacion_items(proyecto_item_id, pct_avance)')
     .eq('proyecto_id', params.id)
     .lte('numero', val.numero)
     .order('numero');
-  const valorizadoAcum = (vals ?? []).reduce((a, v) => a + Number(v.monto_valorizado), 0) * factorVal;
-  const historial = (vals ?? []).map((v) => ({
-    numero: v.numero as number,
-    fecha: v.fecha_corte ? fmtDate(v.fecha_corte as string) : '—',
-    monto: Number(v.monto_valorizado) * factorVal,
-  }));
+  const costoItem = (id: string) => Number(itemById.get(id)?.total_costo ?? 0);
+  const acumPct = new Map<string, number>();
+  const historial = (valsHasta ?? []).map((v) => {
+    const filas = (v.valorizacion_items as any[]) ?? [];
+    const monto = filas.reduce((a, vi) => a + Number(vi.pct_avance) * costoItem(vi.proyecto_item_id), 0) * factorVal;
+    filas.forEach((vi) => acumPct.set(vi.proyecto_item_id, (acumPct.get(vi.proyecto_item_id) ?? 0) + Number(vi.pct_avance)));
+    return { numero: v.numero as number, fecha: v.fecha_corte ? fmtDate(v.fecha_corte as string) : '—', monto };
+  });
+  const valorizadoAcum = historial.reduce((a, h) => a + h.monto, 0);
 
   const adelantoPct = Number(proy.adelanto_pct);
-  const periodo = Number(val.monto_valorizado) * factorVal;
+  const periodo = ((val.valorizacion_items as any[]) ?? []).reduce((a, vi) => a + Number(vi.total ?? 0), 0) * factorVal;
   // Adelanto: contractual (%) + adicionales/extraordinarios; dilución proporcional.
   const { data: adels } = await supabase.from('adelantos').select('monto').eq('proyecto_id', params.id);
   const adelantoExtra = (adels ?? []).reduce((a, x) => a + Number(x.monto ?? 0), 0);
