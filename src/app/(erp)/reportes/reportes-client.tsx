@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/misc';
 import { PageHeader, KpiCard } from '@/components/ui/page';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { fmtMoney } from '@/lib/format';
+import { fmtMoney, fmtPct } from '@/lib/format';
 import { SALUD_LABEL } from '@/lib/salud';
 import type { ReportesData } from './page';
 
@@ -42,7 +42,9 @@ const fade = (i: number) => ({
 export function ReportesClient({ data }: { data: ReportesData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal } = data;
+  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas } = data;
+  const pnlUrl = (fmt: string) => `/reportes/pnl/${fmt}?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}`;
+  const gapTone = (g: number) => (g >= 0 ? 'text-emerald-600' : 'text-red-600');
   const [tareoQ, setTareoQ] = useState('');
   const [tareoExp, setTareoExp] = useState<string | null>(null);
   const tareoFiltrado = tareo.filter((t) => t.nombre.toLowerCase().includes(tareoQ.trim().toLowerCase()));
@@ -270,8 +272,87 @@ export function ReportesClient({ data }: { data: ReportesData }) {
         </Card>
       </motion.div>
 
-      {/* Tareo consolidado (todos los proyectos) */}
+      {/* Estado de resultados (P&L): utilidad real vs cotizada */}
       <motion.div {...fade(4)}>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="text-base">Estado de resultados (P&amp;L) · utilidad real vs cotizada</CardTitle>
+            <div className="flex gap-2">
+              <a href={pnlUrl('excel')}><Button variant="outline" size="sm"><FileSpreadsheet className="size-4" /> Excel</Button></a>
+              <a href={pnlUrl('pdf')} target="_blank" rel="noreferrer"><Button variant="outline" size="sm"><FileDown className="size-4" /> PDF</Button></a>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 p-4">
+            {/* Por línea de negocio */}
+            <div>
+              <p className="mb-1 text-xs font-semibold text-muted-foreground">Por línea de negocio</p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>Línea</TableHead><TableHead className="text-right">Cobrado</TableHead><TableHead className="text-right">Gastado</TableHead>
+                    <TableHead className="text-right">Utilidad real</TableHead><TableHead className="text-right">% Margen real</TableHead>
+                    <TableHead className="text-right">% Margen cot.</TableHead><TableHead className="text-right">Gap</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {pnlLineas.length === 0 ? (
+                      <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Sin datos para el filtro.</TableCell></TableRow>
+                    ) : pnlLineas.map((l) => (
+                      <TableRow key={l.linea_id}>
+                        <TableCell className="font-medium">{l.nombre} <span className="text-xs text-muted-foreground">({l.nProyectos})</span></TableCell>
+                        <TableCell className="text-right tabular-nums text-sky-600">{fmtMoney(l.cobrado)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(l.gastado)}</TableCell>
+                        <TableCell className={`text-right font-semibold tabular-nums ${l.utilReal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmtMoney(l.utilReal)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtPct(l.margenRealPct)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtPct(l.margenCotPct)}</TableCell>
+                        <TableCell className={`text-right font-medium tabular-nums ${gapTone(l.gapPct)}`}>{l.gapPct >= 0 ? '+' : ''}{fmtPct(l.gapPct)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            {/* Por proyecto */}
+            <div>
+              <p className="mb-1 text-xs font-semibold text-muted-foreground">Por proyecto</p>
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>Proyecto</TableHead><TableHead className="text-right">Cobrado</TableHead><TableHead className="text-right">Gastado</TableHead>
+                    <TableHead className="text-right">Utilidad real</TableHead><TableHead className="text-right">% Margen real</TableHead>
+                    <TableHead className="text-right">Util. cotizada</TableHead><TableHead className="text-right">% Margen cot.</TableHead><TableHead className="text-right">Gap</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {pnlProyectos.length === 0 ? (
+                      <TableRow><TableCell colSpan={8} className="text-center text-muted-foreground">Sin datos para el filtro.</TableCell></TableRow>
+                    ) : pnlProyectos.map((p) => (
+                      <TableRow key={p.id}>
+                        <TableCell className="font-medium">{p.nombre}</TableCell>
+                        <TableCell className="text-right tabular-nums text-sky-600">{fmtMoney(p.cobrado)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(p.gastado)}</TableCell>
+                        <TableCell className={`text-right font-semibold tabular-nums ${p.utilReal >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmtMoney(p.utilReal)}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtPct(p.margenRealPct)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtMoney(p.utilCotizada)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-muted-foreground">{fmtPct(p.margenCotPct)}</TableCell>
+                        <TableCell className={`text-right font-medium tabular-nums ${gapTone(p.gapPct)}`}>{p.gapPct >= 0 ? '+' : ''}{fmtPct(p.gapPct)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </div>
+
+            <p className="text-[11px] leading-relaxed text-muted-foreground">
+              <strong>Cómo se calcula:</strong> Utilidad real = Cobrado − Gastado (flujo de caja del proyecto, acumulado a la fecha).
+              Margen cotizado = (GG + GA + Utilidad) / (1 + GG + GA + Utilidad) sobre el contrato neto de IGV. Utilidad cotizada = contrato neto × margen cotizado (proyectada a fin de obra).
+              Gap = margen real − margen cotizado. Los importes son acumulados del proyecto, no del periodo.
+            </p>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Tareo consolidado (todos los proyectos) */}
+      <motion.div {...fade(5)}>
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="flex items-center gap-2 text-base"><Users className="size-4 text-azur-600" /> Tareo consolidado <Badge variant="info">{fmtMoney(tareoTotal)}</Badge></CardTitle>

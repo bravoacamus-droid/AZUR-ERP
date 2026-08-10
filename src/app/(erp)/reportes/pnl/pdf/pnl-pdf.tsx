@@ -1,0 +1,101 @@
+import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
+import { LOGO_DATA_URI } from '@/lib/brand-logo';
+import type { PnlRow, PnlLinea } from '@/lib/pnl';
+
+const AZUR = '#C02128';
+const s = StyleSheet.create({
+  page: { paddingHorizontal: 28, paddingTop: 22, paddingBottom: 42, fontSize: 8, fontFamily: 'Helvetica', color: '#1a1a1a' },
+  topbar: { height: 5, backgroundColor: AZUR, borderRadius: 2, marginBottom: 10 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderBottomWidth: 2, borderBottomColor: AZUR, paddingBottom: 10, marginBottom: 12 },
+  logoBox: { width: 46, height: 46, backgroundColor: '#fff', borderRadius: 8, padding: 3, borderWidth: 1, borderColor: '#eee' },
+  logo: { width: 40, height: 40, objectFit: 'contain' },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  brand: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: AZUR },
+  brandSub: { fontSize: 6.5, color: '#666', letterSpacing: 1.5 },
+  title: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#1a1a1a', textAlign: 'right' },
+  fecha: { fontSize: 8.5, color: '#444', textAlign: 'right', marginTop: 2, fontFamily: 'Helvetica-Bold' },
+  secWrap: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6, marginTop: 12 },
+  secBar: { width: 3.5, height: 12, backgroundColor: AZUR, borderRadius: 2 },
+  secTitle: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: AZUR },
+  thead: { flexDirection: 'row', backgroundColor: AZUR, paddingVertical: 4, paddingHorizontal: 5 },
+  th: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7 },
+  tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingVertical: 4, paddingHorizontal: 5 },
+  trAlt: { backgroundColor: '#fafafa' },
+  trTot: { flexDirection: 'row', paddingVertical: 5, paddingHorizontal: 5, backgroundColor: '#f0e6e6', borderTopWidth: 1, borderTopColor: AZUR },
+  cell: { fontSize: 7.5 },
+  nom: { width: '28%', fontFamily: 'Helvetica-Bold' },
+  num: { width: '12%', textAlign: 'right' },
+  numSm: { width: '10%', textAlign: 'right' },
+  nota: { fontSize: 7, color: '#888', marginTop: 10, lineHeight: 1.4 },
+  footer: { position: 'absolute', bottom: 20, left: 28, right: 28, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 6 },
+  footerTxt: { fontSize: 7, color: '#999' },
+});
+
+export interface PnlPdfData {
+  periodo: string; alcance: string;
+  lineas: PnlLinea[]; proyectos: PnlRow[];
+  fmtMoney: (n: number) => string; fmtPct: (n: number) => string;
+}
+
+export function PnlPDF({ d }: { d: PnlPdfData }) {
+  const M = d.fmtMoney, P = d.fmtPct;
+  const gap = (g: number) => `${g >= 0 ? '+' : ''}${P(g)}`;
+  return (
+    <Document title={`Estado de resultados — ${d.alcance}`}>
+      <Page size="A4" orientation="landscape" style={s.page}>
+        <View style={s.topbar} fixed />
+        <View style={s.header} fixed>
+          <View style={s.brandRow}>
+            <View style={s.logoBox}><Image src={LOGO_DATA_URI} style={s.logo} /></View>
+            <View><Text style={s.brand}>Azur</Text><Text style={s.brandSub}>CONSTRUCTORA E INMOBILIARIA</Text></View>
+          </View>
+          <View>
+            <Text style={s.title}>ESTADO DE RESULTADOS (P&L)</Text>
+            <Text style={s.fecha}>{d.periodo} · {d.alcance}</Text>
+          </View>
+        </View>
+
+        {/* Por línea */}
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>Por línea de negocio</Text></View>
+        <View style={s.thead}>
+          <Text style={[s.nom, s.th]}>LÍNEA</Text>
+          <Text style={[s.num, s.th]}>COBRADO</Text><Text style={[s.num, s.th]}>GASTADO</Text>
+          <Text style={[s.num, s.th]}>UTIL. REAL</Text><Text style={[s.numSm, s.th]}>% M. REAL</Text>
+          <Text style={[s.numSm, s.th]}>% M. COT.</Text><Text style={[s.numSm, s.th]}>GAP</Text>
+        </View>
+        {d.lineas.length === 0 ? <View style={s.tr}><Text style={s.cell}>Sin datos.</Text></View> : d.lineas.map((l, i) => (
+          <View key={l.linea_id} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+            <Text style={[s.cell, s.nom]}>{l.nombre} ({l.nProyectos})</Text>
+            <Text style={[s.cell, s.num]}>{M(l.cobrado)}</Text><Text style={[s.cell, s.num]}>{M(l.gastado)}</Text>
+            <Text style={[s.cell, s.num]}>{M(l.utilReal)}</Text><Text style={[s.cell, s.numSm]}>{P(l.margenRealPct)}</Text>
+            <Text style={[s.cell, s.numSm]}>{P(l.margenCotPct)}</Text><Text style={[s.cell, s.numSm]}>{gap(l.gapPct)}</Text>
+          </View>
+        ))}
+
+        {/* Por proyecto */}
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>Por proyecto</Text></View>
+        <View style={s.thead}>
+          <Text style={[s.nom, s.th]}>PROYECTO</Text>
+          <Text style={[s.numSm, s.th]}>COBRADO</Text><Text style={[s.numSm, s.th]}>GASTADO</Text>
+          <Text style={[s.numSm, s.th]}>UTIL. REAL</Text><Text style={[s.numSm, s.th]}>% M. REAL</Text>
+          <Text style={[s.numSm, s.th]}>UTIL. COT.</Text><Text style={[s.numSm, s.th]}>% M. COT.</Text><Text style={[s.numSm, s.th]}>GAP</Text>
+        </View>
+        {d.proyectos.length === 0 ? <View style={s.tr}><Text style={s.cell}>Sin datos.</Text></View> : d.proyectos.map((p, i) => (
+          <View key={p.id} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+            <Text style={[s.cell, s.nom]}>{p.nombre}</Text>
+            <Text style={[s.cell, s.numSm]}>{M(p.cobrado)}</Text><Text style={[s.cell, s.numSm]}>{M(p.gastado)}</Text>
+            <Text style={[s.cell, s.numSm]}>{M(p.utilReal)}</Text><Text style={[s.cell, s.numSm]}>{P(p.margenRealPct)}</Text>
+            <Text style={[s.cell, s.numSm]}>{M(p.utilCotizada)}</Text><Text style={[s.cell, s.numSm]}>{P(p.margenCotPct)}</Text><Text style={[s.cell, s.numSm]}>{gap(p.gapPct)}</Text>
+          </View>
+        ))}
+
+        <Text style={s.nota}>Utilidad real = Cobrado − Gastado (flujo de caja del proyecto, acumulado a la fecha). Margen cotizado = (GG + GA + Utilidad) / (1 + GG + GA + Utilidad) sobre el contrato neto de IGV. Utilidad cotizada = contrato neto × margen cotizado (proyectada a fin de obra). Gap = margen real − margen cotizado.</Text>
+
+        <View style={s.footer} fixed>
+          <Text style={s.footerTxt}>Azur Constructora e Inmobiliaria | Estado de resultados</Text>
+          <Text style={s.footerTxt} render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`} />
+        </View>
+      </Page>
+    </Document>
+  );
+}

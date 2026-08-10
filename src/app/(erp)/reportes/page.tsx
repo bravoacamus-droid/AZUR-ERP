@@ -3,6 +3,7 @@ import { requireModulo } from '@/lib/auth';
 import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { saludGlobal, type DashboardProyecto } from '@/lib/salud';
 import { montoDia } from '@/lib/tareo';
+import { pnlProyecto, agruparPnlPorLinea, type PnlRow, type PnlLinea } from '@/lib/pnl';
 import { ReportesClient } from './reportes-client';
 
 export const dynamic = 'force-dynamic';
@@ -20,6 +21,8 @@ export interface ReportesData {
   proyectos: { proyecto_id: string; codigo: string | null; nombre: string; proyectado: number; pagos: number; gasto: number; valorizado: number; salud: string }[];
   tareo: { nombre: string; dias: number; horas: number; extra: number; monto: number; correcciones: number; proyectos: { nombre: string; dias: number; horas: number; monto: number }[] }[];
   tareoTotal: number;
+  pnlProyectos: PnlRow[];
+  pnlLineas: PnlLinea[];
 }
 
 function desdeDe(periodo: string): Date | null {
@@ -46,7 +49,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   const [{ data: dashRaw }, { data: lineasRaw }, { data: proyRaw }] = await Promise.all([
     supabase.from('v_dashboard_proyecto').select('*'),
     supabase.from('lineas_negocio').select('id, nombre, color').order('nombre'),
-    supabase.from('proyectos').select('id, nombre, linea_id').order('nombre'),
+    supabase.from('proyectos').select('id, nombre, linea_id, gg_pct, ga_pct, utilidad_pct, igv_pct').order('nombre'),
   ]);
 
   const proyByLinea = (proyRaw ?? []).filter((p) => !linea || p.linea_id === linea);
@@ -119,6 +122,14 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     })
     .filter((l) => l.proyectado || l.pagos || l.gasto);
 
+  // Estado de resultados (P&L): utilidad real (cobrado − gastado) vs cotizada, acumulado.
+  const margenMap = new Map((proyRaw ?? []).map((p) => [p.id, p]));
+  const pnlProyectos: PnlRow[] = dash.map((d) => pnlProyecto(
+    { proyecto_id: d.proyecto_id, codigo: d.codigo, nombre: d.nombre, linea_id: d.linea_id, proyectado: d.proyectado, pagos: d.pagos, gasto: d.gasto },
+    margenMap.get(d.proyecto_id),
+  )).sort((a, b) => b.cobrado - a.cobrado);
+  const pnlLineas: PnlLinea[] = agruparPnlPorLinea(pnlProyectos, (lineasRaw ?? []).map((l) => ({ id: l.id, nombre: l.nombre, color: l.color })));
+
   const data: ReportesData = {
     filtros: { periodo, proyecto, linea },
     proyectosLista: (proyRaw ?? []).map((p) => ({ id: p.id, nombre: p.nombre })),
@@ -130,6 +141,8 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     proyectos: dash.map((p) => ({ proyecto_id: p.proyecto_id, codigo: p.codigo, nombre: p.nombre, proyectado: p.proyectado, pagos: p.pagos, gasto: p.gasto, valorizado: p.valorizado, salud: saludGlobal(p) })),
     tareo,
     tareoTotal,
+    pnlProyectos,
+    pnlLineas,
   };
 
   return <ReportesClient data={data} />;
