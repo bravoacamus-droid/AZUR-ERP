@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Trash2, Loader2, ClipboardList } from 'lucide-react';
+import { Plus, Trash2, Loader2, ClipboardList, ImagePlus } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,6 +16,8 @@ import { optimizarImagen } from '@/lib/img';
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
 type FotoExistente = { id: string; url: string };
+type FotoNueva = { file: File; descripcion: string; preview: string };
+const MAX_FOTOS = 20;
 
 type Actividad = {
   descripcion: string;
@@ -67,16 +69,38 @@ export function RdoForm({
       : [nuevaActividad()],
   );
   const [fotosPrev, setFotosPrev] = useState<FotoExistente[]>(inicial?.fotos ?? []);
-  const [fotos, setFotos] = useState<File[]>([]);
+  const [fotos, setFotos] = useState<FotoNueva[]>([]);
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const partidasProyecto = partidas.filter((p) => p.proyecto_id === proyectoId);
+  const totalFotos = fotosPrev.length + fotos.length;
+
+  // Libera las URLs de vista previa solo al desmontar (evita fugas sin romper las visibles).
+  const fotosRef = useRef<FotoNueva[]>([]);
+  fotosRef.current = fotos;
+  useEffect(() => () => { fotosRef.current.forEach((f) => URL.revokeObjectURL(f.preview)); }, []);
 
   async function quitarFotoPrev(id: string) {
     const r = await eliminarFotoRdo(id);
     if (r.ok) setFotosPrev((f) => f.filter((x) => x.id !== id));
     else setMsg({ type: 'err', text: r.error ?? 'No se pudo eliminar la foto.' });
+  }
+
+  // Acumula las fotos seleccionadas (no reemplaza), respetando el tope de 20.
+  function agregarFotos(files: File[]) {
+    setMsg(null);
+    const espacio = MAX_FOTOS - totalFotos;
+    if (espacio <= 0) { setMsg({ type: 'err', text: `Máximo ${MAX_FOTOS} fotos por reporte.` }); return; }
+    const tomar = files.slice(0, espacio);
+    setFotos((f) => [...f, ...tomar.map((file) => ({ file, descripcion: '', preview: URL.createObjectURL(file) }))]);
+    if (files.length > espacio) setMsg({ type: 'err', text: `Solo se agregaron ${espacio}; el máximo es ${MAX_FOTOS} por reporte.` });
+  }
+  function quitarFotoNueva(i: number) {
+    setFotos((arr) => { const x = arr[i]; if (x) URL.revokeObjectURL(x.preview); return arr.filter((_, idx) => idx !== i); });
+  }
+  function setDescNueva(i: number, v: string) {
+    setFotos((arr) => arr.map((f, idx) => (idx === i ? { ...f, descripcion: v } : f)));
   }
 
   function setActividad(i: number, patch: Partial<Actividad>) {
@@ -113,22 +137,23 @@ export function RdoForm({
 
     function limpiar() {
       setClima(''); setJornada(''); setProgramacion(''); setPersonal(''); setEquipos(''); setMateriales('');
-      setObservaciones(''); setIncidencias(''); setActividades([nuevaActividad()]); setFotos([]);
+      setObservaciones(''); setIncidencias(''); setActividades([nuevaActividad()]);
+      fotos.forEach((f) => URL.revokeObjectURL(f.preview)); setFotos([]);
     }
 
-    // Sube las fotos al bucket y las registra en el reporte recién creado.
+    // Sube las fotos al bucket y las registra en el reporte, con su descripción.
     async function subirFotos(rdoId: string) {
       if (!fotos.length) return;
       const supabase = createClient();
-      const subidas: { url: string }[] = [];
-      for (const original of fotos) {
-        const file = await optimizarImagen(original); // HEIC→JPEG + comprime
+      const subidas: { url: string; descripcion?: string }[] = [];
+      for (let i = 0; i < fotos.length; i++) {
+        const file = await optimizarImagen(fotos[i].file); // HEIC→JPEG + comprime
         const safe = file.name.replace(/[^\w.\-]/g, '_');
-        const path = `${proyectoId}/${Date.now()}-${safe}`;
+        const path = `${proyectoId}/${Date.now()}-${i}-${safe}`;
         const { error } = await supabase.storage.from('evidencias').upload(path, file, { cacheControl: '3600', upsert: false });
         if (error) continue;
         const { data: { publicUrl } } = supabase.storage.from('evidencias').getPublicUrl(path);
-        subidas.push({ url: publicUrl });
+        subidas.push({ url: publicUrl, descripcion: fotos[i].descripcion.trim() || undefined });
       }
       if (subidas.length) await adjuntarFotosRdo(rdoId, proyectoId, subidas);
     }
@@ -306,7 +331,7 @@ export function RdoForm({
         <Textarea value={incidencias} onChange={(e) => setIncidencias(e.target.value)} />
       </Field>
 
-      <Field label="Fotos de respaldo">
+      <Field label={`Fotos de respaldo (${totalFotos}/${MAX_FOTOS})`}>
         {fotosPrev.length > 0 && (
           <div className="mb-2 grid grid-cols-3 gap-2">
             {fotosPrev.map((f) => (
@@ -320,14 +345,41 @@ export function RdoForm({
             ))}
           </div>
         )}
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => setFotos(Array.from(e.target.files ?? []))}
-          className="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-azur-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-azur-600"
-        />
-        {fotos.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{fotos.length} foto(s) nueva(s). Se subirán al guardar (requiere conexión).</p>}
+
+        {/* Fotos nuevas: miniatura + descripción por foto + quitar. */}
+        {fotos.length > 0 && (
+          <div className="mb-2 space-y-2">
+            {fotos.map((f, i) => (
+              <div key={i} className="flex items-start gap-2 rounded-xl border bg-secondary/20 p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={f.preview} alt={`foto ${i + 1}`} className="size-16 shrink-0 rounded-lg object-cover" />
+                <Input
+                  value={f.descripcion}
+                  onChange={(e) => setDescNueva(i, e.target.value)}
+                  placeholder="Descripción (opcional)"
+                  className="flex-1"
+                />
+                <Button type="button" variant="ghost" size="icon" onClick={() => quitarFotoNueva(i)} aria-label="Quitar foto">
+                  <Trash2 className="size-4 text-azur-600" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-dashed border-azur-200 bg-azur-50/40 py-3 text-sm font-medium text-azur-600 ${totalFotos >= MAX_FOTOS ? 'pointer-events-none opacity-50' : 'active:scale-[0.99]'}`}>
+          <ImagePlus className="size-4" />
+          {totalFotos >= MAX_FOTOS ? `Límite de ${MAX_FOTOS} fotos` : (fotos.length || fotosPrev.length ? 'Agregar más fotos' : 'Agregar fotos de la galería')}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            disabled={totalFotos >= MAX_FOTOS}
+            onChange={(e) => { agregarFotos(Array.from(e.target.files ?? [])); e.target.value = ''; }}
+            className="hidden"
+          />
+        </label>
+        {fotos.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{fotos.length} foto(s) nueva(s). Se suben al guardar (requiere conexión).</p>}
       </Field>
 
       <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>
