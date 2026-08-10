@@ -49,8 +49,10 @@ export const PWA_NAV: NavItem[] = [
   { href: '/campo', label: 'Inicio', icon: 'Home', roles: ['gerencia', 'jefe_proyectos', 'residente', 'prevencionista', 'logistico'] },
   { href: '/campo/rdo', label: 'Reporte', icon: 'ClipboardList', roles: ['gerencia', 'jefe_proyectos', 'residente'] },
   { href: '/campo/solicitudes', label: 'Pagos', icon: 'Receipt', roles: ['gerencia', 'jefe_proyectos', 'residente', 'logistico'] },
-  { href: '/campo/sst', label: 'SST', icon: 'ShieldCheck', roles: ['gerencia', 'jefe_proyectos', 'prevencionista', 'residente'] },
+  { href: '/campo/tareo', label: 'Tareo', icon: 'Users', roles: ['gerencia', 'jefe_proyectos', 'residente'] },
   { href: '/campo/almacen', label: 'Almacén', icon: 'Package', roles: ['gerencia', 'logistico', 'residente'] },
+  // SST sale de la barra inferior (queda en el panel de inicio, ver campo/page.tsx).
+  { href: '/campo/sst', label: 'SST', icon: 'ShieldCheck', roles: ['prevencionista'] },
 ];
 
 export function navForRol(rol: Rol) {

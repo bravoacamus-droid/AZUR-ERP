@@ -6,11 +6,12 @@ import { CheckIn } from './checkin';
 
 export const dynamic = 'force-dynamic';
 
+// Orden de accesos rápidos definido con el cliente (reunión 6).
 const ACCIONES = [
   { href: '/campo/rdo', label: 'Reporte diario', icon: ClipboardList, color: 'bg-sky-50 text-sky-600' },
-  { href: '/campo/tareo', label: 'Tareo de cuadrilla', icon: Users, color: 'bg-indigo-50 text-indigo-600' },
   { href: '/campo/solicitudes', label: 'Solicitud de pago', icon: Receipt, color: 'bg-emerald-50 text-emerald-600' },
   { href: '/campo/evidencias', label: 'Evidencias', icon: Camera, color: 'bg-violet-50 text-violet-600' },
+  { href: '/campo/tareo', label: 'Tareo de cuadrilla', icon: Users, color: 'bg-indigo-50 text-indigo-600' },
   { href: '/campo/sst', label: 'Seguridad (SST)', icon: ShieldCheck, color: 'bg-amber-50 text-amber-600' },
   { href: '/campo/almacen', label: 'Almacén', icon: Package, color: 'bg-azur-50 text-azur-600' },
 ];
