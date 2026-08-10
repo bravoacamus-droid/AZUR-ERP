@@ -1,13 +1,13 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useTransition } from 'react';
+import { useTransition, useState, Fragment } from 'react';
 import { motion } from 'framer-motion';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList,
 } from 'recharts';
-import { Download, TrendingUp, TrendingDown, Wallet, HardHat, Loader2, FileSpreadsheet } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, Wallet, HardHat, Loader2, FileSpreadsheet, Users, Search, FileDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
@@ -42,7 +42,11 @@ const fade = (i: number) => ({
 export function ReportesClient({ data }: { data: ReportesData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos } = data;
+  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal } = data;
+  const [tareoQ, setTareoQ] = useState('');
+  const [tareoExp, setTareoExp] = useState<string | null>(null);
+  const tareoFiltrado = tareo.filter((t) => t.nombre.toLowerCase().includes(tareoQ.trim().toLowerCase()));
+  const tareoPdfUrl = `/reportes/tareo/pdf?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}`;
 
   function setFiltro(patch: Partial<typeof filtros>) {
     const next = { ...filtros, ...patch };
@@ -261,6 +265,69 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                   ))}
                 </TableBody>
               </Table>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Tareo consolidado (todos los proyectos) */}
+      <motion.div {...fade(4)}>
+        <Card>
+          <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
+            <CardTitle className="flex items-center gap-2 text-base"><Users className="size-4 text-azur-600" /> Tareo consolidado <Badge variant="info">{fmtMoney(tareoTotal)}</Badge></CardTitle>
+            <a href={tareoPdfUrl} target="_blank" rel="noreferrer">
+              <Button variant="outline" size="sm"><FileDown className="size-4" /> PDF</Button>
+            </a>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="px-4 pb-2">
+              <div className="relative max-w-xs">
+                <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+                <input value={tareoQ} onChange={(e) => setTareoQ(e.target.value)} placeholder="Buscar trabajador…" className="w-full rounded-lg border bg-white py-2 pl-9 pr-3 text-sm" />
+              </div>
+            </div>
+            {tareoFiltrado.length === 0 ? (
+              <div className="p-6"><EmptyState titulo="Sin tareo en el filtro" descripcion="Aparece el tareo aprobado/pagado del periodo, en todos los proyectos." /></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader><TableRow>
+                    <TableHead>Trabajador</TableHead><TableHead className="text-right">Días</TableHead><TableHead className="text-right">Horas</TableHead>
+                    <TableHead className="text-right">Extra</TableHead><TableHead className="text-right">Monto</TableHead>
+                  </TableRow></TableHeader>
+                  <TableBody>
+                    {tareoFiltrado.map((t, i) => (
+                      <Fragment key={i}>
+                        <TableRow>
+                          <TableCell>
+                            <button className="text-left font-medium hover:text-azur-600" onClick={() => setTareoExp(tareoExp === t.nombre ? null : t.nombre)}>{t.nombre}</button>
+                            {t.proyectos.length > 1 && <span className="ml-1 text-xs text-muted-foreground">({t.proyectos.length} proyectos)</span>}
+                            {t.correcciones > 0 && <Badge variant="warning" className="ml-1.5 text-[10px]">+{t.correcciones} corr.</Badge>}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{t.dias}</TableCell>
+                          <TableCell className="text-right tabular-nums">{t.horas}</TableCell>
+                          <TableCell className="text-right tabular-nums text-amber-600">{t.extra || '—'}</TableCell>
+                          <TableCell className="text-right font-semibold tabular-nums">{fmtMoney(t.monto)}</TableCell>
+                        </TableRow>
+                        {tareoExp === t.nombre && (
+                          <TableRow>
+                            <TableCell colSpan={5} className="bg-muted/30">
+                              <div className="space-y-1 py-1">
+                                {t.proyectos.map((p, j) => (
+                                  <div key={j} className="flex items-center justify-between text-xs">
+                                    <span className="text-muted-foreground">{p.nombre}</span>
+                                    <span className="tabular-nums">{p.dias} día(s) · {p.horas} h · <strong>{fmtMoney(p.monto)}</strong></span>
+                                  </div>
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
             )}
           </CardContent>
         </Card>

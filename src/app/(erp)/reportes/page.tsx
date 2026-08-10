@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
 import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { saludGlobal, type DashboardProyecto } from '@/lib/salud';
+import { montoDia } from '@/lib/tareo';
 import { ReportesClient } from './reportes-client';
 
 export const dynamic = 'force-dynamic';
@@ -17,6 +18,8 @@ export interface ReportesData {
   lineas: { nombre: string; color: string; proyectado: number; pagos: number; gasto: number }[];
   categorias: { tipo: string; label: string; monto: number; proyectado: number }[];
   proyectos: { proyecto_id: string; codigo: string | null; nombre: string; proyectado: number; pagos: number; gasto: number; valorizado: number; salud: string }[];
+  tareo: { nombre: string; dias: number; horas: number; extra: number; monto: number; correcciones: number; proyectos: { nombre: string; dias: number; horas: number; monto: number }[] }[];
+  tareoTotal: number;
 }
 
 function desdeDe(periodo: string): Date | null {
@@ -54,12 +57,33 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   let qAbonos = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
   let qSols = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
   let qPtg = supabase.from('presupuesto_tipo_gasto').select('tipo, monto_proyectado, proyecto_id');
-  if (desdeISO) { qAbonos = qAbonos.gte('fecha', desdeISO); qSols = qSols.gte('pagado_at', desdeISO); }
+  // Tareo consolidado (todos los proyectos): jornales aprobados/pagados del periodo.
+  let qTareo = (supabase as unknown as { from: (t: string) => any }).from('tareo')
+    .select('trabajador_id, trabajador_nombre, presente, horas, horas_extra, jornal_semana, fecha, es_correccion, proyecto:proyectos(nombre)')
+    .in('estado', ['aprobado', 'pagado']);
+  if (desdeISO) { qAbonos = qAbonos.gte('fecha', desdeISO); qSols = qSols.gte('pagado_at', desdeISO); qTareo = qTareo.gte('fecha', desdeISO); }
   if (proyIds) {
     const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000'];
-    qAbonos = qAbonos.in('proyecto_id', ids); qSols = qSols.in('proyecto_id', ids); qPtg = qPtg.in('proyecto_id', ids);
+    qAbonos = qAbonos.in('proyecto_id', ids); qSols = qSols.in('proyecto_id', ids); qPtg = qPtg.in('proyecto_id', ids); qTareo = qTareo.in('proyecto_id', ids);
   }
-  const [{ data: abonos }, { data: sols }, { data: ptg }] = await Promise.all([qAbonos, qSols, qPtg]);
+  const [{ data: abonos }, { data: sols }, { data: ptg }, { data: tareoRows }] = await Promise.all([qAbonos, qSols, qPtg, qTareo]);
+
+  // Consolidación de tareo por trabajador (con desglose por proyecto).
+  const tareoMap = new Map<string, any>();
+  (tareoRows ?? []).forEach((r: any) => {
+    if (!r.presente) return;
+    const key = r.trabajador_id || `n:${r.trabajador_nombre}`;
+    const h = Number(r.horas ?? 0), e = Number(r.horas_extra ?? 0);
+    const monto = montoDia(Number(r.jornal_semana ?? 0), h, e);
+    const t = tareoMap.get(key) ?? { nombre: r.trabajador_nombre, dias: 0, horas: 0, extra: 0, monto: 0, correcciones: 0, proyectos: new Map<string, any>() };
+    t.dias += 1; t.horas += h; t.extra += e; t.monto += monto; if (r.es_correccion) t.correcciones += 1;
+    const pn = r.proyecto?.nombre ?? 'Proyecto';
+    const pr = t.proyectos.get(pn) ?? { nombre: pn, dias: 0, horas: 0, monto: 0 };
+    pr.dias += 1; pr.horas += h; pr.monto += monto; t.proyectos.set(pn, pr);
+    tareoMap.set(key, t);
+  });
+  const tareo = [...tareoMap.values()].map((t) => ({ ...t, proyectos: [...t.proyectos.values()] })).sort((a, b) => b.monto - a.monto);
+  const tareoTotal = tareo.reduce((a, t) => a + t.monto, 0);
 
   // lunes de la semana de una fecha (para el bucket semanal, #10)
   const lunesDe = (s: string) => { const d = new Date(s.slice(0, 10) + 'T00:00:00'); const g = d.getDay(); d.setDate(d.getDate() + (g === 0 ? -6 : 1 - g)); return d.toISOString().slice(0, 10); };
@@ -104,6 +128,8 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     lineas: lineasResultado,
     categorias,
     proyectos: dash.map((p) => ({ proyecto_id: p.proyecto_id, codigo: p.codigo, nombre: p.nombre, proyectado: p.proyectado, pagos: p.pagos, gasto: p.gasto, valorizado: p.valorizado, salud: saludGlobal(p) })),
+    tareo,
+    tareoTotal,
   };
 
   return <ReportesClient data={data} />;
