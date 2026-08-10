@@ -55,6 +55,15 @@ export async function GET(req: Request, { params }: { params: { id: string; valI
   const codigos = renumerar(armarArbol((allItems ?? []) as never) as never);
   const itemById = new Map((allItems ?? []).map((i) => [i.id, i]));
 
+  // Base de valorización. En modo "precio" el contrato es el precio de venta,
+  // pero los montos guardados (monto_valorizado, valorizacion_items.total) están
+  // en COSTO. factorVal escala costo→precio; se aplica tanto a las filas (fCli)
+  // como a los montos acumulados para que todo el PDF quede en las mismas unidades.
+  const contrato = Number(proy.contrato_total);
+  const costoDirecto = (allItems ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? 0) : 0), 0);
+  const esPrecio = proy.base_valorizacion === 'precio';
+  const factorVal = esPrecio && costoDirecto > 0 ? contrato / costoDirecto : 1;
+
   // % acumulado por ítem hasta esta valorización (inclusive)
   const { data: valsHasta } = await supabase
     .from('valorizaciones')
@@ -73,16 +82,15 @@ export async function GET(req: Request, { params }: { params: { id: string; valI
     .eq('proyecto_id', params.id)
     .lte('numero', val.numero)
     .order('numero');
-  const valorizadoAcum = (vals ?? []).reduce((a, v) => a + Number(v.monto_valorizado), 0);
+  const valorizadoAcum = (vals ?? []).reduce((a, v) => a + Number(v.monto_valorizado), 0) * factorVal;
   const historial = (vals ?? []).map((v) => ({
     numero: v.numero as number,
     fecha: v.fecha_corte ? fmtDate(v.fecha_corte as string) : '—',
-    monto: Number(v.monto_valorizado),
+    monto: Number(v.monto_valorizado) * factorVal,
   }));
 
-  const contrato = Number(proy.contrato_total);
   const adelantoPct = Number(proy.adelanto_pct);
-  const periodo = Number(val.monto_valorizado);
+  const periodo = Number(val.monto_valorizado) * factorVal;
   // Adelanto: contractual (%) + adicionales/extraordinarios; dilución proporcional.
   const { data: adels } = await supabase.from('adelantos').select('monto').eq('proyecto_id', params.id);
   const adelantoExtra = (adels ?? []).reduce((a, x) => a + Number(x.monto ?? 0), 0);
@@ -98,11 +106,6 @@ export async function GET(req: Request, { params }: { params: { id: string; valI
     .select('banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion, mostrar_valorizacion')
     .eq('mostrar_valorizacion', true)
     .order('orden');
-
-  // base de valorización: costo o precio (factor = contrato / costo directo)
-  const costoDirecto = (allItems ?? []).reduce((a, i) => a + (i.es_hoja ? Number(i.total_costo ?? 0) : 0), 0);
-  const esPrecio = proy.base_valorizacion === 'precio';
-  const factorVal = esPrecio && costoDirecto > 0 ? contrato / costoDirecto : 1;
 
   // Opción "sin impuestos": ?igv=0 emite la valorización con los montos netos de IGV.
   const ggPct = Number(proy.gg_pct ?? 0), gaPct = Number(proy.ga_pct ?? 0), utilPct = Number(proy.utilidad_pct ?? 0), igvPct = Number(proy.igv_pct ?? 0);

@@ -153,7 +153,7 @@ export function ValorizacionPDF({ d }: { d: ValPdfData }) {
           <View style={s.desgWrap} wrap={false}>
             {d.desglose ? (
               <>
-                <View style={s.desgRow}><Text style={s.resK}>Subtotal (con margen)</Text><Text style={s.resV}>{fmtMoney(d.desglose.subtotal)}</Text></View>
+                <View style={s.desgRow}><Text style={s.resK}>Subtotal</Text><Text style={s.resV}>{fmtMoney(d.desglose.subtotal)}</Text></View>
                 {d.desglose.ggPct > 0 && <View style={[s.desgRow, s.resAlt]}><Text style={s.resK}>Gastos generales ({fmtNumber(d.desglose.ggPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.desglose.gg)}</Text></View>}
                 {d.desglose.gaPct > 0 && <View style={s.desgRow}><Text style={s.resK}>Gastos administrativos ({fmtNumber(d.desglose.gaPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.desglose.ga)}</Text></View>}
                 {d.desglose.utilPct > 0 && <View style={[s.desgRow, s.resAlt]}><Text style={s.resK}>Utilidad ({fmtNumber(d.desglose.utilPct * 100, 0)}%)</Text><Text style={s.resV}>{fmtMoney(d.desglose.util)}</Text></View>}
