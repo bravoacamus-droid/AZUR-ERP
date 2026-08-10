@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   CheckCircle2, XCircle, CalendarClock, Banknote, MessageCircle, FilePlus,
-  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye, Loader2, Pencil, Trash2,
+  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye, Loader2, Pencil, Trash2, Undo2,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,7 +26,7 @@ import {
   guardarCategoria, eliminarCategoria, validarProveedor,
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
-import { actualizarTarifaTrabajador, marcarTareoPagado } from '@/app/(pwa)/campo/tareo/actions';
+import { actualizarTarifaTrabajador, marcarTareoPagado, rechazarJornal } from '@/app/(pwa)/campo/tareo/actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -79,6 +79,14 @@ function Jornales({ rol, jornales, total }: any) {
     setBusy(null);
     if (!r.ok) alert(r.error); else router.refresh();
   }
+  async function devolver(j: any) {
+    const motivo = window.prompt(`Devolver el jornal de ${j.nombre} al residente y jefe para corregir.\nMotivo (opcional):`);
+    if (motivo === null) return; // canceló
+    setBusy(j.key);
+    const r = await rechazarJornal(j.ids, motivo || undefined);
+    setBusy(null);
+    if (!r.ok) alert(r.error); else router.refresh();
+  }
 
   if (!jornales.length) return <EmptyState titulo="Sin jornales por pagar" descripcion="Aquí aparece el tareo aprobado por el jefe de proyectos, consolidado por persona." />;
 
@@ -127,7 +135,12 @@ function Jornales({ rol, jornales, total }: any) {
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">{fmtMoney(j.monto)}</TableCell>
                     <TableCell className="text-right">
-                      {puedePagar && <Button size="sm" variant="outline" disabled={busy === j.key} onClick={() => pagar(j)}><HandCoins className="size-3.5" /> Pagar</Button>}
+                      {puedePagar && (
+                        <span className="flex items-center justify-end gap-1">
+                          <Button size="sm" variant="ghost" disabled={busy === j.key} onClick={() => devolver(j)} title="Devolver al residente y jefe para corregir"><Undo2 className="size-3.5" /></Button>
+                          <Button size="sm" variant="outline" disabled={busy === j.key} onClick={() => pagar(j)}><HandCoins className="size-3.5" /> Pagar</Button>
+                        </span>
+                      )}
                     </TableCell>
                   </TableRow>
                   {exp === j.key && (

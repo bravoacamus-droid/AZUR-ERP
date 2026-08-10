@@ -126,6 +126,20 @@ export async function enviarTareo(proyectoId: string, desde: string, hasta: stri
   return { ok: true };
 }
 
+// El jefe de proyectos edita una fila del tareo antes de aprobarla
+// (mientras esté en 'registrado' o 'enviado'). El residente edita desde la app.
+export async function editarTareoFila(id: string, presente: boolean, horas: number | null, horasExtra: number | null): Promise<Res> {
+  const session = await requireSession();
+  if (session.rol !== 'jefe_proyectos' && session.rol !== 'gerencia') return { ok: false, error: 'Solo el jefe de proyectos o gerencia pueden editar el tareo aquí' };
+  const supabase = createClient() as any;
+  const { data, error } = await supabase.from('tareo')
+    .update({ presente, horas: horas ?? null, horas_extra: horasExtra ?? null })
+    .eq('id', id).in('estado', ['registrado', 'enviado']).select('proyecto_id').single();
+  if (error) return { ok: false, error: error.message };
+  if (data?.proyecto_id) revalidatePath(`/proyectos/${data.proyecto_id}`);
+  return { ok: true };
+}
+
 // Jefe de proyectos aprueba (o devuelve) el tareo enviado de un rango.
 export async function revisarTareo(proyectoId: string, desde: string, hasta: string, aprobado: boolean): Promise<Res> {
   const session = await requireSession();
@@ -159,5 +173,33 @@ export async function marcarTareoPagado(ids: string[]): Promise<Res> {
   const { error } = await supabase.from('tareo').update({ estado: 'pagado' }).in('id', ids);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/finanzas');
+  return { ok: true };
+}
+
+// Finanzas devuelve un jornal aprobado (aún no pagado): vuelve a 'registrado'
+// para que el residente lo corrija y el jefe lo vuelva a aprobar.
+export async function rechazarJornal(ids: string[], motivo?: string): Promise<Res> {
+  const session = await requireSession();
+  if (session.rol !== 'administrador' && session.rol !== 'gerencia') return { ok: false, error: 'Solo administración o gerencia' };
+  if (!ids.length) return { ok: true };
+  const supabase = createClient() as any;
+  const { data: filas, error } = await supabase.from('tareo')
+    .update({ estado: 'registrado', revisado_by: null, revisado_at: null })
+    .in('id', ids).eq('estado', 'aprobado').select('proyecto_id, created_by');
+  if (error) return { ok: false, error: error.message };
+
+  // Avisa al residente que registró y al jefe/gerencia del proyecto.
+  const proyectoId = filas?.[0]?.proyecto_id as string | undefined;
+  const autores = [...new Set((filas ?? []).map((f: any) => f.created_by).filter(Boolean))] as string[];
+  const admin = createAdminClient();
+  const { data: proy } = proyectoId ? await admin.from('proyectos').select('nombre').eq('id', proyectoId).single() : { data: null };
+  const payload = { title: 'Jornal devuelto por finanzas', body: `${session.nombre} devolvió el tareo de ${proy?.nombre ?? 'un proyecto'}${motivo ? `: ${motivo}` : ''}`, url: proyectoId ? `/proyectos/${proyectoId}` : '/campo/tareo', tag: 'tareo' };
+  autores.forEach((id) => notifyUser(id, payload, 'tareo'));
+  if (proyectoId) {
+    const { data: equipo } = await admin.from('proyecto_equipo').select('profile:profiles(id, rol)').eq('proyecto_id', proyectoId);
+    (equipo ?? []).map((e: any) => e.profile).filter((p: any) => p?.rol === 'jefe_proyectos').forEach((j: any) => j && notifyUser(j.id, payload, 'tareo'));
+  }
+  revalidatePath('/finanzas');
+  if (proyectoId) revalidatePath(`/proyectos/${proyectoId}`);
   return { ok: true };
 }
