@@ -3,7 +3,7 @@ import { requireModulo } from '@/lib/auth';
 import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { saludGlobal, type DashboardProyecto } from '@/lib/salud';
 import { montoDia } from '@/lib/tareo';
-import { pnlProyecto, agruparPnlPorLinea, type PnlRow, type PnlLinea } from '@/lib/pnl';
+import { pnlProyecto, agruparPnlPorLinea, pnlMensual, type PnlRow, type PnlLinea, type PnlMensual } from '@/lib/pnl';
 import { ReportesClient } from './reportes-client';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +23,7 @@ export interface ReportesData {
   tareoTotal: number;
   pnlProyectos: PnlRow[];
   pnlLineas: PnlLinea[];
+  pnlPorMes: PnlMensual;
 }
 
 function desdeDe(periodo: string): Date | null {
@@ -130,6 +131,10 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   )).sort((a, b) => b.cobrado - a.cobrado);
   const pnlLineas: PnlLinea[] = agruparPnlPorLinea(pnlProyectos, (lineasRaw ?? []).map((l) => ({ id: l.id, nombre: l.nombre, color: l.color })));
 
+  // Estado de resultados por línea/mes (base caja: cobrado − gastado del mes).
+  const proyLinea = new Map<string, string | null>((proyRaw ?? []).map((p) => [p.id, p.linea_id]));
+  const pnlPorMes: PnlMensual = pnlMensual(abonos ?? [], (sols ?? []).map((s) => ({ monto: s.monto, pagado_at: s.pagado_at, proyecto_id: s.proyecto_id, linea_id: s.linea_id })), proyLinea, (lineasRaw ?? []).map((l) => ({ id: l.id, nombre: l.nombre })));
+
   const data: ReportesData = {
     filtros: { periodo, proyecto, linea },
     proyectosLista: (proyRaw ?? []).map((p) => ({ id: p.id, nombre: p.nombre })),
@@ -143,6 +148,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     tareoTotal,
     pnlProyectos,
     pnlLineas,
+    pnlPorMes,
   };
 
   return <ReportesClient data={data} />;

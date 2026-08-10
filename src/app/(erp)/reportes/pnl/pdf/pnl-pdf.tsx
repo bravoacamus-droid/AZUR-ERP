@@ -1,6 +1,6 @@
 import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
-import type { PnlRow, PnlLinea } from '@/lib/pnl';
+import type { PnlRow, PnlLinea, PnlMensual } from '@/lib/pnl';
 
 const AZUR = '#C02128';
 const s = StyleSheet.create({
@@ -33,7 +33,7 @@ const s = StyleSheet.create({
 
 export interface PnlPdfData {
   periodo: string; alcance: string;
-  lineas: PnlLinea[]; proyectos: PnlRow[];
+  lineas: PnlLinea[]; proyectos: PnlRow[]; mensual: PnlMensual;
   fmtMoney: (n: number) => string; fmtPct: (n: number) => string;
 }
 
@@ -89,7 +89,35 @@ export function PnlPDF({ d }: { d: PnlPdfData }) {
           </View>
         ))}
 
-        <Text style={s.nota}>Utilidad real = Cobrado − Gastado (flujo de caja del proyecto, acumulado a la fecha). Margen cotizado = (GG + GA + Utilidad) / (1 + GG + GA + Utilidad) sobre el contrato neto de IGV. Utilidad cotizada = contrato neto × margen cotizado (proyectada a fin de obra). Gap = margen real − margen cotizado.</Text>
+        {/* Por línea / mes (base caja) */}
+        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>Por línea / mes (base caja: cobrado − gastado)</Text></View>
+        <View style={s.thead}>
+          <Text style={[{ width: '16%' }, s.th]}>MES</Text>
+          <Text style={[{ width: '16%', textAlign: 'right' }, s.th]}>COBRADO</Text>
+          <Text style={[{ width: '16%', textAlign: 'right' }, s.th]}>GASTADO</Text>
+          <Text style={[{ width: '16%', textAlign: 'right' }, s.th]}>UTILIDAD</Text>
+          {d.mensual.lineas.map((l) => <Text key={l.id} style={[{ width: `${36 / Math.max(1, d.mensual.lineas.length)}%`, textAlign: 'right' }, s.th]}>{l.nombre}</Text>)}
+        </View>
+        {d.mensual.filas.length === 0 ? <View style={s.tr}><Text style={s.cell}>Sin movimientos.</Text></View> : d.mensual.filas.map((f, i) => (
+          <View key={f.mes} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+            <Text style={[s.cell, { width: '16%' }]}>{f.mes.slice(5, 7)}/{f.mes.slice(0, 4)}</Text>
+            <Text style={[s.cell, { width: '16%', textAlign: 'right' }]}>{M(f.cobrado)}</Text>
+            <Text style={[s.cell, { width: '16%', textAlign: 'right' }]}>{M(f.gastado)}</Text>
+            <Text style={[s.cell, { width: '16%', textAlign: 'right' }]}>{M(f.utilidad)}</Text>
+            {d.mensual.lineas.map((l) => <Text key={l.id} style={[s.cell, { width: `${36 / Math.max(1, d.mensual.lineas.length)}%`, textAlign: 'right' }]}>{M(f.porLinea[l.id] ?? 0)}</Text>)}
+          </View>
+        ))}
+        {d.mensual.filas.length > 0 && (
+          <View style={s.trTot}>
+            <Text style={[s.cell, { width: '16%' }]}>Total</Text>
+            <Text style={[s.cell, { width: '16%', textAlign: 'right' }]}>{M(d.mensual.total.cobrado)}</Text>
+            <Text style={[s.cell, { width: '16%', textAlign: 'right' }]}>{M(d.mensual.total.gastado)}</Text>
+            <Text style={[s.cell, { width: '16%', textAlign: 'right' }]}>{M(d.mensual.total.utilidad)}</Text>
+            {d.mensual.lineas.map((l) => <Text key={l.id} style={[s.cell, { width: `${36 / Math.max(1, d.mensual.lineas.length)}%`, textAlign: 'right' }]}>{M(d.mensual.total.porLinea[l.id] ?? 0)}</Text>)}
+          </View>
+        )}
+
+        <Text style={s.nota}>Utilidad real = Cobrado − Gastado (flujo de caja del proyecto, acumulado a la fecha). Margen cotizado = (GG + GA + Utilidad) / (1 + GG + GA + Utilidad) sobre el contrato neto de IGV. Utilidad cotizada = contrato neto × margen cotizado (proyectada a fin de obra). Gap = margen real − margen cotizado. El estado por línea/mes es base caja (cobrado − gastado del mes).</Text>
 
         <View style={s.footer} fixed>
           <Text style={s.footerTxt}>Azur Constructora e Inmobiliaria | Estado de resultados</Text>

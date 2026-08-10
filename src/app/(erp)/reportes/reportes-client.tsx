@@ -42,7 +42,7 @@ const fade = (i: number) => ({
 export function ReportesClient({ data }: { data: ReportesData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas } = data;
+  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas, pnlPorMes } = data;
   const pnlUrl = (fmt: string) => `/reportes/pnl/${fmt}?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}`;
   const gapTone = (g: number) => (g >= 0 ? 'text-emerald-600' : 'text-red-600');
   const [tareoQ, setTareoQ] = useState('');
@@ -340,6 +340,47 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                   </TableBody>
                 </Table>
               </div>
+            </div>
+
+            {/* Por línea / mes (base caja) */}
+            <div>
+              <p className="mb-1 text-xs font-semibold text-muted-foreground">Por línea / mes (base caja: cobrado − gastado)</p>
+              {pnlPorMes.filas.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sin movimientos en el periodo seleccionado.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader><TableRow>
+                      <TableHead>Mes</TableHead>
+                      <TableHead className="text-right">Cobrado</TableHead>
+                      <TableHead className="text-right">Gastado</TableHead>
+                      <TableHead className="text-right">Utilidad</TableHead>
+                      {pnlPorMes.lineas.map((l) => <TableHead key={l.id} className="text-right">{l.nombre}</TableHead>)}
+                    </TableRow></TableHeader>
+                    <TableBody>
+                      {pnlPorMes.filas.map((f) => (
+                        <TableRow key={f.mes}>
+                          <TableCell className="font-medium">{f.mes.slice(5, 7)}/{f.mes.slice(0, 4)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-sky-600">{fmtMoney(f.cobrado)}</TableCell>
+                          <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(f.gastado)}</TableCell>
+                          <TableCell className={`text-right font-semibold tabular-nums ${f.utilidad >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmtMoney(f.utilidad)}</TableCell>
+                          {pnlPorMes.lineas.map((l) => (
+                            <TableCell key={l.id} className={`text-right tabular-nums ${(f.porLinea[l.id] ?? 0) >= 0 ? '' : 'text-red-600'}`}>{fmtMoney(f.porLinea[l.id] ?? 0)}</TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                      <TableRow className="border-t-2 border-azur-600/40 font-semibold">
+                        <TableCell>Total</TableCell>
+                        <TableCell className="text-right tabular-nums text-sky-600">{fmtMoney(pnlPorMes.total.cobrado)}</TableCell>
+                        <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(pnlPorMes.total.gastado)}</TableCell>
+                        <TableCell className={`text-right tabular-nums ${pnlPorMes.total.utilidad >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>{fmtMoney(pnlPorMes.total.utilidad)}</TableCell>
+                        {pnlPorMes.lineas.map((l) => <TableCell key={l.id} className="text-right tabular-nums">{fmtMoney(pnlPorMes.total.porLinea[l.id] ?? 0)}</TableCell>)}
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+              <p className="mt-1 text-[11px] text-muted-foreground">Las columnas por línea muestran la utilidad del mes (cobrado − gastado) de esa línea. Respeta el filtro de periodo.</p>
             </div>
 
             <p className="text-[11px] leading-relaxed text-muted-foreground">
