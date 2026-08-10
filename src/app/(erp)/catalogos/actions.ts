@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
+import { notifyRoles } from '@/lib/push/notify';
 
 export type Res = { ok: boolean; error?: string; id?: string };
 export type ImportRes = { ok: boolean; error?: string; insertados?: number; duplicados?: number };
@@ -164,22 +165,47 @@ const contraparteSchema = z.object({
   cuenta_detraccion: opt(),
 });
 
-export async function guardarContraparte(input: z.input<typeof contraparteSchema>): Promise<Res> {
-  await guard();
+export async function guardarContraparte(input: z.input<typeof contraparteSchema>): Promise<Res & { pendiente?: boolean }> {
+  const session = await guard();
   const parsed = contraparteSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
   const { id, ...d } = parsed.data;
-  const supabase = createClient();
+  const supabase = createClient() as any;
+  const esFinanzas = session.rol === 'administrador' || session.rol === 'gerencia';
+
   if (id) {
+    // Editar un proveedor YA validado, por un rol que no es finanzas, requiere
+    // aprobación: se registra la solicitud de cambio y no se toca el registro vivo.
+    const { data: actual } = await supabase.from('contrapartes').select('razon_social, validado').eq('id', id).single();
+    if (!esFinanzas && actual?.validado) {
+      const { error } = await supabase.from('contraparte_cambios').insert({
+        contraparte_id: id, cambios: d, estado: 'pendiente', solicitado_por: session.id,
+      });
+      if (error) return { ok: false, error: error.message };
+      await notifyRoles(['administrador', 'gerencia'], {
+        title: 'Cambio de proveedor por aprobar',
+        body: `${session.nombre} propuso editar a ${actual?.razon_social ?? 'un proveedor'}`,
+        url: '/finanzas', tag: 'proveedor',
+      }, 'finanzas');
+      revalidatePath('/catalogos');
+      return { ok: true, id, pendiente: true };
+    }
     const { error } = await supabase.from('contrapartes').update(d).eq('id', id);
     if (error) return { ok: false, error: error.message };
     revalidatePath('/catalogos');
     return { ok: true, id };
   }
-  const { data, error } = await supabase.from('contrapartes').insert(d).select('id').single();
+
+  // Alta: finanzas crea validado; otros roles crean "por validar".
+  const { data, error } = await supabase.from('contrapartes').insert({ ...d, validado: esFinanzas }).select('id').single();
   if (error) return { ok: false, error: error.message };
+  if (!esFinanzas) {
+    await notifyRoles(['administrador', 'gerencia'], {
+      title: 'Proveedor por validar', body: `${session.nombre} registró a ${d.razon_social}`, url: '/finanzas', tag: 'proveedor',
+    }, 'finanzas');
+  }
   revalidatePath('/catalogos');
-  return { ok: true, id: data?.id };
+  return { ok: true, id: data?.id, pendiente: !esFinanzas };
 }
 
 // ─────────────────────────── Partidas ───────────────────────────

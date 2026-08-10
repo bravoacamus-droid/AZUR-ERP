@@ -106,7 +106,7 @@ function RowActions({ onEdit, onDelete }: { onEdit: () => void; onDelete: () => 
 function useGuardar() {
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
-  const run = async (fn: () => Promise<Res>, onDone: () => void) => {
+  const run = async (fn: () => Promise<Res>, onDone: (res: Res) => void) => {
     setSaving(true);
     setError(null);
     try {
@@ -115,7 +115,7 @@ function useGuardar() {
         setError(res.error ?? 'No se pudo guardar');
         return;
       }
-      onDone();
+      onDone(res);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error inesperado');
     } finally {
@@ -339,7 +339,14 @@ function ContraparteForm({ contraparte, onClose }: { contraparte: Contraparte | 
   });
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    run(() => guardarContraparte({ id: contraparte?.id, ...f, tipo: f.tipo as never }), onClose);
+    run(() => guardarContraparte({ id: contraparte?.id, ...f, tipo: f.tipo as never }), (res) => {
+      if ((res as { pendiente?: boolean }).pendiente) {
+        alert(contraparte?.id
+          ? 'Tu edición quedó como solicitud de cambio; finanzas/gerencia debe aprobarla antes de aplicarse.'
+          : 'Proveedor registrado. Queda por validar por finanzas/gerencia antes de usarse.');
+      }
+      onClose();
+    });
   };
   const [buscando, setBuscando] = React.useState(false);
   const [docErr, setDocErr] = React.useState<string | null>(null);

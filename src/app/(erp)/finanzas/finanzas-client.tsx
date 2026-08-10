@@ -23,7 +23,7 @@ import {
   aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
   emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja, crearCajaChica,
   editarSolicitud, eliminarSolicitud, validarCuentaProveedor, validarCuentaCliente,
-  guardarCategoria, eliminarCategoria, validarProveedor,
+  guardarCategoria, eliminarCategoria, validarProveedor, revisarCambioProveedor,
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
 import { actualizarTarifaTrabajador, marcarTareoPagado, rechazarJornal } from '@/app/(pwa)/campo/tareo/actions';
@@ -36,7 +36,7 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, contrapartes = [], proveedoresPend = [], categorias = [], jornales = [], jornalesTotal = 0 }: any) {
+export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, contrapartes = [], proveedoresPend = [], cambiosProv = [], categorias = [], jornales = [], jornalesTotal = 0 }: any) {
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
@@ -47,7 +47,7 @@ export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, arm
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
       ]} />
-      {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} proveedoresPend={proveedoresPend} categorias={categorias} />}
+      {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} proveedoresPend={proveedoresPend} cambiosProv={cambiosProv} categorias={categorias} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'jornales' && <Jornales rol={rol} jornales={jornales} total={jornalesTotal} />}
       {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
@@ -171,7 +171,9 @@ function Jornales({ rol, jornales, total }: any) {
 const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
 const SOL_VACIA = { id: '', tipo: 'contratistas', categoria: '', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
 
-function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [], contrapartes = [], proveedoresPend = [], categorias = [] }: any) {
+const CAMPO_PROV_LBL: Record<string, string> = { razon_social: 'Razón social', ruc_dni: 'RUC/DNI', especialidad: 'Especialidad', contacto: 'Contacto', telefono: 'Teléfono', banco: 'Banco', cuenta: 'Cuenta', cci: 'CCI', cuenta_detraccion: 'Cta. detracción', tipo: 'Tipo' };
+
+function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [], contrapartes = [], proveedoresPend = [], cambiosProv = [], categorias = [] }: any) {
   const router = useRouter();
   const esAdmin = rol === 'administrador' || rol === 'gerencia';
   const [gestCat, setGestCat] = useState(false);
@@ -275,6 +277,44 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
               </div>
             </div>
           ))}
+        </CardContent>
+      </Card>
+    )}
+
+    {esAdmin && cambiosProv.length > 0 && (
+      <Card>
+        <CardHeader className="pb-2"><CardTitle className="text-sm">Cambios de proveedor por aprobar ({cambiosProv.length})</CardTitle></CardHeader>
+        <CardContent className="space-y-2">
+          {cambiosProv.map((c: any) => {
+            const actual = c.contraparte ?? {};
+            const campos = Object.keys(c.cambios ?? {}).filter((k) => String(c.cambios[k] ?? '') !== String(actual[k] ?? ''));
+            return (
+              <div key={c.id} className="rounded-lg border p-2 text-sm">
+                <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
+                  <p className="font-medium">{actual.razon_social ?? 'Proveedor'}</p>
+                  <span className="text-xs text-muted-foreground">Solicitó: {c.solicitante ?? '—'}</span>
+                </div>
+                {campos.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Sin cambios efectivos respecto al registro actual.</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    {campos.map((k) => (
+                      <div key={k} className="flex flex-wrap items-baseline gap-1 text-xs">
+                        <span className="font-medium text-muted-foreground">{CAMPO_PROV_LBL[k] ?? k}:</span>
+                        <span className="text-azur-600 line-through">{String(actual[k] ?? '—')}</span>
+                        <span>→</span>
+                        <span className="font-medium text-emerald-700">{String(c.cambios[k] ?? '—')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="mt-2 flex gap-2">
+                  <Button size="sm" variant="gradient" onClick={async () => { setBusy(true); await revisarCambioProveedor(c.id, true); router.refresh(); setBusy(false); }}><CheckCircle2 className="size-3.5" /> Aprobar cambio</Button>
+                  <Button size="sm" variant="ghost" onClick={async () => { const m = window.prompt('Motivo del rechazo (opcional):'); if (m === null) return; setBusy(true); await revisarCambioProveedor(c.id, false, m || undefined); router.refresh(); setBusy(false); }}><XCircle className="size-4 text-azur-600" /></Button>
+                </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
     )}

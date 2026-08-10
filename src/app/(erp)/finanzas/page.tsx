@@ -13,7 +13,7 @@ export default async function FinanzasPage() {
   const session = await requireModulo('finanzas', 'ver');
   const supabase = createClient();
 
-  const [sols, facturas, armadas, cajas, clientes, proyectos, contrapartes, perfiles, dashboards, categorias] = await Promise.all([
+  const [sols, facturas, armadas, cajas, clientes, proyectos, contrapartes, perfiles, dashboards, categorias, cambiosProvRaw] = await Promise.all([
     supabase.from('solicitudes_pago').select('*, proyecto:proyectos(nombre), solicitante:profiles!solicitudes_pago_solicitado_por_fkey(nombre)').order('created_at', { ascending: false }),
     supabase.from('facturas').select('*, cliente:clientes(razon_social), proyecto:proyectos(nombre)').order('created_at', { ascending: false }),
     supabase.from('cronograma_cobros').select('*, proyecto:proyectos(nombre)').in('estado', ['pendiente', 'por_facturar']).order('fecha_esperada'),
@@ -24,10 +24,17 @@ export default async function FinanzasPage() {
     supabase.from('profiles').select('id, nombre, rol').eq('activo', true).order('nombre'),
     supabase.from('v_dashboard_proyecto').select('proyecto_id, codigo, nombre, estado, proyectado, pagos, gasto, valorizado'),
     (supabase as unknown as { from: (t: string) => any }).from('categorias_gasto').select('id, nombre, tipo_base, activo').eq('activo', true).order('nombre'),
+    (supabase as unknown as { from: (t: string) => any }).from('contraparte_cambios')
+      .select('id, contraparte_id, cambios, created_at, contraparte:contrapartes(razon_social, ruc_dni, especialidad, contacto, telefono, banco, cuenta, cci, cuenta_detraccion, tipo), solicitante:profiles!contraparte_cambios_solicitado_por_fkey(nombre)')
+      .eq('estado', 'pendiente').order('created_at'),
   ]);
   const contrapartesAll = (contrapartes.data ?? []) as any[];
   const contrapartesOk = contrapartesAll.filter((c) => c.validado !== false);
   const proveedoresPend = contrapartesAll.filter((c) => c.validado === false);
+  const cambiosProv = ((cambiosProvRaw.data ?? []) as any[]).map((c) => ({
+    id: c.id, contraparte_id: c.contraparte_id, cambios: c.cambios, created_at: c.created_at,
+    contraparte: c.contraparte ?? {}, solicitante: c.solicitante?.nombre ?? null,
+  }));
   const medios = await supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares').order('orden');
 
   // Jornales: tareo APROBADO (pendiente de pago) consolidado POR PERSONA,
@@ -84,6 +91,7 @@ export default async function FinanzasPage() {
         medios={medios.data ?? []}
         contrapartes={contrapartesOk}
         proveedoresPend={proveedoresPend}
+        cambiosProv={cambiosProv}
         categorias={categorias.data ?? []}
         jornales={jornales}
         jornalesTotal={jornalesTotal}

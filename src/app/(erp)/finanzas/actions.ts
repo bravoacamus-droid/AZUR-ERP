@@ -45,6 +45,37 @@ export async function validarProveedor(id: string, aprobado: boolean): Promise<R
   if (aprobado) { const { error } = await supabase.from('contrapartes').update({ validado: true }).eq('id', id); if (error) return { ok: false, error: error.message }; }
   else { const { error } = await supabase.from('contrapartes').delete().eq('id', id); if (error) return { ok: false, error: error.message }; }
   revalidatePath('/finanzas');
+  revalidatePath('/catalogos');
+  return { ok: true };
+}
+
+// ── Cambio de proveedor: finanzas/gerencia aprueba (aplica) o rechaza ──
+export async function revisarCambioProveedor(cambioId: string, aprobado: boolean, motivo?: string): Promise<Res> {
+  const session = await requireSession();
+  if (session.rol !== 'administrador' && session.rol !== 'gerencia') return { ok: false, error: 'Solo administración o gerencia' };
+  const supabase = createClient() as any;
+  const { data: cambio } = await supabase.from('contraparte_cambios').select('contraparte_id, cambios, estado, solicitado_por').eq('id', cambioId).single();
+  if (!cambio) return { ok: false, error: 'Solicitud de cambio no encontrada' };
+  if (cambio.estado !== 'pendiente') return { ok: false, error: 'Esta solicitud ya fue revisada' };
+
+  if (aprobado) {
+    const { error } = await supabase.from('contrapartes').update(cambio.cambios).eq('id', cambio.contraparte_id);
+    if (error) return { ok: false, error: error.message };
+  }
+  const { error: e2 } = await supabase.from('contraparte_cambios')
+    .update({ estado: aprobado ? 'aprobado' : 'rechazado', motivo: aprobado ? null : (motivo ?? '').trim() || null, revisado_por: session.id, revisado_at: new Date().toISOString() })
+    .eq('id', cambioId);
+  if (e2) return { ok: false, error: e2.message };
+
+  if (cambio.solicitado_por) {
+    await notifyUser(cambio.solicitado_por, {
+      title: aprobado ? 'Cambio de proveedor aprobado' : 'Cambio de proveedor rechazado',
+      body: aprobado ? 'Tu edición de proveedor fue aplicada.' : `Rechazado${motivo ? `: ${motivo}` : ''}`,
+      url: '/catalogos', tag: 'proveedor',
+    }, 'finanzas');
+  }
+  revalidatePath('/finanzas');
+  revalidatePath('/catalogos');
   return { ok: true };
 }
 
