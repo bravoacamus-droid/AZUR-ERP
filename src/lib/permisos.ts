@@ -9,6 +9,7 @@ export const MODULOS = [
   'reportes',
   'clientes',
   'catalogos',
+  'proveedores',
   'usuarios',
 ] as const;
 export type Modulo = (typeof MODULOS)[number];
@@ -23,6 +24,7 @@ export const MODULO_LABEL: Record<Modulo, string> = {
   reportes: 'Reportes',
   clientes: 'Clientes',
   catalogos: 'Catálogos',
+  proveedores: 'Proveedores',
   usuarios: 'Usuarios',
 };
 
@@ -33,15 +35,15 @@ export type PermisosMap = Partial<Record<Modulo, Nivel>>;
 export const BASE_ROLE_PERMISOS: Record<Rol, PermisosMap> = {
   gerencia: {
     comercial: 'editar', proyectos: 'editar', finanzas: 'editar', inventario: 'editar',
-    reportes: 'ver', clientes: 'editar', catalogos: 'editar', usuarios: 'editar',
+    reportes: 'ver', clientes: 'editar', catalogos: 'editar', proveedores: 'editar', usuarios: 'editar',
   },
-  jefe_proyectos: { proyectos: 'editar', finanzas: 'editar', reportes: 'ver' },
-  presupuestos: { comercial: 'editar', proyectos: 'editar', reportes: 'ver', clientes: 'editar', catalogos: 'editar' },
-  administrador: { finanzas: 'editar', inventario: 'editar', reportes: 'ver', clientes: 'editar', catalogos: 'editar', usuarios: 'editar' },
-  comercial: { comercial: 'editar', clientes: 'editar', catalogos: 'editar' },
-  logistico: { inventario: 'editar' },
-  residente: {},
-  prevencionista: {},
+  jefe_proyectos: { proyectos: 'editar', finanzas: 'editar', reportes: 'ver', proveedores: 'ver' },
+  presupuestos: { comercial: 'editar', proyectos: 'editar', reportes: 'ver', clientes: 'editar', catalogos: 'editar', proveedores: 'ver' },
+  administrador: { finanzas: 'editar', inventario: 'editar', reportes: 'ver', clientes: 'editar', catalogos: 'editar', proveedores: 'editar', usuarios: 'editar' },
+  comercial: { comercial: 'editar', clientes: 'editar', catalogos: 'editar', proveedores: 'ver' },
+  logistico: { inventario: 'editar', proveedores: 'ver' },
+  residente: { proveedores: 'ver' },
+  prevencionista: { proveedores: 'ver' },
 };
 
 const ORDEN: Record<Nivel, number> = { none: 0, ver: 1, editar: 2 };

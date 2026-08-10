@@ -3,7 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
-import { requireModulo } from '@/lib/auth';
+import { requireModulo, requireSession } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { notifyRoles } from '@/lib/push/notify';
 
 export type Res = { ok: boolean; error?: string; id?: string };
@@ -166,7 +167,14 @@ const contraparteSchema = z.object({
 });
 
 export async function guardarContraparte(input: z.input<typeof contraparteSchema>): Promise<Res & { pendiente?: boolean }> {
-  const session = await guard();
+  // Quién puede escribir: finanzas/gerencia y presupuestos/comercial (edición o
+  // solicitud de cambio vía Catálogos), y jefe/residente (solicitan desde
+  // Proveedores). Logístico/prevencionista tienen Proveedores en SOLO LECTURA.
+  const session = await requireSession();
+  const rolesSolicitan = ['jefe_proyectos', 'residente', 'presupuestos', 'comercial', 'administrador', 'gerencia'];
+  if (!puedeEditar(session.permisos, 'catalogos') && !rolesSolicitan.includes(session.rol)) {
+    return { ok: false, error: 'No tienes permiso para gestionar proveedores' };
+  }
   const parsed = contraparteSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
   const { id, ...d } = parsed.data;
