@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ClipboardList, Receipt, ShieldCheck, Package, Camera, HardHat, Users } from 'lucide-react';
+import { ClipboardList, Receipt, ShieldCheck, Package, Camera, HardHat, Users, Contact } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { requireSession } from '@/lib/auth';
 import { CheckIn } from './checkin';
@@ -14,6 +14,7 @@ const ACCIONES = [
   { href: '/campo/tareo', label: 'Tareo de cuadrilla', icon: Users, color: 'bg-indigo-50 text-indigo-600' },
   { href: '/campo/sst', label: 'Seguridad (SST)', icon: ShieldCheck, color: 'bg-amber-50 text-amber-600' },
   { href: '/campo/almacen', label: 'Almacén', icon: Package, color: 'bg-azur-50 text-azur-600' },
+  { href: '/campo/proveedores', label: 'Proveedores', icon: Contact, color: 'bg-slate-100 text-slate-600' },
 ];
 
 export default async function CampoHome() {
