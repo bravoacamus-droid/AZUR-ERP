@@ -108,7 +108,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
 
   // Tareo del proyecto (para aprobación del jefe)
   const { data: tareo } = await (supabase as unknown as { from: (t: string) => any }).from('tareo')
-    .select('id, fecha, trabajador_nombre, presente, horas, horas_extra, tarifa_dia, estado')
+    .select('id, fecha, trabajador_nombre, presente, horas, horas_extra, jornal_semana, estado')
     .eq('proyecto_id', params.id).order('fecha', { ascending: false }).limit(300);
 
   // Datos de campo (capturados desde la PWA) para supervisión del Jefe

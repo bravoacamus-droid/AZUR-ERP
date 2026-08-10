@@ -10,7 +10,7 @@ import { EmptyState } from '@/components/ui/misc';
 import { fmtDate } from '@/lib/format';
 import { revisarTareo } from '@/app/(pwa)/campo/tareo/actions';
 
-type Row = { id: string; fecha: string; trabajador_nombre: string; presente: boolean; horas: number | null; horas_extra: number | null; tarifa_dia: number | null; estado: string };
+type Row = { id: string; fecha: string; trabajador_nombre: string; presente: boolean; horas: number | null; horas_extra: number | null; jornal_semana: number | null; estado: string };
 const EST: Record<string, { label: string; variant: any }> = {
   registrado: { label: 'Registrado', variant: 'muted' },
   enviado: { label: 'Enviado · por aprobar', variant: 'info' },

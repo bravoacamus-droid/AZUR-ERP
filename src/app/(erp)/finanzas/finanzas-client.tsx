@@ -63,6 +63,7 @@ function Jornales({ rol, jornales, total }: any) {
   const [edit, setEdit] = useState<{ id: string; v: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const puedePagar = rol === 'administrador' || rol === 'gerencia';
+  const puedeTarifa = rol === 'jefe_proyectos' || rol === 'gerencia'; // el jornal solo lo edita jefe/gerencia
 
   async function guardarTarifa(trabajadorId: string) {
     if (!edit) return;
@@ -96,7 +97,7 @@ function Jornales({ rol, jornales, total }: any) {
                 <TableHead className="text-right">Días</TableHead>
                 <TableHead className="text-right">Horas</TableHead>
                 <TableHead className="text-right">Extra</TableHead>
-                <TableHead className="text-right">Tarifa/día</TableHead>
+                <TableHead className="text-right">Jornal/sem</TableHead>
                 <TableHead className="text-right">Total</TableHead>
                 <TableHead />
               </TableRow>
@@ -113,16 +114,16 @@ function Jornales({ rol, jornales, total }: any) {
                     <TableCell className="text-right tabular-nums">{j.horas}</TableCell>
                     <TableCell className="text-right tabular-nums">{j.extra || '—'}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {puedePagar && j.trabajadorId ? (
+                      {puedeTarifa && j.trabajadorId ? (
                         edit?.id === j.trabajadorId ? (
                           <span className="flex items-center justify-end gap-1">
                             <Input className="h-7 w-20 text-right" type="number" value={edit?.v ?? ''} onChange={(e) => setEdit({ id: j.trabajadorId, v: e.target.value })} />
                             <button onClick={() => guardarTarifa(j.trabajadorId)} className="text-emerald-600">{busy === j.trabajadorId ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}</button>
                           </span>
                         ) : (
-                          <button className="inline-flex items-center gap-1 hover:text-azur-600" onClick={() => setEdit({ id: j.trabajadorId, v: String(j.tarifa ?? 0) })}>{fmtMoney(j.tarifa)} <Pencil className="size-3 text-muted-foreground" /></button>
+                          <button className="inline-flex items-center gap-1 hover:text-azur-600" onClick={() => setEdit({ id: j.trabajadorId, v: String(j.jornal ?? 0) })}>{fmtMoney(j.jornal)} <Pencil className="size-3 text-muted-foreground" /></button>
                         )
-                      ) : fmtMoney(j.tarifa)}
+                      ) : fmtMoney(j.jornal)}
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums">{fmtMoney(j.monto)}</TableCell>
                     <TableCell className="text-right">

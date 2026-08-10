@@ -19,7 +19,7 @@ export default async function CatalogosPage() {
       supabase.from('catalogo_insumos').select('id, codigo, nombre, unidad, precio, tipo').order('nombre'),
       supabase.from('plantillas_cotizacion').select('id, linea_id, nombre, condiciones, servicios_incluidos, servicios_omitidos, garantia').order('nombre'),
       supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion, mostrar_cotizacion, mostrar_valorizacion, mostrar_liquidacion').order('orden'),
-      (supabase as unknown as { from: (t: string) => any }).from('trabajadores').select('id, nombre, documento, especialidad, tarifa_dia, recurrente').eq('activo', true).order('nombre'),
+      (supabase as unknown as { from: (t: string) => any }).from('trabajadores').select('id, nombre, documento, especialidad, jornal_semana, recurrente').eq('activo', true).order('nombre'),
     ]);
 
   return (

@@ -15,7 +15,7 @@ const trabSchema = z.object({
   nombre: z.string().trim().min(2, 'Nombre requerido'),
   documento: z.string().trim().nullable().optional(),
   especialidad: z.string().trim().nullable().optional(),
-  tarifa_dia: z.number().min(0).nullable().optional(),
+  jornal_semana: z.number().min(0).nullable().optional(),
   recurrente: z.boolean().optional(),
 });
 
@@ -25,7 +25,7 @@ export async function guardarTrabajador(input: z.input<typeof trabSchema>): Prom
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
   const d = parsed.data;
   const supabase = createClient() as any;
-  // Solo jefe de proyectos / gerencia fijan o modifican la tarifa (jornal).
+  // Solo jefe de proyectos / gerencia fijan o modifican el jornal semanal.
   const puedeTarifa = session.rol === 'jefe_proyectos' || session.rol === 'gerencia';
   const payload: Record<string, unknown> = {
     nombre: d.nombre,
@@ -34,13 +34,13 @@ export async function guardarTrabajador(input: z.input<typeof trabSchema>): Prom
     recurrente: d.recurrente ?? false,
   };
   if (d.id) {
-    if (puedeTarifa) payload.tarifa_dia = d.tarifa_dia ?? 0; // otros roles no tocan la tarifa existente
+    if (puedeTarifa) payload.jornal_semana = d.jornal_semana ?? 0; // otros roles no tocan el jornal existente
     const { error } = await supabase.from('trabajadores').update(payload).eq('id', d.id);
     if (error) return { ok: false, error: error.message };
     revalidatePath('/campo/tareo');
     return { ok: true, id: d.id };
   }
-  payload.tarifa_dia = puedeTarifa ? (d.tarifa_dia ?? 0) : 0; // el residente registra sin tarifa; la fija el jefe
+  payload.jornal_semana = puedeTarifa ? (d.jornal_semana ?? 0) : 0; // el residente registra sin jornal; lo fija el jefe
   const { data, error } = await supabase.from('trabajadores').insert({ ...payload, created_by: session.id }).select('id').single();
   if (error || !data) return { ok: false, error: error?.message ?? 'No se pudo registrar' };
   revalidatePath('/campo/tareo');
@@ -80,8 +80,8 @@ export async function guardarTareo(input: z.input<typeof tareoSchema>): Promise<
   const ids = d.trabajadores.map((t) => t.trabajador_id).filter(Boolean) as string[];
   const tarifas = new Map<string, number>();
   if (ids.length) {
-    const { data: m } = await supabase.from('trabajadores').select('id, tarifa_dia').in('id', ids);
-    (m ?? []).forEach((x: any) => tarifas.set(x.id, Number(x.tarifa_dia ?? 0)));
+    const { data: m } = await supabase.from('trabajadores').select('id, jornal_semana').in('id', ids);
+    (m ?? []).forEach((x: any) => tarifas.set(x.id, Number(x.jornal_semana ?? 0)));
   }
   // Reemplaza lo del día que aún no está aprobado (evita duplicados al re-guardar).
   await supabase.from('tareo').delete().eq('proyecto_id', d.proyecto_id).eq('fecha', d.fecha).in('estado', ['registrado', 'enviado']);
@@ -94,7 +94,7 @@ export async function guardarTareo(input: z.input<typeof tareoSchema>): Promise<
       presente: t.presente,
       horas: t.horas ?? null,
       horas_extra: t.horas_extra ?? null,
-      tarifa_dia: t.trabajador_id ? (tarifas.get(t.trabajador_id) ?? 0) : 0,
+      jornal_semana: t.trabajador_id ? (tarifas.get(t.trabajador_id) ?? 0) : 0,
       estado: 'registrado',
       created_by: session.id,
     })),
@@ -140,13 +140,13 @@ export async function revisarTareo(proyectoId: string, desde: string, hasta: str
   return { ok: true };
 }
 
-// Finanzas: actualiza la tarifa (maestro + tareo del rango) y marca como pagado.
-export async function actualizarTarifaTrabajador(trabajadorId: string, tarifa: number): Promise<Res> {
+// Actualiza el jornal semanal (maestro + tareo aprobado no pagado). Solo jefe/gerencia.
+export async function actualizarTarifaTrabajador(trabajadorId: string, jornalSemana: number): Promise<Res> {
   const session = await requireSession();
-  if (session.rol !== 'administrador' && session.rol !== 'gerencia') return { ok: false, error: 'Solo administración o gerencia' };
+  if (session.rol !== 'jefe_proyectos' && session.rol !== 'gerencia') return { ok: false, error: 'Solo el jefe de proyectos o gerencia pueden editar el jornal' };
   const supabase = createClient() as any;
-  await supabase.from('trabajadores').update({ tarifa_dia: tarifa }).eq('id', trabajadorId);
-  await supabase.from('tareo').update({ tarifa_dia: tarifa }).eq('trabajador_id', trabajadorId).in('estado', ['aprobado']);
+  await supabase.from('trabajadores').update({ jornal_semana: jornalSemana }).eq('id', trabajadorId);
+  await supabase.from('tareo').update({ jornal_semana: jornalSemana }).eq('trabajador_id', trabajadorId).in('estado', ['aprobado']);
   revalidatePath('/finanzas');
   return { ok: true };
 }

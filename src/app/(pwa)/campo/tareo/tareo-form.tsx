@@ -10,7 +10,7 @@ import { Field } from '@/components/ui/misc';
 import { fmtDateInput } from '@/lib/format';
 import { guardarTareo, guardarTrabajador } from './actions';
 
-export type Trabajador = { id: string; nombre: string; especialidad?: string | null; tarifa_dia?: number | null; recurrente?: boolean };
+export type Trabajador = { id: string; nombre: string; especialidad?: string | null; jornal_semana?: number | null; recurrente?: boolean };
 type Fila = { trabajador_id: string | null; trabajador_nombre: string; presente: boolean; horas: string; horas_extra: string };
 
 const nuevaFila = (id: string | null, nombre: string): Fila => ({ trabajador_id: id, trabajador_nombre: nombre, presente: true, horas: '8', horas_extra: '' });
@@ -23,7 +23,7 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
   const [libre, setLibre] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ t: 'ok' | 'err'; x: string } | null>(null);
-  const [nuevo, setNuevo] = useState({ open: false, nombre: '', especialidad: '', tarifa: '', recurrente: true });
+  const [nuevo, setNuevo] = useState({ open: false, nombre: '', especialidad: '', recurrente: true });
   const [savingT, setSavingT] = useState(false);
 
   const recurrentes = trabajadores.filter((t) => t.recurrente);
@@ -44,11 +44,11 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
   async function crearEnMaestro() {
     if (!nuevo.nombre.trim()) return;
     setSavingT(true);
-    const r = await guardarTrabajador({ nombre: nuevo.nombre.trim(), especialidad: nuevo.especialidad || null, tarifa_dia: nuevo.tarifa ? Number(nuevo.tarifa) : 0, recurrente: nuevo.recurrente });
+    const r = await guardarTrabajador({ nombre: nuevo.nombre.trim(), especialidad: nuevo.especialidad || null, recurrente: nuevo.recurrente });
     setSavingT(false);
     if (!r.ok) { setMsg({ t: 'err', x: r.error ?? 'Error' }); return; }
     if (r.id) setFilas((f) => [...f, nuevaFila(r.id!, nuevo.nombre.trim())]);
-    setNuevo({ open: false, nombre: '', especialidad: '', tarifa: '', recurrente: true });
+    setNuevo({ open: false, nombre: '', especialidad: '', recurrente: true });
     router.refresh();
   }
 
@@ -106,10 +106,8 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
         {nuevo.open && (
           <div className="space-y-2 rounded-xl border bg-secondary/30 p-3">
             <Input placeholder="Nombre completo" value={nuevo.nombre} onChange={(e) => setNuevo((n) => ({ ...n, nombre: e.target.value }))} />
-            <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="Especialidad (opc.)" value={nuevo.especialidad} onChange={(e) => setNuevo((n) => ({ ...n, especialidad: e.target.value }))} />
-              <Input type="number" inputMode="decimal" placeholder="Tarifa/día S/" value={nuevo.tarifa} onChange={(e) => setNuevo((n) => ({ ...n, tarifa: e.target.value }))} />
-            </div>
+            <Input placeholder="Especialidad (opc.)" value={nuevo.especialidad} onChange={(e) => setNuevo((n) => ({ ...n, especialidad: e.target.value }))} />
+            <p className="text-[11px] text-muted-foreground">El jornal semanal lo fija el Jefe de Proyectos en el maestro de trabajadores.</p>
             <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={nuevo.recurrente} onChange={(e) => setNuevo((n) => ({ ...n, recurrente: e.target.checked }))} /> Marcar como frecuente</label>
             <Button type="button" size="sm" variant="gradient" disabled={savingT} onClick={crearEnMaestro}>{savingT && <Loader2 className="animate-spin" />} Guardar y agregar</Button>
           </div>

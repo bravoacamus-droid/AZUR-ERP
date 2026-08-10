@@ -5,6 +5,7 @@ import { PageHeader, KpiCard } from '@/components/ui/page';
 import { Wallet, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { FinanzasClient } from './finanzas-client';
 import { fmtMoney } from '@/lib/format';
+import { montoDia } from '@/lib/tareo';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,18 +33,20 @@ export default async function FinanzasPage() {
   // Jornales: tareo APROBADO (pendiente de pago) consolidado POR PERSONA,
   // con desglose por proyecto y total (una persona en varios proyectos = 1 fila).
   const { data: tareoAprob } = await (supabase as unknown as { from: (t: string) => any }).from('tareo')
-    .select('id, proyecto_id, trabajador_id, trabajador_nombre, presente, horas, horas_extra, tarifa_dia, fecha, proyecto:proyectos(nombre)')
+    .select('id, proyecto_id, trabajador_id, trabajador_nombre, presente, horas, horas_extra, jornal_semana, fecha, proyecto:proyectos(nombre)')
     .eq('estado', 'aprobado').order('fecha');
   const consMap = new Map<string, any>();
   (tareoAprob ?? []).forEach((r: any) => {
     const key = r.trabajador_id || `n:${r.trabajador_nombre}`;
     const dia = r.presente ? 1 : 0;
-    const tarifa = Number(r.tarifa_dia ?? 0);
-    const p = consMap.get(key) ?? { key, trabajadorId: r.trabajador_id ?? null, nombre: r.trabajador_nombre, tarifa, dias: 0, horas: 0, extra: 0, monto: 0, ids: [] as string[], proyectos: new Map<string, any>() };
+    const jornal = Number(r.jornal_semana ?? 0);
+    // Monto = jornal/48 × horas + hora extra ×1.2 (solo si estuvo presente).
+    const monto = dia ? montoDia(jornal, Number(r.horas ?? 0), Number(r.horas_extra ?? 0)) : 0;
+    const p = consMap.get(key) ?? { key, trabajadorId: r.trabajador_id ?? null, nombre: r.trabajador_nombre, jornal, dias: 0, horas: 0, extra: 0, monto: 0, ids: [] as string[], proyectos: new Map<string, any>() };
     p.dias += dia; p.horas += Number(r.horas ?? 0); p.extra += Number(r.horas_extra ?? 0);
-    p.monto += dia * tarifa; p.tarifa = tarifa || p.tarifa; p.ids.push(r.id);
+    p.monto += monto; p.jornal = jornal || p.jornal; p.ids.push(r.id);
     const pr = p.proyectos.get(r.proyecto_id) ?? { nombre: r.proyecto?.nombre ?? 'Proyecto', dias: 0, horas: 0, extra: 0, monto: 0 };
-    pr.dias += dia; pr.horas += Number(r.horas ?? 0); pr.extra += Number(r.horas_extra ?? 0); pr.monto += dia * tarifa;
+    pr.dias += dia; pr.horas += Number(r.horas ?? 0); pr.extra += Number(r.horas_extra ?? 0); pr.monto += monto;
     p.proyectos.set(r.proyecto_id, pr);
     consMap.set(key, p);
   });
