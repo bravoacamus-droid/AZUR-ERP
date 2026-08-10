@@ -2,16 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Loader2, Undo2, Pencil, X, ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
+import { CheckCircle2, Loader2, Undo2, Pencil, X, ChevronLeft, ChevronRight, FileDown, Wrench } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/misc';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { montoDia } from '@/lib/tareo';
 import { useIsStandalone } from '@/lib/pwa';
-import { revisarTareo, editarTareoFila } from '@/app/(pwa)/campo/tareo/actions';
+import { revisarTareo, editarTareoFila, corregirTareo } from '@/app/(pwa)/campo/tareo/actions';
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
 const lunesDe = (s: string) => { const d = new Date(s.slice(0, 10) + 'T00:00:00'); const g = d.getDay(); d.setDate(d.getDate() + (g === 0 ? -6 : 1 - g)); return d.toISOString().slice(0, 10); };
@@ -19,7 +20,7 @@ const idxDia = (s: string) => { const g = new Date(s.slice(0, 10) + 'T00:00:00')
 const sumaISO = (iso: string, dias: number) => new Date(new Date(iso + 'T00:00:00').getTime() + dias * 86400000).toISOString().slice(0, 10);
 type FilaMatriz = { nombre: string; dias: (number | null)[]; extra: (number | null)[]; totalH: number; totalExtra: number; monto: number };
 
-type Row = { id: string; fecha: string; trabajador_nombre: string; presente: boolean; horas: number | null; horas_extra: number | null; jornal_semana: number | null; estado: string };
+type Row = { id: string; fecha: string; trabajador_id: string | null; trabajador_nombre: string; presente: boolean; horas: number | null; horas_extra: number | null; jornal_semana: number | null; estado: string; es_correccion?: boolean; nota?: string | null };
 const EST: Record<string, { label: string; variant: any }> = {
   registrado: { label: 'Registrado', variant: 'muted' },
   enviado: { label: 'Enviado · por aprobar', variant: 'info' },
@@ -74,6 +75,30 @@ export function TareoRevision({ tareo, proyectoId, userRol }: { tareo: Row[]; pr
   const [semSel, setSemSel] = useState(0); // 0 = semana más reciente
   const standalone = useIsStandalone();
   const semana = semanas[semSel];
+
+  // Trabajadores que ya aparecen en el tareo del proyecto (para correcciones).
+  const trabajadores = useMemo(() => {
+    const m = new Map<string, { id: string | null; nombre: string }>();
+    tareo.forEach((r) => { const k = r.trabajador_id || `n:${r.trabajador_nombre}`; if (!m.has(k)) m.set(k, { id: r.trabajador_id, nombre: r.trabajador_nombre }); });
+    return [...m.values()].sort((a, b) => a.nombre.localeCompare(b.nombre));
+  }, [tareo]);
+
+  const [corrOpen, setCorrOpen] = useState(false);
+  const [corr, setCorr] = useState({ fecha: '', trab: '', horas: '', extra: '', nota: '' });
+  const [savingCorr, setSavingCorr] = useState(false);
+  async function guardarCorreccion() {
+    const t = trabajadores.find((x) => (x.id || `n:${x.nombre}`) === corr.trab);
+    if (!corr.fecha || !t) { alert('Elige fecha y trabajador'); return; }
+    if (!corr.horas && !corr.extra) { alert('Indica horas o horas extra de la corrección'); return; }
+    setSavingCorr(true);
+    const r = await corregirTareo({
+      proyecto_id: proyectoId, nota: corr.nota || null,
+      filas: [{ fecha: corr.fecha, trabajador_id: t.id, trabajador_nombre: t.nombre, horas: corr.horas === '' ? null : Number(corr.horas), horas_extra: corr.extra === '' ? null : Number(corr.extra) }],
+    });
+    setSavingCorr(false);
+    if (!r.ok) { alert(r.error); return; }
+    setCorr({ fecha: '', trab: '', horas: '', extra: '', nota: '' }); setCorrOpen(false); router.refresh();
+  }
 
   const enviadas = tareo.filter((r) => r.estado === 'enviado');
   const rangoEnviado = enviadas.length ? { desde: enviadas.reduce((m, r) => (r.fecha < m ? r.fecha : m), enviadas[0].fecha), hasta: enviadas.reduce((m, r) => (r.fecha > m ? r.fecha : m), enviadas[0].fecha) } : null;
@@ -141,6 +166,38 @@ export function TareoRevision({ tareo, proyectoId, userRol }: { tareo: Row[]; pr
         </Card>
       )}
 
+      {/* Corrección post-pago: agrega un ajuste aditivo por fecha sin tocar lo pagado. */}
+      {puedeAprobar && trabajadores.length > 0 && (
+        <Card>
+          <CardContent className="p-3">
+            <button type="button" onClick={() => setCorrOpen((v) => !v)} className="flex w-full items-center justify-between text-sm font-medium">
+              <span className="flex items-center gap-1.5"><Wrench className="size-4 text-azur-600" /> Corrección post-pago</span>
+              <span className="text-xs text-muted-foreground">{corrOpen ? 'Ocultar' : 'Agregar ajuste'}</span>
+            </button>
+            {corrOpen && (
+              <div className="mt-3 space-y-2">
+                <p className="text-[11px] text-muted-foreground">Suma un ajuste (horas u horas extra) a una fecha ya cerrada/pagada. Entra como corrección y pasa por aprobación; no modifica lo ya pagado.</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-xs"><span className="mb-0.5 block text-muted-foreground">Fecha</span><Input type="date" value={corr.fecha} onChange={(e) => setCorr({ ...corr, fecha: e.target.value })} /></label>
+                  <label className="text-xs"><span className="mb-0.5 block text-muted-foreground">Trabajador</span>
+                    <Select value={corr.trab} onChange={(e) => setCorr({ ...corr, trab: e.target.value })}>
+                      <option value="">Elegir…</option>
+                      {trabajadores.map((t) => <option key={t.id || t.nombre} value={t.id || `n:${t.nombre}`}>{t.nombre}</option>)}
+                    </Select>
+                  </label>
+                  <label className="text-xs"><span className="mb-0.5 block text-muted-foreground">Horas</span><Input type="number" inputMode="decimal" value={corr.horas} onChange={(e) => setCorr({ ...corr, horas: e.target.value })} placeholder="0" /></label>
+                  <label className="text-xs"><span className="mb-0.5 block text-muted-foreground">Horas extra</span><Input type="number" inputMode="decimal" value={corr.extra} onChange={(e) => setCorr({ ...corr, extra: e.target.value })} placeholder="0" /></label>
+                </div>
+                <label className="block text-xs"><span className="mb-0.5 block text-muted-foreground">Motivo (opcional)</span><Input value={corr.nota} onChange={(e) => setCorr({ ...corr, nota: e.target.value })} placeholder="Ej. no se registró el domingo" /></label>
+                <div className="flex justify-end">
+                  <Button size="sm" variant="gradient" disabled={savingCorr} onClick={guardarCorreccion}>{savingCorr ? <Loader2 className="animate-spin" /> : <Wrench className="size-3.5" />} Registrar corrección</Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {puedeAprobar && rangoEnviado && (
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
@@ -182,7 +239,10 @@ export function TareoRevision({ tareo, proyectoId, userRol }: { tareo: Row[]; pr
                   );
                   return (
                     <div key={f.id} className="flex items-center justify-between py-1 text-sm">
-                      <span className={f.presente ? '' : 'text-azur-600 line-through'}>{f.trabajador_nombre}</span>
+                      <span className={f.presente ? '' : 'text-azur-600 line-through'}>
+                        {f.trabajador_nombre}
+                        {f.es_correccion && <Badge variant="warning" className="ml-1.5 align-middle text-[10px]">corrección</Badge>}
+                      </span>
                       <span className="flex items-center gap-2">
                         <span className="text-xs text-muted-foreground">{f.horas ?? 0} h{Number(f.horas_extra) > 0 ? ` + ${f.horas_extra} extra` : ''}</span>
                         {editable && <button onClick={() => setEdit({ id: f.id, presente: f.presente, horas: f.horas == null ? '' : String(f.horas), extra: f.horas_extra == null ? '' : String(f.horas_extra) })} className="text-muted-foreground hover:text-azur-600" title="Editar"><Pencil className="size-3.5" /></button>}

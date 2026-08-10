@@ -117,6 +117,7 @@ function Jornales({ rol, jornales, total }: any) {
                     <TableCell>
                       <button className="text-left font-medium hover:text-azur-600" onClick={() => setExp(exp === j.key ? null : j.key)}>{j.nombre}</button>
                       {j.proyectos.length > 1 && <span className="ml-1 text-xs text-muted-foreground">({j.proyectos.length} proyectos)</span>}
+                      {j.correcciones > 0 && <Badge variant="warning" className="ml-1.5 text-[10px]">+{j.correcciones} corrección{j.correcciones > 1 ? 'es' : ''}</Badge>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{j.dias}</TableCell>
                     <TableCell className="text-right tabular-nums">{j.horas}</TableCell>

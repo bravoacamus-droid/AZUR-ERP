@@ -104,6 +104,61 @@ export async function guardarTareo(input: z.input<typeof tareoSchema>): Promise<
   return { ok: true };
 }
 
+// Corrección post-pago: agrega filas ADITIVAS por fecha (sin tocar lo pagado).
+// Cada corrección entra como 'registrado' y sigue el circuito normal de aprobación.
+const correccionSchema = z.object({
+  proyecto_id: z.string().uuid(),
+  nota: z.string().trim().nullable().optional(),
+  filas: z.array(z.object({
+    fecha: z.string().min(1),
+    trabajador_id: z.string().uuid().nullable().optional(),
+    trabajador_nombre: z.string().trim().min(1),
+    horas: z.number().nullable().optional(),
+    horas_extra: z.number().nullable().optional(),
+  })).min(1),
+});
+
+export async function corregirTareo(input: z.input<typeof correccionSchema>): Promise<Res> {
+  const session = await requireSession();
+  if (session.rol !== 'jefe_proyectos' && session.rol !== 'gerencia') return { ok: false, error: 'Solo el jefe de proyectos o gerencia pueden registrar correcciones' };
+  const parsed = correccionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos incompletos' };
+  const d = parsed.data;
+  const supabase = createClient() as any;
+
+  // Jornal snapshot desde el maestro para los que vienen del maestro.
+  const ids = d.filas.map((f) => f.trabajador_id).filter(Boolean) as string[];
+  const tarifas = new Map<string, number>();
+  if (ids.length) {
+    const { data: m } = await supabase.from('trabajadores').select('id, jornal_semana').in('id', ids);
+    (m ?? []).forEach((x: any) => tarifas.set(x.id, Number(x.jornal_semana ?? 0)));
+  }
+  // La registra el jefe/gerencia (autoridad de aprobación): entra ya 'aprobado'
+  // para que finanzas la pague como delta aditiva del periodo correspondiente.
+  const { error } = await supabase.from('tareo').insert(
+    d.filas.map((f) => ({
+      proyecto_id: d.proyecto_id,
+      fecha: f.fecha,
+      trabajador_id: f.trabajador_id || null,
+      trabajador_nombre: f.trabajador_nombre,
+      presente: true,
+      horas: f.horas ?? null,
+      horas_extra: f.horas_extra ?? null,
+      jornal_semana: f.trabajador_id ? (tarifas.get(f.trabajador_id) ?? 0) : 0,
+      estado: 'aprobado',
+      revisado_by: session.id,
+      revisado_at: new Date().toISOString(),
+      es_correccion: true,
+      nota: d.nota || null,
+      created_by: session.id,
+    })),
+  );
+  if (error) return { ok: false, error: error.message };
+  revalidatePath(`/proyectos/${d.proyecto_id}`);
+  revalidatePath('/finanzas');
+  return { ok: true };
+}
+
 // Residente envía el tareo de un rango a revisión del jefe de proyectos.
 export async function enviarTareo(proyectoId: string, desde: string, hasta: string): Promise<Res> {
   const session = await requireSession();

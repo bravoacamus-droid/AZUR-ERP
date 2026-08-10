@@ -40,7 +40,7 @@ export default async function FinanzasPage() {
   // Jornales: tareo APROBADO (pendiente de pago) consolidado POR PERSONA,
   // con desglose por proyecto y total (una persona en varios proyectos = 1 fila).
   const { data: tareoAprob } = await (supabase as unknown as { from: (t: string) => any }).from('tareo')
-    .select('id, proyecto_id, trabajador_id, trabajador_nombre, presente, horas, horas_extra, jornal_semana, fecha, proyecto:proyectos(nombre)')
+    .select('id, proyecto_id, trabajador_id, trabajador_nombre, presente, horas, horas_extra, jornal_semana, fecha, es_correccion, proyecto:proyectos(nombre)')
     .eq('estado', 'aprobado').order('fecha');
   const consMap = new Map<string, any>();
   (tareoAprob ?? []).forEach((r: any) => {
@@ -49,7 +49,8 @@ export default async function FinanzasPage() {
     const jornal = Number(r.jornal_semana ?? 0);
     // Monto = jornal/48 × horas + hora extra ×1.2 (solo si estuvo presente).
     const monto = dia ? montoDia(jornal, Number(r.horas ?? 0), Number(r.horas_extra ?? 0)) : 0;
-    const p = consMap.get(key) ?? { key, trabajadorId: r.trabajador_id ?? null, nombre: r.trabajador_nombre, jornal, dias: 0, horas: 0, extra: 0, monto: 0, ids: [] as string[], proyectos: new Map<string, any>() };
+    const p = consMap.get(key) ?? { key, trabajadorId: r.trabajador_id ?? null, nombre: r.trabajador_nombre, jornal, dias: 0, horas: 0, extra: 0, monto: 0, correcciones: 0, ids: [] as string[], proyectos: new Map<string, any>() };
+    if (r.es_correccion) p.correcciones += 1;
     p.dias += dia; p.horas += Number(r.horas ?? 0); p.extra += Number(r.horas_extra ?? 0);
     p.monto += monto; p.jornal = jornal || p.jornal; p.ids.push(r.id);
     const pr = p.proyectos.get(r.proyecto_id) ?? { nombre: r.proyecto?.nombre ?? 'Proyecto', dias: 0, horas: 0, extra: 0, monto: 0 };
