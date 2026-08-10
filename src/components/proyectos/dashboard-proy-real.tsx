@@ -19,7 +19,7 @@ export function DashboardProyVsReal({
 }: {
   proy: any;
   items: any[];
-  valorizaciones: { numero: number; monto_valorizado: number }[];
+  valorizaciones: { numero: number; monto_valorizado?: number; valorizacion_items?: { total: number | null }[] }[];
 }) {
   const leaves = (items ?? []).filter((i) => i.es_hoja && !i.es_hito);
   const baseVal = proy.base_valorizacion === 'precio' ? 'precio' : 'costo';
@@ -27,7 +27,12 @@ export function DashboardProyVsReal({
   const factorVal = baseVal === 'precio' && costoDirecto > 0 ? Number(proy.contrato_total ?? 0) / costoDirecto : 1;
 
   const itemsPlan = leaves.map((r) => ({ fi: iso(r.fi_proy), fe: iso(r.fe_proy), monto: Number(r.total_costo ?? 0) * factorVal }));
-  const valsCurva = [...(valorizaciones ?? [])].sort((a, b) => a.numero - b.numero).map((v) => ({ numero: v.numero, monto: Number(v.monto_valorizado ?? 0) }));
+  // Real derivado de los ítems (base costo × factor), consistente con el PDF y el
+  // dashboard; NO usa el campo guardado monto_valorizado (base inconsistente).
+  const valsCurva = [...(valorizaciones ?? [])].sort((a, b) => a.numero - b.numero).map((v) => ({
+    numero: v.numero,
+    monto: ((v.valorizacion_items as { total: number | null }[]) ?? []).reduce((a, vi) => a + Number(vi.total ?? 0), 0) * factorVal,
+  }));
 
   const iniPlan = minISO(leaves.map((r) => iso(r.fi_proy)));
   const finPlan = maxISO(leaves.map((r) => iso(r.fe_proy)));

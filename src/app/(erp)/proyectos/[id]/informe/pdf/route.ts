@@ -65,9 +65,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
   arbol.forEach(walk);
 
-  // Resumen económico.
+  // Resumen económico. Valorizado acumulado derivado de los ítems (base costo ×
+  // factor de precio), consistente con el PDF de valorización y el dashboard;
+  // NO usa el campo guardado monto_valorizado (base inconsistente entre proyectos).
   const contrato = Number(proy.contrato_total ?? 0);
-  const valorizadoAcum = valsSorted.reduce((a, v) => a + Number(v.monto_valorizado ?? 0), 0);
+  const costoDirectoInf = (proyItems ?? []).reduce((a: number, i: any) => a + (i.es_hoja ? Number(i.total_costo ?? 0) : 0), 0);
+  const factorValInf = proy.base_valorizacion === 'precio' && costoDirectoInf > 0 ? contrato / costoDirectoInf : 1;
+  const valorizadoAcum = valsSorted.reduce((a, v) => a + ((v.valorizacion_items as any[]) ?? []).reduce((s: number, vi: any) => s + Number(vi.total ?? 0), 0), 0) * factorValInf;
   const ads = (adicionales ?? []) as any[];
   const adicionalesAprob = ads.filter((a) => a.tipo === 'adicional').reduce((a, x) => a + Number(x.monto ?? 0), 0);
   const deductivosAprob = ads.filter((a) => a.tipo === 'deductivo').reduce((a, x) => a + Number(x.monto ?? 0), 0);
