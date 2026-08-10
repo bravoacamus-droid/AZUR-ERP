@@ -16,6 +16,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   const hasta = url.searchParams.get('hasta') || isoHoy();
   const estadoFiltro = url.searchParams.get('estado') || ''; // '' = todos; 'aprobado' = solo aprobados
   const incluirResumen = url.searchParams.get('resumen') === '1'; // resumen diario = uso interno (opcional)
+  const dl = url.searchParams.get('dl') === '1';                  // descarga (attachment) para móvil
 
   const { data: proy } = await supabase.from('proyectos').select('nombre, codigo, direccion').eq('id', params.id).single();
   if (!proy) return new Response('No encontrado', { status: 404 });
@@ -81,7 +82,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="Reporte-consolidado-${proy.codigo ?? ''}-${desde}_a_${hasta}.pdf"`,
+      'Content-Disposition': `${dl ? 'attachment' : 'inline'}; filename="Reporte-consolidado-${proy.codigo ?? ''}-${desde}_a_${hasta}.pdf"`,
     },
   });
 }

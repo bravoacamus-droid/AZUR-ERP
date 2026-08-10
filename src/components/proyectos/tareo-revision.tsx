@@ -2,14 +2,22 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Loader2, Undo2, Pencil, X } from 'lucide-react';
+import { CheckCircle2, Loader2, Undo2, Pencil, X, ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { EmptyState } from '@/components/ui/misc';
-import { fmtDate } from '@/lib/format';
+import { fmtDate, fmtMoney } from '@/lib/format';
+import { montoDia } from '@/lib/tareo';
+import { useIsStandalone } from '@/lib/pwa';
 import { revisarTareo, editarTareoFila } from '@/app/(pwa)/campo/tareo/actions';
+
+const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+const lunesDe = (s: string) => { const d = new Date(s.slice(0, 10) + 'T00:00:00'); const g = d.getDay(); d.setDate(d.getDate() + (g === 0 ? -6 : 1 - g)); return d.toISOString().slice(0, 10); };
+const idxDia = (s: string) => { const g = new Date(s.slice(0, 10) + 'T00:00:00').getDay(); return g === 0 ? 6 : g - 1; };
+const sumaISO = (iso: string, dias: number) => new Date(new Date(iso + 'T00:00:00').getTime() + dias * 86400000).toISOString().slice(0, 10);
+type FilaMatriz = { nombre: string; dias: (number | null)[]; extra: (number | null)[]; totalH: number; totalExtra: number; monto: number };
 
 type Row = { id: string; fecha: string; trabajador_nombre: string; presente: boolean; horas: number | null; horas_extra: number | null; jornal_semana: number | null; estado: string };
 const EST: Record<string, { label: string; variant: any }> = {
@@ -41,6 +49,32 @@ export function TareoRevision({ tareo, proyectoId, userRol }: { tareo: Row[]; pr
     return [...m.entries()].map(([fecha, filas]) => ({ fecha, filas })).sort((a, b) => b.fecha.localeCompare(a.fecha));
   }, [tareo]);
 
+  // Matriz semana × trabajador (Lun–Dom) con totales y monto (jornal/48 × horas).
+  const semanas = useMemo(() => {
+    const m = new Map<string, Map<string, FilaMatriz>>();
+    tareo.forEach((r) => {
+      if (!r.presente) return;
+      const lun = lunesDe(r.fecha);
+      const di = idxDia(r.fecha);
+      const key = `${r.trabajador_nombre}`;
+      const trab = m.get(lun) ?? new Map<string, FilaMatriz>();
+      const f = trab.get(key) ?? { nombre: r.trabajador_nombre, dias: Array(7).fill(null), extra: Array(7).fill(null), totalH: 0, totalExtra: 0, monto: 0 };
+      const h = Number(r.horas ?? 0); const e = Number(r.horas_extra ?? 0);
+      f.dias[di] = (f.dias[di] ?? 0) + h;
+      if (e) f.extra[di] = (f.extra[di] ?? 0) + e;
+      f.totalH += h; f.totalExtra += e; f.monto += montoDia(Number(r.jornal_semana ?? 0), h, e);
+      trab.set(key, f); m.set(lun, trab);
+    });
+    return [...m.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([lun, trab]) => ({
+      lun, filas: [...trab.values()].sort((a, b) => a.nombre.localeCompare(b.nombre)),
+      totalMonto: [...trab.values()].reduce((s, f) => s + f.monto, 0),
+    }));
+  }, [tareo]);
+
+  const [semSel, setSemSel] = useState(0); // 0 = semana más reciente
+  const standalone = useIsStandalone();
+  const semana = semanas[semSel];
+
   const enviadas = tareo.filter((r) => r.estado === 'enviado');
   const rangoEnviado = enviadas.length ? { desde: enviadas.reduce((m, r) => (r.fecha < m ? r.fecha : m), enviadas[0].fecha), hasta: enviadas.reduce((m, r) => (r.fecha > m ? r.fecha : m), enviadas[0].fecha) } : null;
 
@@ -55,6 +89,58 @@ export function TareoRevision({ tareo, proyectoId, userRol }: { tareo: Row[]; pr
 
   return (
     <div className="space-y-3">
+      {semana && (
+        <Card>
+          <CardContent className="p-3">
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-1">
+                <Button size="sm" variant="ghost" disabled={semSel >= semanas.length - 1} onClick={() => setSemSel((i) => Math.min(semanas.length - 1, i + 1))}><ChevronLeft className="size-4" /></Button>
+                <p className="text-sm font-semibold">Semana del {fmtDate(semana.lun)} al {fmtDate(sumaISO(semana.lun, 6))}</p>
+                <Button size="sm" variant="ghost" disabled={semSel <= 0} onClick={() => setSemSel((i) => Math.max(0, i - 1))}><ChevronRight className="size-4" /></Button>
+              </div>
+              <a href={`/proyectos/${proyectoId}/tareo/pdf?desde=${semana.lun}&hasta=${sumaISO(semana.lun, 6)}${standalone ? '&dl=1' : ''}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-azur-600">
+                <FileDown className="size-3.5" /> PDF de la semana
+              </a>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[560px] text-xs">
+                <thead>
+                  <tr className="border-b text-muted-foreground">
+                    <th className="py-1 pr-2 text-left font-medium">Trabajador</th>
+                    {DIAS.map((d) => <th key={d} className="px-1 py-1 text-center font-medium">{d}</th>)}
+                    <th className="px-1 py-1 text-right font-medium">Tot. h</th>
+                    <th className="px-1 py-1 text-right font-medium">Extra</th>
+                    <th className="pl-2 py-1 text-right font-medium">Monto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {semana.filas.map((f, i) => (
+                    <tr key={i} className="border-b last:border-0">
+                      <td className="py-1 pr-2 font-medium">{f.nombre}</td>
+                      {f.dias.map((h, di) => (
+                        <td key={di} className="px-1 py-1 text-center tabular-nums">
+                          {h == null && !f.extra[di] ? <span className="text-muted-foreground/40">·</span> : <>{h ?? 0}{f.extra[di] ? <span className="text-amber-600">+{f.extra[di]}</span> : null}</>}
+                        </td>
+                      ))}
+                      <td className="px-1 py-1 text-right tabular-nums">{f.totalH}</td>
+                      <td className="px-1 py-1 text-right tabular-nums text-amber-600">{f.totalExtra || '—'}</td>
+                      <td className="pl-2 py-1 text-right font-semibold tabular-nums">{fmtMoney(f.monto)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="border-t-2 border-azur-600/40">
+                    <td className="py-1 pr-2 font-semibold" colSpan={8}>Total semana</td>
+                    <td className="pl-2 py-1 text-right font-bold tabular-nums text-azur-600" colSpan={2}>{fmtMoney(semana.totalMonto)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">Monto = jornal semanal ÷ 48 × horas; la hora extra vale 20% más. El "+" en cada celda son horas extra.</p>
+          </CardContent>
+        </Card>
+      )}
+
       {puedeAprobar && rangoEnviado && (
         <Card>
           <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">

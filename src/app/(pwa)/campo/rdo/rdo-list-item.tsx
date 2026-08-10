@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Send, FileText, Trash2, Loader2, Pencil } from 'lucide-react';
 import { fmtDate } from '@/lib/format';
+import { useIsStandalone } from '@/lib/pwa';
 import { enviarRdo, eliminarRdo } from './actions';
 
 const ESTADO: Record<string, { label: string; cls: string }> = {
@@ -21,6 +22,7 @@ export type ParteItem = {
 
 export function RdoListItem({ p }: { p: ParteItem }) {
   const router = useRouter();
+  const standalone = useIsStandalone();
   const [busy, setBusy] = useState<'' | 'enviar' | 'eliminar'>('');
   const est = ESTADO[p.estado] ?? ESTADO.borrador;
   const puedeEnviar = p.estado === 'borrador' || p.estado === 'observado';
@@ -66,7 +68,7 @@ export function RdoListItem({ p }: { p: ParteItem }) {
             <Pencil className="size-3.5" /> Editar
           </Link>
         )}
-        <a href={`/proyectos/${p.proyecto_id}/rdo/${p.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-foreground">
+        <a href={`/proyectos/${p.proyecto_id}/rdo/${p.id}/pdf${standalone ? '?dl=1' : ''}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-foreground">
           <FileText className="size-3.5" /> PDF
         </a>
         {puedeEliminar && (

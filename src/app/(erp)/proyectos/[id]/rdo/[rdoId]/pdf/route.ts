@@ -7,6 +7,9 @@ import { RdoPDF, type RdoPdfData } from './rdo-pdf';
 export const runtime = 'nodejs';
 
 export async function GET(_req: Request, { params }: { params: { id: string; rdoId: string } }) {
+  // ?dl=1 → descarga (attachment). En la PWA (standalone) evita que el visor
+  // de PDF atrape al usuario sin botón de volver (iOS ignora el attr download).
+  const dl = new URL(_req.url).searchParams.get('dl') === '1';
   // Cliente sin tipar: columnas recientes (estado/revisión, es_hito) aún no están
   // en los tipos generados.
   const supabase = createClient() as any;
@@ -73,7 +76,7 @@ export async function GET(_req: Request, { params }: { params: { id: string; rdo
   return new Response(new Uint8Array(buffer), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="Reporte-${proy?.codigo ?? ''}-${parte.fecha}.pdf"`,
+      'Content-Disposition': `${dl ? 'attachment' : 'inline'}; filename="Reporte-${proy?.codigo ?? ''}-${parte.fecha}.pdf"`,
     },
   });
 }

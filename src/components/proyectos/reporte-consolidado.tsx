@@ -1,7 +1,8 @@
 'use client';
 
 import * as React from 'react';
-import { FileStack } from 'lucide-react';
+import { FileStack, Users } from 'lucide-react';
+import { useIsStandalone } from '@/lib/pwa';
 
 // Junta los reportes diarios de un rango (por defecto la semana actual) en un
 // solo PDF consolidado. Se usa en el ERP (proyecto fijo) y en la PWA (con selector).
@@ -27,8 +28,12 @@ export function ReporteConsolidado({
   const [hasta, setHasta] = React.useState(hoyISO());
   const [estado, setEstado] = React.useState('');
   const [resumen, setResumen] = React.useState(false);
+  const [tareo, setTareo] = React.useState(false);
+  const standalone = useIsStandalone();
+  const dl = standalone ? '&dl=1' : '';
   const pid = proyectoId ?? proy;
-  const url = pid ? `/proyectos/${pid}/rdo/consolidado/pdf?desde=${desde}&hasta=${hasta}${estado ? `&estado=${estado}` : ''}${resumen ? '&resumen=1' : ''}` : '';
+  const url = pid ? `/proyectos/${pid}/rdo/consolidado/pdf?desde=${desde}&hasta=${hasta}${estado ? `&estado=${estado}` : ''}${resumen ? '&resumen=1' : ''}${dl}` : '';
+  const urlTareo = pid ? `/proyectos/${pid}/tareo/pdf?desde=${desde}&hasta=${hasta}${dl}` : '';
 
   const setSemana = (offset: number) => {
     const base = new Date();
@@ -84,6 +89,20 @@ export function ReporteConsolidado({
         <input type="checkbox" checked={resumen} onChange={(e) => setResumen(e.target.checked)} />
         Incluir resumen diario (uso interno · no mostrar al cliente)
       </label>
+      <label className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+        <input type="checkbox" checked={tareo} onChange={(e) => setTareo(e.target.checked)} />
+        Incluir tareo de la semana (uso interno · PDF aparte)
+      </label>
+      {tareo && (
+        <a
+          href={urlTareo || undefined}
+          target="_blank"
+          rel="noreferrer"
+          className={`mt-2 inline-flex items-center gap-1.5 rounded-lg border border-azur-600 px-3 py-1.5 text-xs font-medium text-azur-600 ${!urlTareo ? 'pointer-events-none opacity-50' : ''}`}
+        >
+          <Users className="size-3.5" /> Descargar tareo (PDF)
+        </a>
+      )}
       <div className="mt-2 flex gap-2 text-[11px]">
         <button type="button" onClick={() => setSemana(0)} className="rounded-full border px-2 py-0.5 text-muted-foreground hover:bg-secondary">Esta semana</button>
         <button type="button" onClick={() => setSemana(-1)} className="rounded-full border px-2 py-0.5 text-muted-foreground hover:bg-secondary">Semana pasada</button>
