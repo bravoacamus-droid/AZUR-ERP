@@ -18,7 +18,7 @@ const s = StyleSheet.create({
   rowB: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 2 },
   k: { color: '#555' },
   vb: { fontFamily: 'Helvetica-Bold' },
-  hi: { color: AZUR },
+  hi: { color: '#1a1a1a' },
   sectionTitle: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: AZUR, marginBottom: 4 },
   thead: { flexDirection: 'row', backgroundColor: AZUR, paddingVertical: 4, paddingHorizontal: 4 },
   th: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 7.5 },

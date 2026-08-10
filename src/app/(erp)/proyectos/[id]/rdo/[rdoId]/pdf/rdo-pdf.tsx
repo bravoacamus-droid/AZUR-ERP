@@ -12,7 +12,7 @@ const s = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brand: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: AZUR },
   brandSub: { fontSize: 6.5, color: '#666', letterSpacing: 1.5 },
-  title: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: AZUR, textAlign: 'right' },
+  title: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#1a1a1a', textAlign: 'right' },
   fecha: { fontSize: 8.5, color: '#444', textAlign: 'right', marginTop: 2, fontFamily: 'Helvetica-Bold' },
   chip: { alignSelf: 'flex-end', marginTop: 4, paddingVertical: 2, paddingHorizontal: 6, borderRadius: 3, fontSize: 7.5, fontFamily: 'Helvetica-Bold' },
 
@@ -43,14 +43,14 @@ const s = StyleSheet.create({
   fotosWrap: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   fotoCard: { width: '48.5%', borderWidth: 1, borderColor: '#dcdcdc', borderRadius: 4, padding: 6, marginBottom: 8 },
   foto: { width: '100%', height: 150, objectFit: 'cover', borderRadius: 3, backgroundColor: '#f2f2f2' },
-  fotoTit: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: AZUR, marginTop: 5 },
+  fotoTit: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', color: '#1a1a1a', marginTop: 5 },
   fotoDesc: { fontSize: 7.5, color: '#555', marginTop: 2 },
 
   // Sección 3 (programación / observaciones)
   box3: { borderWidth: 1, borderColor: '#dcdcdc', borderLeftWidth: 3, borderLeftColor: AZUR, borderRadius: 3, padding: 8, marginBottom: 4 },
   box3Tit: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', marginBottom: 4 },
   bullet: { flexDirection: 'row', marginBottom: 2 },
-  bulletDot: { width: 10, fontSize: 8.5, color: AZUR },
+  bulletDot: { width: 10, fontSize: 8.5, color: '#666' },
   bulletTxt: { flex: 1, fontSize: 8.5 },
 
   obsBox: { borderWidth: 1, borderColor: '#f0c9d1', backgroundColor: '#fbe9ec', borderRadius: 3, padding: 8, marginTop: 6 },

@@ -3,7 +3,6 @@ import { fmtMoney, fmtNumber } from '@/lib/format';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 
 const AZUR = '#C02128';
-const AZUR_DARK = '#BE1723';
 
 const s = StyleSheet.create({
   page: { padding: 32, paddingBottom: 48, fontSize: 9, fontFamily: 'Helvetica', color: '#1a1a1a' },
@@ -17,7 +16,7 @@ const s = StyleSheet.create({
   meta: { fontSize: 8, color: '#444', textAlign: 'right', marginTop: 2 },
 
   projHead: { backgroundColor: '#faf3f4', borderWidth: 1, borderColor: '#f0d9dc', borderRadius: 6, padding: 12, marginBottom: 14 },
-  projName: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: AZUR_DARK, marginBottom: 6 },
+  projName: { fontSize: 15, fontFamily: 'Helvetica-Bold', color: '#1a1a1a', marginBottom: 6 },
   projGrid: { flexDirection: 'row', flexWrap: 'wrap' },
   projCell: { width: '50%', marginBottom: 3, flexDirection: 'row' },
   projK: { color: '#777', width: 70 },
@@ -27,7 +26,7 @@ const s = StyleSheet.create({
   rowB: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3 },
   k: { color: '#555' },
   vb: { fontFamily: 'Helvetica-Bold' },
-  hi: { color: AZUR },
+  hi: { color: '#1a1a1a' },
   pos: { color: '#15803d' },
 
   sectionTitle: { fontFamily: 'Helvetica-Bold', fontSize: 10, color: AZUR, marginBottom: 6, marginTop: 4 },
@@ -38,7 +37,7 @@ const s = StyleSheet.create({
   cTit: { flex: 1 }, cPct: { width: 58, textAlign: 'right' }, cMon: { width: 78, textAlign: 'right' }, cSal: { width: 78, textAlign: 'right' },
   bold: { fontFamily: 'Helvetica-Bold' },
 
-  galPartida: { fontFamily: 'Helvetica-Bold', fontSize: 9, color: AZUR_DARK, marginTop: 8, marginBottom: 4, borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingBottom: 2 },
+  galPartida: { fontFamily: 'Helvetica-Bold', fontSize: 9, color: '#1a1a1a', marginTop: 8, marginBottom: 4, borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingBottom: 2 },
   galRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   galCell: { width: '31%', marginBottom: 8 },
   galImg: { width: '100%', height: 90, objectFit: 'cover', borderRadius: 4, borderWidth: 1, borderColor: '#eee' },
@@ -48,7 +47,7 @@ const s = StyleSheet.create({
   galDesc: { fontSize: 6.5, color: '#333', marginTop: 1 },
 
   note: { fontSize: 8, color: '#333', marginBottom: 4 },
-  noteDate: { fontFamily: 'Helvetica-Bold', color: AZUR_DARK },
+  noteDate: { fontFamily: 'Helvetica-Bold', color: '#444' },
   empty: { fontSize: 8, color: '#999', fontStyle: 'italic' },
 
   footer: { position: 'absolute', bottom: 20, left: 32, right: 32, textAlign: 'center', fontSize: 7, color: '#999', borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 6 },

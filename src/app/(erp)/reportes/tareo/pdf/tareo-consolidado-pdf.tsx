@@ -11,7 +11,7 @@ const s = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brand: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: AZUR },
   brandSub: { fontSize: 6.5, color: '#666', letterSpacing: 1.5 },
-  title: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: AZUR, textAlign: 'right' },
+  title: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#1a1a1a', textAlign: 'right' },
   fecha: { fontSize: 8.5, color: '#444', textAlign: 'right', marginTop: 2, fontFamily: 'Helvetica-Bold' },
   thead: { flexDirection: 'row', backgroundColor: AZUR, paddingVertical: 5, paddingHorizontal: 6 },
   th: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 8 },

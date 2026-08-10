@@ -13,7 +13,7 @@ const s = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   brand: { fontSize: 18, fontFamily: 'Helvetica-Bold', color: AZUR },
   brandSub: { fontSize: 6.5, color: '#666', letterSpacing: 1.5 },
-  title: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: AZUR, textAlign: 'right' },
+  title: { fontSize: 13, fontFamily: 'Helvetica-Bold', color: '#1a1a1a', textAlign: 'right' },
   fecha: { fontSize: 8.5, color: '#444', textAlign: 'right', marginTop: 2, fontFamily: 'Helvetica-Bold' },
   grid: { borderWidth: 1, borderColor: '#dcdcdc', borderRadius: 3, marginBottom: 12 },
   gRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#eee' },

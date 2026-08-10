@@ -19,7 +19,8 @@ const s = StyleSheet.create({
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   k: { color: '#555' },
   vb: { fontFamily: 'Helvetica-Bold' },
-  hi: { color: AZUR },
+  hi: { color: '#1a1a1a' },
+  neg: { color: AZUR }, // rojo solo para valores negativos (pérdida)
   pos: { color: '#0a7d33' },
   tot: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#ccc', paddingTop: 5, marginTop: 4 },
   footer: { position: 'absolute', bottom: 20, left: 32, right: 32, textAlign: 'center', fontSize: 7, color: '#999', borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 6 },
@@ -82,8 +83,8 @@ export function LiquidacionPDF({ d }: { d: LiqPdfData }) {
         <View style={s.box}>
           <View style={s.row}><Text style={s.k}>Costo presupuestado (interno)</Text><Text style={s.vb}>{fmtMoney(d.costoPresupuestado)}</Text></View>
           <View style={s.row}><Text style={s.k}>Gastado real (egresos)</Text><Text style={[s.vb, s.hi]}>{fmtMoney(d.gastado)}</Text></View>
-          <View style={s.tot}><Text style={s.vb}>Margen vs. presupuesto</Text><Text style={[s.vb, d.margenPresupuesto >= 0 ? s.pos : s.hi]}>{fmtMoney(d.margenPresupuesto)}</Text></View>
-          <View style={s.row}><Text style={[s.vb, { fontSize: 11 }]}>Utilidad real (cobrado − gastado)</Text><Text style={[s.vb, { fontSize: 11 }, d.utilidadReal >= 0 ? s.pos : s.hi]}>{fmtMoney(d.utilidadReal)} ({fmtPct(d.margenPct, 1)})</Text></View>
+          <View style={s.tot}><Text style={s.vb}>Margen vs. presupuesto</Text><Text style={[s.vb, d.margenPresupuesto >= 0 ? s.pos : s.neg]}>{fmtMoney(d.margenPresupuesto)}</Text></View>
+          <View style={s.row}><Text style={[s.vb, { fontSize: 11 }]}>Utilidad real (cobrado − gastado)</Text><Text style={[s.vb, { fontSize: 11 }, d.utilidadReal >= 0 ? s.pos : s.neg]}>{fmtMoney(d.utilidadReal)} ({fmtPct(d.margenPct, 1)})</Text></View>
         </View>
 
         {d.medios && d.medios.length ? (
