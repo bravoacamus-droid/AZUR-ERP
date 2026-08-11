@@ -9,12 +9,62 @@ import { notifyRoles } from '@/lib/push/notify';
 import { calcEstado, calcPrioridad, proyectadoSemana, semanasEntre } from '@/lib/lastplanner';
 import { saludRegla1, saludRegla2 } from '@/lib/salud';
 import { nowLima } from '@/lib/format';
+import { formatCodigo } from '@/lib/codigo';
 
 type Res = { ok: boolean; error?: string; id?: string };
 
 // Escritura en Proyectos: exige permiso de edición del módulo.
 async function guard() {
   return requireModulo('proyectos', 'editar');
+}
+
+// ── Crear proyecto directo (sin pasar por Comercial) ────────────────────
+const nuevoProyectoSchema = z.object({
+  nombre: z.string().trim().min(2, 'Nombre requerido'),
+  cliente_id: z.string().uuid('Selecciona un cliente'),
+  linea_id: z.string().uuid('Selecciona una línea'),
+  tipo_proyecto: z.enum(['grande', 'chico']).default('chico'),
+  direccion: z.string().trim().nullable().optional(),
+  contrato_total: z.number().min(0).default(0),
+  fecha_inicio: z.string().nullable().optional(),
+  fecha_fin: z.string().nullable().optional(),
+  adelanto_pct: z.number().min(0).max(1).default(0),
+  base_valorizacion: z.enum(['costo', 'precio']).default('costo'),
+  gg_pct: z.number().min(0).max(1).default(0),
+  ga_pct: z.number().min(0).max(1).default(0),
+  utilidad_pct: z.number().min(0).max(1).default(0),
+  igv_pct: z.number().min(0).max(1).default(0.18),
+});
+
+export async function crearProyectoDirecto(input: z.input<typeof nuevoProyectoSchema>): Promise<Res> {
+  const session = await guard();
+  const parsed = nuevoProyectoSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
+  const d = parsed.data;
+  const admin = createAdminClient();
+
+  const { data: proy, error } = await admin.from('proyectos').insert({
+    cotizacion_id: null,
+    linea_id: d.linea_id,
+    cliente_id: d.cliente_id,
+    nombre: d.nombre,
+    direccion: d.direccion || null,
+    tipo_proyecto: d.tipo_proyecto,
+    estado: 'planeacion',
+    contrato_total: d.contrato_total,
+    fecha_inicio: d.fecha_inicio || null,
+    fecha_fin: d.fecha_fin || null,
+    adelanto_pct: d.adelanto_pct,
+    base_valorizacion: d.base_valorizacion,
+    gg_pct: d.gg_pct, ga_pct: d.ga_pct, utilidad_pct: d.utilidad_pct, igv_pct: d.igv_pct,
+    // Si quien lo crea es jefe de proyectos, queda como responsable.
+    jefe_id: session.rol === 'jefe_proyectos' ? session.id : null,
+  } as never).select('id, correlativo').single();
+  if (error || !proy) return { ok: false, error: error?.message ?? 'No se pudo crear el proyecto' };
+
+  await admin.from('proyectos').update({ codigo: formatCodigo('PROY', (proy as { correlativo: number }).correlativo) } as never).eq('id', (proy as { id: string }).id);
+  revalidatePath('/proyectos');
+  return { ok: true, id: (proy as { id: string }).id };
 }
 
 // ── Cabecera del proyecto ───────────────────────────────────────────────

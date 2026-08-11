@@ -12,19 +12,26 @@ import { fmtMoney, fmtDate } from '@/lib/format';
 import { SearchBox, Pagination } from '@/components/ui/list-tools';
 import { PortafolioOverview } from '@/components/proyectos/portafolio-overview';
 import { saludGlobal } from '@/lib/salud';
+import { puedeEditar } from '@/lib/permisos';
+import { NuevoProyecto } from './nuevo-proyecto';
 
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 20;
 
 export default async function ProyectosPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {
-  await requireModulo('proyectos', 'ver');
+  const session = await requireModulo('proyectos', 'ver');
+  const canEdit = puedeEditar(session.permisos, 'proyectos');
   const supabase = createClient();
 
   // Overview de portafolio (gerencia): salud, avance físico vs tiempo, margen.
-  const [{ data: dashRows }, { data: fechas }] = await Promise.all([
+  const [{ data: dashRows }, { data: fechas }, { data: clientesRaw }, { data: lineasRaw }] = await Promise.all([
     supabase.from('v_dashboard_proyecto').select('proyecto_id, codigo, nombre, linea_id, estado, tipo_proyecto, proyectado, pagos, gasto, valorizado'),
     supabase.from('proyectos').select('id, fecha_inicio, fecha_fin, estado'),
+    supabase.from('clientes').select('id, razon_social').order('razon_social'),
+    supabase.from('lineas_negocio').select('id, nombre').eq('activo', true).order('nombre'),
   ]);
+  const clientesOpt = (clientesRaw ?? []).map((c) => ({ id: c.id, nombre: c.razon_social }));
+  const lineasOpt = (lineasRaw ?? []).map((l) => ({ id: l.id, nombre: l.nombre }));
   const fechaMap = new Map((fechas ?? []).map((f) => [f.id, f]));
   const hoy = Date.now();
   const portafolio = (dashRows ?? [])
@@ -62,7 +69,7 @@ export default async function ProyectosPage({ searchParams }: { searchParams: { 
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Proyectos" description="Gestión de obra — Last Planner, valorizaciones y control." />
+      <PageHeader title="Proyectos" description="Gestión de obra — Last Planner, valorizaciones y control." action={canEdit ? <NuevoProyecto clientes={clientesOpt} lineas={lineasOpt} /> : undefined} />
 
       <PortafolioOverview items={portafolio} />
 
