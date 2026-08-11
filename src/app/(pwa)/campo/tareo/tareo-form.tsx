@@ -13,7 +13,9 @@ import { guardarTareo, guardarTrabajador } from './actions';
 export type Trabajador = { id: string; nombre: string; especialidad?: string | null; jornal_semana?: number | null; recurrente?: boolean };
 type Fila = { trabajador_id: string | null; trabajador_nombre: string; presente: boolean; horas: string; horas_extra: string };
 
-const nuevaFila = (id: string | null, nombre: string): Fila => ({ trabajador_id: id, trabajador_nombre: nombre, presente: true, horas: '8', horas_extra: '' });
+const nuevaFila = (id: string | null, nombre: string, horas = '8.5'): Fila => ({ trabajador_id: id, trabajador_nombre: nombre, presente: true, horas, horas_extra: '' });
+// Jornada estándar: L-V 8.5h, Sábado 5.5h (= 48h/sem), Domingo 0. El residente puede ajustar.
+const horasDia = (f: string) => { const g = new Date(f + 'T00:00:00').getDay(); return g === 6 ? '5.5' : g === 0 ? '0' : '8.5'; };
 
 export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string; nombre: string }[]; trabajadores: Trabajador[] }) {
   const router = useRouter();
@@ -33,12 +35,12 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
   function agregarDelMaestro(id: string) {
     if (!id || yaEsta(id)) return;
     const t = trabajadores.find((x) => x.id === id);
-    if (t) setFilas((f) => [...f, nuevaFila(t.id, t.nombre)]);
+    if (t) setFilas((f) => [...f, nuevaFila(t.id, t.nombre, horasDia(fecha))]);
   }
   function agregarLibre() {
     const n = libre.trim();
     if (!n) return;
-    setFilas((f) => [...f, nuevaFila(null, n)]);
+    setFilas((f) => [...f, nuevaFila(null, n, horasDia(fecha))]);
     setLibre('');
   }
   async function crearEnMaestro() {
@@ -47,7 +49,7 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
     const r = await guardarTrabajador({ nombre: nuevo.nombre.trim(), especialidad: nuevo.especialidad || null, recurrente: nuevo.recurrente });
     setSavingT(false);
     if (!r.ok) { setMsg({ t: 'err', x: r.error ?? 'Error' }); return; }
-    if (r.id) setFilas((f) => [...f, nuevaFila(r.id!, nuevo.nombre.trim())]);
+    if (r.id) setFilas((f) => [...f, nuevaFila(r.id!, nuevo.nombre.trim(), horasDia(fecha))]);
     setNuevo({ open: false, nombre: '', especialidad: '', recurrente: true });
     router.refresh();
   }

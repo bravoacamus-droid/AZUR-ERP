@@ -832,7 +832,7 @@ function TrabajadoresTab({ rows }: { rows: Trabajador[] }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">Maestro de jornaleros para el tareo. El jornal semanal solo lo edita Jefe de Proyectos o Gerencia.</p>
+        <p className="text-xs text-muted-foreground">Maestro de jornaleros para el tareo. El jornal semanal solo lo edita Gerencia General.</p>
         {useCanEdit() && <Button variant="gradient" onClick={abrirNuevo}><Plus className="size-4" /> Nuevo trabajador</Button>}
       </div>
       {rows.length === 0 ? (
@@ -888,7 +888,7 @@ function TrabajadorForm({ trabajador, onClose }: { trabajador: Trabajador | null
           <Field label="Documento (DNI/CE)"><Input value={f.documento} onChange={(e) => setF({ ...f, documento: e.target.value })} /></Field>
           <Field label="Especialidad"><Input value={f.especialidad} onChange={(e) => setF({ ...f, especialidad: e.target.value })} placeholder="Operario, oficial, peón…" /></Field>
         </div>
-        <Field label="Jornal semanal (S/)" hint={puedeTarifa ? (f.jornal_semana ? `≈ ${fmtMoney(Number(f.jornal_semana) / 48)}/hora · ${fmtMoney((Number(f.jornal_semana) / 48) * 8)}/día (8h)` : 'Se paga jornal/48 × horas; la hora extra vale 20% más') : 'Solo Jefe de Proyectos o Gerencia puede fijar el jornal'}>
+        <Field label="Jornal semanal (S/)" hint={puedeTarifa ? (f.jornal_semana ? `≈ ${fmtMoney(Number(f.jornal_semana) / 48)}/hora · L-V (8.5h) ${fmtMoney((Number(f.jornal_semana) / 48) * 8.5)} · Sáb (5.5h) ${fmtMoney((Number(f.jornal_semana) / 48) * 5.5)}` : 'Jornada: L-V 8.5h + Sáb 5.5h = 48h/sem. Se paga jornal/48 × horas; la hora extra vale 20% más') : 'Solo Gerencia General puede fijar el jornal'}>
           <Input type="number" step="0.01" inputMode="decimal" value={f.jornal_semana} onChange={(e) => setF({ ...f, jornal_semana: e.target.value })} disabled={!puedeTarifa} />
         </Field>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" className="size-4 accent-azur-600" checked={f.recurrente} onChange={(e) => setF({ ...f, recurrente: e.target.checked })} /> Marcar como frecuente (aparece primero en el tareo)</label>

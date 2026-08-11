@@ -25,8 +25,8 @@ export async function guardarTrabajador(input: z.input<typeof trabSchema>): Prom
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
   const d = parsed.data;
   const supabase = createClient() as any;
-  // Solo jefe de proyectos / gerencia fijan o modifican el jornal semanal.
-  const puedeTarifa = session.rol === 'jefe_proyectos' || session.rol === 'gerencia';
+  // Solo Gerencia General fija o modifica el jornal semanal.
+  const puedeTarifa = session.rol === 'gerencia';
   const payload: Record<string, unknown> = {
     nombre: d.nombre,
     documento: d.documento || null,
@@ -40,7 +40,7 @@ export async function guardarTrabajador(input: z.input<typeof trabSchema>): Prom
     revalidatePath('/campo/tareo');
     return { ok: true, id: d.id };
   }
-  payload.jornal_semana = puedeTarifa ? (d.jornal_semana ?? 0) : 0; // el residente registra sin jornal; lo fija el jefe
+  payload.jornal_semana = puedeTarifa ? (d.jornal_semana ?? 0) : 0; // el residente/coordinador registra sin jornal; lo fija Gerencia
   const { data, error } = await supabase.from('trabajadores').insert({ ...payload, created_by: session.id }).select('id').single();
   if (error || !data) return { ok: false, error: error?.message ?? 'No se pudo registrar' };
   revalidatePath('/campo/tareo');
@@ -212,7 +212,7 @@ export async function revisarTareo(proyectoId: string, desde: string, hasta: str
 // Actualiza el jornal semanal (maestro + tareo aprobado no pagado). Solo jefe/gerencia.
 export async function actualizarTarifaTrabajador(trabajadorId: string, jornalSemana: number): Promise<Res> {
   const session = await requireSession();
-  if (session.rol !== 'jefe_proyectos' && session.rol !== 'gerencia') return { ok: false, error: 'Solo el jefe de proyectos o gerencia pueden editar el jornal' };
+  if (session.rol !== 'gerencia') return { ok: false, error: 'Solo Gerencia General puede editar el jornal' };
   const supabase = createClient() as any;
   await supabase.from('trabajadores').update({ jornal_semana: jornalSemana }).eq('id', trabajadorId);
   await supabase.from('tareo').update({ jornal_semana: jornalSemana }).eq('trabajador_id', trabajadorId).in('estado', ['aprobado']);

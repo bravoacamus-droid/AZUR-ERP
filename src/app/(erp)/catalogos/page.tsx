@@ -25,7 +25,7 @@ export default async function CatalogosPage() {
   return (
     <CatalogosClient
       canEdit={canEdit}
-      puedeTarifa={session.rol === 'jefe_proyectos' || session.rol === 'gerencia'}
+      puedeTarifa={session.rol === 'gerencia'}
       data={{
         lineas: lineas ?? [],
         clientes: clientes ?? [],
