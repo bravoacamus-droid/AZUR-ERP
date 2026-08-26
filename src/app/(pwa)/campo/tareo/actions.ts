@@ -25,8 +25,9 @@ export async function guardarTrabajador(input: z.input<typeof trabSchema>): Prom
   if (!parsed.success) return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
   const d = parsed.data;
   const supabase = createClient() as any;
-  // Solo Gerencia General fija o modifica el jornal semanal.
-  const puedeTarifa = session.rol === 'gerencia';
+  // El residente/coordinador PROPONE el jornal; el jefe de proyectos lo aprueba/
+  // modifica; gerencia siempre. (Finanzas solo paga, no edita el jornal.)
+  const puedeTarifa = session.rol === 'residente' || session.rol === 'jefe_proyectos' || session.rol === 'gerencia';
   const payload: Record<string, unknown> = {
     nombre: d.nombre,
     documento: d.documento || null,
@@ -212,7 +213,7 @@ export async function revisarTareo(proyectoId: string, desde: string, hasta: str
 // Actualiza el jornal semanal (maestro + tareo aprobado no pagado). Solo jefe/gerencia.
 export async function actualizarTarifaTrabajador(trabajadorId: string, jornalSemana: number): Promise<Res> {
   const session = await requireSession();
-  if (session.rol !== 'gerencia') return { ok: false, error: 'Solo Gerencia General puede editar el jornal' };
+  if (session.rol !== 'jefe_proyectos' && session.rol !== 'gerencia') return { ok: false, error: 'Solo el jefe de proyectos o gerencia pueden modificar el jornal' };
   const supabase = createClient() as any;
   await supabase.from('trabajadores').update({ jornal_semana: jornalSemana }).eq('id', trabajadorId);
   await supabase.from('tareo').update({ jornal_semana: jornalSemana }).eq('trabajador_id', trabajadorId).in('estado', ['aprobado']);

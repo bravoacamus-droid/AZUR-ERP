@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CheckCircle2, Loader2, Undo2, Pencil, X, ChevronLeft, ChevronRight, FileDown, Wrench } from 'lucide-react';
+import { CheckCircle2, Loader2, Undo2, Pencil, X, ChevronLeft, ChevronRight, FileDown, Download, Wrench } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +11,6 @@ import { Select } from '@/components/ui/select';
 import { EmptyState } from '@/components/ui/misc';
 import { fmtDate, fmtMoney } from '@/lib/format';
 import { montoDia } from '@/lib/tareo';
-import { useIsStandalone } from '@/lib/pwa';
 import { revisarTareo, editarTareoFila, corregirTareo } from '@/app/(pwa)/campo/tareo/actions';
 
 const DIAS = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
@@ -73,7 +72,6 @@ export function TareoRevision({ tareo, proyectoId, userRol }: { tareo: Row[]; pr
   }, [tareo]);
 
   const [semSel, setSemSel] = useState(0); // 0 = semana más reciente
-  const standalone = useIsStandalone();
   const semana = semanas[semSel];
 
   // Trabajadores que ya aparecen en el tareo del proyecto (para correcciones).
@@ -123,9 +121,14 @@ export function TareoRevision({ tareo, proyectoId, userRol }: { tareo: Row[]; pr
                 <p className="text-sm font-semibold">Semana del {fmtDate(semana.lun)} al {fmtDate(sumaISO(semana.lun, 6))}</p>
                 <Button size="sm" variant="ghost" disabled={semSel <= 0} onClick={() => setSemSel((i) => Math.max(0, i - 1))}><ChevronRight className="size-4" /></Button>
               </div>
-              <a href={`/proyectos/${proyectoId}/tareo/pdf?desde=${semana.lun}&hasta=${sumaISO(semana.lun, 6)}${standalone ? '&dl=1' : ''}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-azur-600">
-                <FileDown className="size-3.5" /> PDF de la semana
-              </a>
+              <span className="flex items-center gap-1.5">
+                <a href={`/proyectos/${proyectoId}/tareo/pdf?desde=${semana.lun}&hasta=${sumaISO(semana.lun, 6)}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-xs font-medium text-azur-600">
+                  <FileDown className="size-3.5" /> Ver PDF
+                </a>
+                <a href={`/proyectos/${proyectoId}/tareo/pdf?desde=${semana.lun}&hasta=${sumaISO(semana.lun, 6)}&dl=1`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-xs font-medium" title="Descargar PDF">
+                  <Download className="size-3.5" />
+                </a>
+              </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-xs">

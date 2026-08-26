@@ -25,7 +25,7 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
   const [libre, setLibre] = useState('');
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ t: 'ok' | 'err'; x: string } | null>(null);
-  const [nuevo, setNuevo] = useState({ open: false, nombre: '', especialidad: '', recurrente: true });
+  const [nuevo, setNuevo] = useState({ open: false, nombre: '', especialidad: '', jornal: '', recurrente: true });
   const [savingT, setSavingT] = useState(false);
 
   const recurrentes = trabajadores.filter((t) => t.recurrente);
@@ -46,11 +46,11 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
   async function crearEnMaestro() {
     if (!nuevo.nombre.trim()) return;
     setSavingT(true);
-    const r = await guardarTrabajador({ nombre: nuevo.nombre.trim(), especialidad: nuevo.especialidad || null, recurrente: nuevo.recurrente });
+    const r = await guardarTrabajador({ nombre: nuevo.nombre.trim(), especialidad: nuevo.especialidad || null, jornal_semana: nuevo.jornal ? Number(nuevo.jornal) : 0, recurrente: nuevo.recurrente });
     setSavingT(false);
     if (!r.ok) { setMsg({ t: 'err', x: r.error ?? 'Error' }); return; }
     if (r.id) setFilas((f) => [...f, nuevaFila(r.id!, nuevo.nombre.trim(), horasDia(fecha))]);
-    setNuevo({ open: false, nombre: '', especialidad: '', recurrente: true });
+    setNuevo({ open: false, nombre: '', especialidad: '', jornal: '', recurrente: true });
     router.refresh();
   }
 
@@ -109,7 +109,8 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
           <div className="space-y-2 rounded-xl border bg-secondary/30 p-3">
             <Input placeholder="Nombre completo" value={nuevo.nombre} onChange={(e) => setNuevo((n) => ({ ...n, nombre: e.target.value }))} />
             <Input placeholder="Especialidad (opc.)" value={nuevo.especialidad} onChange={(e) => setNuevo((n) => ({ ...n, especialidad: e.target.value }))} />
-            <p className="text-[11px] text-muted-foreground">El jornal semanal lo fija el Jefe de Proyectos en el maestro de trabajadores.</p>
+            <Input type="number" inputMode="decimal" placeholder="Jornal semanal S/ (propuesto)" value={nuevo.jornal} onChange={(e) => setNuevo((n) => ({ ...n, jornal: e.target.value }))} />
+            <p className="text-[11px] text-muted-foreground">Propón el jornal semanal; el jefe de proyectos lo aprueba o modifica. Jornada L-V 8.5h + Sáb 5.5h = 48h/sem.</p>
             <label className="flex items-center gap-2 text-xs text-muted-foreground"><input type="checkbox" checked={nuevo.recurrente} onChange={(e) => setNuevo((n) => ({ ...n, recurrente: e.target.checked }))} /> Marcar como frecuente</label>
             <Button type="button" size="sm" variant="gradient" disabled={savingT} onClick={crearEnMaestro}>{savingT && <Loader2 className="animate-spin" />} Guardar y agregar</Button>
           </div>

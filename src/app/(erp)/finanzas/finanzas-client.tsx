@@ -63,7 +63,7 @@ function Jornales({ rol, jornales, total }: any) {
   const [edit, setEdit] = useState<{ id: string; v: string } | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const puedePagar = rol === 'administrador' || rol === 'gerencia';
-  const puedeTarifa = rol === 'gerencia'; // el jornal solo lo edita Gerencia General
+  const puedeTarifa = rol === 'jefe_proyectos' || rol === 'gerencia'; // el jefe modifica/aprueba el jornal; finanzas solo paga
 
   async function guardarTarifa(trabajadorId: string) {
     if (!edit) return;

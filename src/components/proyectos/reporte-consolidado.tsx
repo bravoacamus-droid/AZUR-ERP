@@ -1,8 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { FileStack, Users } from 'lucide-react';
-import { useIsStandalone } from '@/lib/pwa';
+import { FileStack, Users, Download } from 'lucide-react';
 
 // Junta los reportes diarios de un rango (por defecto la semana actual) en un
 // solo PDF consolidado. Se usa en el ERP (proyecto fijo) y en la PWA (con selector).
@@ -29,11 +28,13 @@ export function ReporteConsolidado({
   const [estado, setEstado] = React.useState('');
   const [resumen, setResumen] = React.useState(false);
   const [tareo, setTareo] = React.useState(false);
-  const standalone = useIsStandalone();
-  const dl = standalone ? '&dl=1' : '';
   const pid = proyectoId ?? proy;
-  const url = pid ? `/proyectos/${pid}/rdo/consolidado/pdf?desde=${desde}&hasta=${hasta}${estado ? `&estado=${estado}` : ''}${resumen ? '&resumen=1' : ''}${dl}` : '';
-  const urlTareo = pid ? `/proyectos/${pid}/tareo/pdf?desde=${desde}&hasta=${hasta}${dl}` : '';
+  const base = pid ? `/proyectos/${pid}/rdo/consolidado/pdf?desde=${desde}&hasta=${hasta}${estado ? `&estado=${estado}` : ''}${resumen ? '&resumen=1' : ''}` : '';
+  const url = base;                     // abrir para ver
+  const urlDesc = base ? `${base}&dl=1` : ''; // descargar
+  const baseTareo = pid ? `/proyectos/${pid}/tareo/pdf?desde=${desde}&hasta=${hasta}` : '';
+  const urlTareo = baseTareo;
+  const urlTareoDesc = baseTareo ? `${baseTareo}&dl=1` : '';
 
   const setSemana = (offset: number) => {
     const base = new Date();
@@ -82,7 +83,15 @@ export function ReporteConsolidado({
           rel="noreferrer"
           className={`inline-flex items-center gap-1.5 rounded-lg bg-azur-gradient px-3 py-2 text-sm font-medium text-white ${!url ? 'pointer-events-none opacity-50' : ''}`}
         >
-          <FileStack className="size-4" /> Generar
+          <FileStack className="size-4" /> Ver PDF
+        </a>
+        <a
+          href={urlDesc || undefined}
+          target="_blank"
+          rel="noreferrer"
+          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium ${!urlDesc ? 'pointer-events-none opacity-50' : ''}`}
+        >
+          <Download className="size-4" /> Descargar
         </a>
       </div>
       <label className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -94,14 +103,14 @@ export function ReporteConsolidado({
         Incluir tareo de la semana (uso interno · PDF aparte)
       </label>
       {tareo && (
-        <a
-          href={urlTareo || undefined}
-          target="_blank"
-          rel="noreferrer"
-          className={`mt-2 inline-flex items-center gap-1.5 rounded-lg border border-azur-600 px-3 py-1.5 text-xs font-medium text-azur-600 ${!urlTareo ? 'pointer-events-none opacity-50' : ''}`}
-        >
-          <Users className="size-3.5" /> Descargar tareo (PDF)
-        </a>
+        <div className="mt-2 flex gap-2">
+          <a href={urlTareo || undefined} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-1.5 rounded-lg border border-azur-600 px-3 py-1.5 text-xs font-medium text-azur-600 ${!urlTareo ? 'pointer-events-none opacity-50' : ''}`}>
+            <Users className="size-3.5" /> Ver tareo (PDF)
+          </a>
+          <a href={urlTareoDesc || undefined} target="_blank" rel="noreferrer" className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium ${!urlTareoDesc ? 'pointer-events-none opacity-50' : ''}`}>
+            <Download className="size-3.5" /> Descargar
+          </a>
+        </div>
       )}
       <div className="mt-2 flex gap-2 text-[11px]">
         <button type="button" onClick={() => setSemana(0)} className="rounded-full border px-2 py-0.5 text-muted-foreground hover:bg-secondary">Esta semana</button>
