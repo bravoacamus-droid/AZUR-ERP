@@ -45,6 +45,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   const totales = calcularTotales(calc, arbol as never, {
     gg_pct: Number(cot.gg_pct), ga_pct: Number(cot.ga_pct), utilidad_pct: Number(cot.utilidad_pct),
     igv_pct: Number(cot.igv_pct), descuento_pct: Number(cot.descuento_pct), descuento_activo: cot.descuento_activo,
+    descuento_tipo: (cot as any).descuento_tipo === 'monto' ? 'monto' : 'pct', descuento_monto: Number((cot as any).descuento_monto ?? 0),
   });
 
   const rows: PdfRow[] = [];
@@ -96,6 +97,8 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       descuento: cot.descuento_activo ? totales.descuento : undefined,
       totalConDescuento: totales.total_con_descuento,
     },
+    // % de descuento efectivo, solo si se pidió mostrarlo (B7).
+    descuentoPct: cot.descuento_activo && (cot as any).mostrar_descuento_pct && totales.total > 0 ? totales.descuento / totales.total : undefined,
     condiciones: cot.condiciones ?? undefined,
     serviciosIncluidos: cot.servicios_incluidos ?? undefined,
     serviciosOmitidos: cot.servicios_omitidos ?? undefined,

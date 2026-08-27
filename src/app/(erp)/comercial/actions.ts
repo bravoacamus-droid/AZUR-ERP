@@ -694,6 +694,7 @@ export async function aprobarCotizacion(cotizacionId: string): Promise<Res> {
   const totales = calcularTotales(calc, arbol as never, {
     gg_pct: Number(cot.gg_pct), ga_pct: Number(cot.ga_pct), utilidad_pct: Number(cot.utilidad_pct),
     igv_pct: Number(cot.igv_pct), descuento_pct: Number(cot.descuento_pct), descuento_activo: cot.descuento_activo,
+    descuento_tipo: (cot as any).descuento_tipo === 'monto' ? 'monto' : 'pct', descuento_monto: Number((cot as any).descuento_monto ?? 0),
   });
 
   // si la cotización está en dólares, convertir a soles con el T.C. (el proyecto/finanzas opera en soles)

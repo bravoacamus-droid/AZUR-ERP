@@ -175,6 +175,7 @@ export function CotizacionEditor({
     const totales = calcularTotales(calc, arbol as any, {
       gg_pct: Number(cot.gg_pct), ga_pct: Number(cot.ga_pct), utilidad_pct: Number(cot.utilidad_pct),
       igv_pct: Number(cot.igv_pct), descuento_pct: Number(cot.descuento_pct), descuento_activo: cot.descuento_activo,
+      descuento_tipo: cot.descuento_tipo === 'monto' ? 'monto' : 'pct', descuento_monto: Number(cot.descuento_monto ?? 0),
     });
     const flat: { row: Row; depth: number }[] = [];
     const walk = (nodos: NodoArbol<any>[], depth: number) => {
@@ -1053,7 +1054,7 @@ function TotalesPanel({ cot, totales, onToggle, editable }: { cot: any; totales:
           <Row3 label="TOTAL" value={totales.total} bold currency={cur} />
           {cot.descuento_activo && (
             <>
-              <Row3 label={`Descuento comercial (${fmtNumber(Number(cot.descuento_pct) * 100, 0)}%)`} value={-totales.descuento} currency={cur} />
+              <Row3 label={`Descuento comercial (${fmtNumber((totales.total > 0 ? totales.descuento / totales.total : 0) * 100, 1)}%)`} value={-totales.descuento} currency={cur} />
               <Row3 label="TOTAL CON DESCUENTO" value={totales.total_con_descuento} bold azur currency={cur} />
             </>
           )}
@@ -1092,7 +1093,10 @@ function TotalesPanel({ cot, totales, onToggle, editable }: { cot: any; totales:
 }
 
 function DescuentoControl({ cot, onToggle }: { cot: any; onToggle: (p: any) => void }) {
+  const tipo = cot.descuento_tipo === 'monto' ? 'monto' : 'pct';
   const [pct, setPct] = useState(Number(cot.descuento_pct) * 100);
+  const [monto, setMonto] = useState(Number(cot.descuento_monto ?? 0));
+  const tab = (activo: boolean) => `rounded-md px-2 py-1 text-xs font-medium ${activo ? 'bg-azur-gradient text-white' : 'bg-secondary text-muted-foreground'}`;
   return (
     <div className="mt-2 border-t pt-2">
       {!cot.descuento_activo ? (
@@ -1100,12 +1104,26 @@ function DescuentoControl({ cot, onToggle }: { cot: any; onToggle: (p: any) => v
           <Percent /> Agregar descuento comercial
         </Button>
       ) : (
-        <div className="flex items-end gap-2">
-          <Field label="Descuento %" className="flex-1">
-            <Input type="number" value={pct} onChange={(e) => setPct(Number(e.target.value))}
-              onBlur={() => onToggle({ descuento_pct: pct / 100 })} />
-          </Field>
-          <Button size="sm" variant="ghost" onClick={() => onToggle({ descuento_activo: false, descuento_pct: 0 })}>Quitar</Button>
+        <div className="space-y-2">
+          <div className="flex gap-1">
+            <button type="button" className={tab(tipo === 'pct')} onClick={() => onToggle({ descuento_tipo: 'pct' })}>Por %</button>
+            <button type="button" className={tab(tipo === 'monto')} onClick={() => onToggle({ descuento_tipo: 'monto' })}>Por monto</button>
+          </div>
+          <div className="flex items-end gap-2">
+            {tipo === 'pct' ? (
+              <Field label="Descuento %" className="flex-1">
+                <Input type="number" step="0.1" value={pct} onChange={(e) => setPct(Number(e.target.value))} onBlur={() => onToggle({ descuento_pct: pct / 100 })} />
+              </Field>
+            ) : (
+              <Field label="Descuento (monto S/)" className="flex-1">
+                <Input type="number" step="0.01" value={monto} onChange={(e) => setMonto(Number(e.target.value))} onBlur={() => onToggle({ descuento_monto: monto })} />
+              </Field>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => onToggle({ descuento_activo: false, descuento_pct: 0, descuento_monto: 0 })}>Quitar</Button>
+          </div>
+          <label className="flex items-center gap-2 text-xs text-muted-foreground">
+            <input type="checkbox" checked={!!cot.mostrar_descuento_pct} onChange={(e) => onToggle({ mostrar_descuento_pct: e.target.checked })} /> Mostrar el % de descuento en el PDF
+          </label>
         </div>
       )}
     </div>
@@ -1282,7 +1300,7 @@ const CAMPO_LABEL: Record<string, string> = {
 const IGNORAR = new Set(['updated_at', 'created_at', 'id', 'cotizacion_id', 'parent_id', 'correlativo', 'orden', 'codigo']);
 
 const REVERSIBLES: Record<string, Set<string>> = {
-  cotizaciones: new Set(['proyecto_nombre', 'asunto', 'ubicacion', 'descripcion', 'condiciones', 'servicios_incluidos', 'servicios_omitidos', 'garantia', 'garantia_activa', 'gg_pct', 'ga_pct', 'utilidad_pct', 'igv_pct', 'descuento_pct', 'descuento_activo', 'vigencia_dias', 'plazo_valor', 'plazo_tipo']),
+  cotizaciones: new Set(['proyecto_nombre', 'asunto', 'ubicacion', 'descripcion', 'condiciones', 'servicios_incluidos', 'servicios_omitidos', 'garantia', 'garantia_activa', 'gg_pct', 'ga_pct', 'utilidad_pct', 'igv_pct', 'descuento_pct', 'descuento_activo', 'descuento_tipo', 'descuento_monto', 'mostrar_descuento_pct', 'vigencia_dias', 'plazo_valor', 'plazo_tipo']),
   cotizacion_items: new Set(['titulo', 'unidad', 'cantidad', 'costo_unitario', 'margen_pct']),
 };
 

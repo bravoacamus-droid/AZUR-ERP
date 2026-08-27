@@ -125,6 +125,8 @@ export interface ParamsTotales {
   igv_pct: number;
   descuento_pct: number;
   descuento_activo: boolean;
+  descuento_tipo?: 'pct' | 'monto';   // 'monto' = descuento por importe fijo
+  descuento_monto?: number;
 }
 export interface Totales {
   subtotal: number; // suma de subtotales con margen
@@ -162,7 +164,9 @@ export function calcularTotales(
   const costoDirecto = subtotal + gg + ga + util;
   const igv = costoDirecto * p.igv_pct;
   const total = costoDirecto + igv;
-  const descuento = p.descuento_activo ? total * p.descuento_pct : 0;
+  const descuento = !p.descuento_activo ? 0
+    : p.descuento_tipo === 'monto' ? Math.min(Math.max(0, Number(p.descuento_monto ?? 0)), total)
+    : total * p.descuento_pct;
   return {
     subtotal,
     gastos_generales: gg,

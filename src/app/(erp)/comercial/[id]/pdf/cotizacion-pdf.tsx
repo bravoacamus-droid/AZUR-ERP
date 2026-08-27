@@ -47,6 +47,7 @@ export interface PdfData {
   moneda?: string; tipoCambio?: number; mostrarEquivPen?: boolean;
   rows: PdfRow[];
   totales: { subtotal: number; gg?: number; ga?: number; util?: number; costoDirecto: number; igv?: number; total: number; descuento?: number; totalConDescuento: number };
+  descuentoPct?: number; // fracción 0–1, se muestra solo si se pidió (B7)
   condiciones?: string; serviciosIncluidos?: string; serviciosOmitidos?: string; garantia?: string;
   medios: { banco: string; titular: string; cuentaSoles?: string; cciSoles?: string; cuentaDolares?: string; cciDolares?: string; detraccion: boolean }[];
   formaPago?: { concepto: string; porcentaje: number; esAdelanto: boolean }[];
@@ -122,7 +123,7 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
           {d.totales.igv != null ? <View style={s.totRow}><Text style={s.totLabel}>I.G.V. (18%)</Text><Text style={s.totVal}>{m(d.totales.igv)}</Text></View> : null}
           <View style={s.totRow}><Text style={[s.totLabel, { fontFamily: 'Helvetica-Bold' }]}>TOTAL</Text><Text style={[s.totVal, s.totHi]}>{m(d.totales.total)}</Text></View>
           {d.totales.descuento ? <>
-            <View style={s.totRow}><Text style={s.totLabel}>Descuento comercial</Text><Text style={s.totVal}>- {m(d.totales.descuento)}</Text></View>
+            <View style={s.totRow}><Text style={s.totLabel}>Descuento comercial{d.descuentoPct ? ` (${fmtNumber(d.descuentoPct * 100, 1)}%)` : ''}</Text><Text style={s.totVal}>- {m(d.totales.descuento)}</Text></View>
             <View style={s.totRow}><Text style={[s.totLabel, { fontFamily: 'Helvetica-Bold' }]}>TOTAL CON DESCUENTO</Text><Text style={[s.totVal, s.totHi]}>{m(d.totales.totalConDescuento)}</Text></View>
           </> : null}
           {cur === 'USD' && d.mostrarEquivPen !== false ? <View style={s.totRow}><Text style={s.totLabel}>Equivalente en soles (T.C. {fmtNumber(tc, 3)})</Text><Text style={s.totVal}>{fmtMoney((d.totales.descuento ? d.totales.totalConDescuento : d.totales.total) * tc, 'PEN')}</Text></View> : null}
