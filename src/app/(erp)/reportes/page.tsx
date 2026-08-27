@@ -8,7 +8,7 @@ import { ReportesClient } from './reportes-client';
 
 export const dynamic = 'force-dynamic';
 
-const CATEGORIAS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
+const CATEGORIAS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
 
 export interface ReportesData {
   filtros: { periodo: string; proyecto: string; linea: string };
@@ -59,7 +59,8 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   else if (linea) proyIds = proyByLinea.map((p) => p.id);
 
   let qAbonos = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
-  let qSols = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
+  // Caja chica es un pedido, no gasto del proyecto → se excluye de egresos.
+  let qSols = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']).neq('tipo', 'caja_chica');
   let qPtg = supabase.from('presupuesto_tipo_gasto').select('tipo, monto_proyectado, proyecto_id');
   // Tareo consolidado (todos los proyectos): jornales aprobados/pagados del periodo.
   let qTareo = (supabase as unknown as { from: (t: string) => any }).from('tareo')

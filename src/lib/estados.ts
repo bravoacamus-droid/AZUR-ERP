@@ -35,6 +35,7 @@ export const TIPO_SOLICITUD_LABEL: Record<string, string> = {
   caja_chica: 'Caja chica',
   servicios: 'Servicios',
   honorarios: 'Honorarios',
+  otros_gastos: 'Otros gastos',
 };
 
 export const ESTADO_TAREA: Record<string, { label: string; variant: V }> = {

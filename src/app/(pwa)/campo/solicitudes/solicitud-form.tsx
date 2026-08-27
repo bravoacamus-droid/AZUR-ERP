@@ -16,7 +16,7 @@ import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
 
-const TIPOS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
+const TIPOS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
 const CONSTANCIAS = [
   { value: 'factura', label: 'Factura' },
   { value: 'boleta', label: 'Boleta' },

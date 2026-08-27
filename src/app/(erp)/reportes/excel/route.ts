@@ -7,7 +7,7 @@ import { saludGlobal, SALUD_LABEL, type DashboardProyecto } from '@/lib/salud';
 export const runtime = 'nodejs';
 const AZUR = 'FFC02128';
 const GREY = 'FFF3F4F6';
-const CATS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
+const CATS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
 
 function desdeDe(periodo: string): string | null {
   const hoy = new Date();
@@ -35,7 +35,7 @@ export async function GET(req: Request) {
   if (proyecto) proyIds = [proyecto];
   else if (linea) proyIds = (proyRaw ?? []).filter((p) => p.linea_id === linea).map((p) => p.id);
 
-  let qSols = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id').in('status', ['pagada', 'conciliada']);
+  let qSols = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id').in('status', ['pagada', 'conciliada']).neq('tipo', 'caja_chica');
   let qAbonos = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
   if (desdeISO) { qSols = qSols.gte('pagado_at', desdeISO); qAbonos = qAbonos.gte('fecha', desdeISO); }
   if (proyIds) { const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000']; qSols = qSols.in('proyecto_id', ids); qAbonos = qAbonos.in('proyecto_id', ids); }

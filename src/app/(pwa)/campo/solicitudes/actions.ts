@@ -9,7 +9,7 @@ import { formatCodigo } from '@/lib/codigo';
 import { notifyRoles } from '@/lib/push/notify';
 
 const schema = z.object({
-  tipo: z.enum(['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios']),
+  tipo: z.enum(['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos']),
   proyecto_id: z.string().uuid().nullable(),
   partida_ppto: z.string().trim().nullable(),
   beneficiario_nombre: z.string().trim().nullable(),

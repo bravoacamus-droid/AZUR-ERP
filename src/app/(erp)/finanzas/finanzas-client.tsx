@@ -169,7 +169,7 @@ function Jornales({ rol, jornales, total }: any) {
   );
 }
 
-const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios'] as const;
+const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
 const SOL_VACIA = { id: '', tipo: 'contratistas', categoria: '', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
 
 const CAMPO_PROV_LBL: Record<string, string> = { razon_social: 'Razón social', ruc_dni: 'RUC/DNI', especialidad: 'Especialidad', contacto: 'Contacto', telefono: 'Teléfono', banco: 'Banco', cuenta: 'Cuenta', cci: 'CCI', cuenta_detraccion: 'Cta. detracción', tipo: 'Tipo' };
