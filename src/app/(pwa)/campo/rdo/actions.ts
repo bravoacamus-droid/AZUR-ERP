@@ -202,6 +202,18 @@ export async function eliminarRdo(id: string): Promise<Res> {
   return { ok: true };
 }
 
+// Adjunta evidencias EXISTENTES del proyecto a un reporte (les asigna rdo_id),
+// para que se usen en el RDO y aparezcan en el consolidado.
+export async function adjuntarEvidenciasRdo(rdoId: string, evidenciaIds: string[]): Promise<Res> {
+  await requireSession();
+  if (!evidenciaIds.length) return { ok: true };
+  const supabase = createClient() as any;
+  const { error } = await supabase.from('evidencias').update({ rdo_id: rdoId }).in('id', evidenciaIds);
+  if (error) return { ok: false, error: error.message };
+  revalidatePath('/campo/rdo');
+  return { ok: true };
+}
+
 // Registra en el reporte las fotos ya subidas al bucket (evidencias con rdo_id).
 export async function adjuntarFotosRdo(rdoId: string, proyectoId: string, fotos: { url: string; descripcion?: string }[]): Promise<Res> {
   const session = await requireSession();

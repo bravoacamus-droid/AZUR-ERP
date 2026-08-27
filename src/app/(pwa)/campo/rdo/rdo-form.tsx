@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
-import { crearRdo, actualizarRdo, adjuntarFotosRdo, eliminarFotoRdo } from './actions';
+import { crearRdo, actualizarRdo, adjuntarFotosRdo, adjuntarEvidenciasRdo, eliminarFotoRdo } from './actions';
 import { enqueue, isOnline } from '@/lib/offline-queue';
 import { optimizarImagen } from '@/lib/img';
 
@@ -38,18 +38,24 @@ export type RdoInicial = {
   fotos: FotoExistente[];
 };
 
+type Evidencia = { id: string; url: string; descripcion: string | null; proyecto_id: string };
+
 export function RdoForm({
   proyectos,
   partidas,
   hoy,
   inicial,
   volverA = '/campo/rdo',
+  acum = {},
+  evidencias = [],
 }: {
   proyectos: Proyecto[];
   partidas: Partida[];
   hoy: string;
   inicial?: RdoInicial;
   volverA?: string;
+  acum?: Record<string, number>;      // acumulado por partida (fracción 0–1), todos los RDO
+  evidencias?: Evidencia[];           // evidencias del proyecto no adjuntas, para elegir
 }) {
   const router = useRouter();
   const esEdicion = !!inicial;
@@ -75,6 +81,16 @@ export function RdoForm({
 
   const partidasProyecto = partidas.filter((p) => p.proyecto_id === proyectoId);
   const totalFotos = fotosPrev.length + fotos.length;
+
+  // Acumulado previo por partida = total en el sistema − lo que este RDO ya aportaba (edición).
+  const inicialPorItem: Record<string, number> = {};
+  (inicial?.actividades ?? []).forEach((a) => { if (a.proyecto_item_id && a.avance_pct != null) inicialPorItem[a.proyecto_item_id] = (inicialPorItem[a.proyecto_item_id] ?? 0) + Number(a.avance_pct); });
+  const acumPrevioPct = (itemId: string) => Math.max(0, ((acum[itemId] ?? 0) - (inicialPorItem[itemId] ?? 0)) * 100);
+  // Evidencias del proyecto seleccionado, para elegirlas y adjuntarlas al reporte.
+  const evidsProyecto = evidencias.filter((e) => e.proyecto_id === proyectoId);
+  const [evidsElegidas, setEvidsElegidas] = useState<string[]>([]);
+  const [evOpen, setEvOpen] = useState(false);
+  const toggleEvid = (id: string) => setEvidsElegidas((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
 
   // Libera las URLs de vista previa solo al desmontar (evita fugas sin romper las visibles).
   const fotosRef = useRef<FotoNueva[]>([]);
@@ -113,6 +129,9 @@ export function RdoForm({
       setMsg({ type: 'err', text: 'Selecciona un proyecto.' });
       return;
     }
+    // Aviso si el avance acumulado de alguna partida supera el 100%.
+    const excede = actividades.filter((a) => a.proyecto_item_id && a.avance_pct !== '' && (acumPrevioPct(a.proyecto_item_id) + (Number(a.avance_pct) || 0)) > 100);
+    if (excede.length && !window.confirm(`El avance acumulado de ${excede.length} partida(s) supera el 100%. ¿Guardar de todos modos?`)) return;
     setLoading(true);
     const payload = {
       proyecto_id: proyectoId,
@@ -138,7 +157,7 @@ export function RdoForm({
     function limpiar() {
       setClima(''); setJornada(''); setProgramacion(''); setPersonal(''); setEquipos(''); setMateriales('');
       setObservaciones(''); setIncidencias(''); setActividades([nuevaActividad()]);
-      fotos.forEach((f) => URL.revokeObjectURL(f.preview)); setFotos([]);
+      fotos.forEach((f) => URL.revokeObjectURL(f.preview)); setFotos([]); setEvidsElegidas([]);
     }
 
     // Sube las fotos al bucket y las registra en el reporte, con su descripción.
@@ -162,7 +181,7 @@ export function RdoForm({
     if (esEdicion) {
       if (!isOnline()) { setLoading(false); setMsg({ type: 'err', text: 'Necesitas conexión para editar.' }); return; }
       const res = await actualizarRdo(inicial!.id, payload);
-      if (res.ok) await subirFotos(inicial!.id);
+      if (res.ok) { await subirFotos(inicial!.id); await adjuntarEvidenciasRdo(inicial!.id, evidsElegidas); }
       setLoading(false);
       if (res.ok) { router.push(volverA); router.refresh(); }
       else setMsg({ type: 'err', text: res.error ?? 'No se pudo guardar.' });
@@ -180,7 +199,7 @@ export function RdoForm({
 
     try {
       const res = await crearRdo(payload);
-      if (res.ok && res.id) await subirFotos(res.id);
+      if (res.ok && res.id) { await subirFotos(res.id); await adjuntarEvidenciasRdo(res.id, evidsElegidas); }
       setLoading(false);
       if (res.ok) {
         setMsg({ type: 'ok', text: `Reporte registrado ✅${fotos.length ? ` con ${fotos.length} foto(s)` : ''}` });
@@ -303,6 +322,16 @@ export function RdoForm({
                 <option value="Completado">Completado</option>
               </Select>
             </div>
+            {a.proyecto_item_id && a.avance_pct !== '' && (() => {
+              const prev = acumPrevioPct(a.proyecto_item_id);
+              const tot = prev + (Number(a.avance_pct) || 0);
+              return (
+                <p className={`text-[11px] ${tot > 100 ? 'font-semibold text-red-600' : 'text-muted-foreground'}`}>
+                  Acumulado con este avance: <strong>{tot.toFixed(0)}%</strong> <span className="text-muted-foreground">(previo {prev.toFixed(0)}%)</span>
+                  {tot > 100 ? ' · ⚠️ supera el 100%' : ''}
+                </p>
+              );
+            })()}
           </div>
         ))}
       </div>
@@ -380,6 +409,30 @@ export function RdoForm({
           />
         </label>
         {fotos.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{fotos.length} foto(s) nueva(s). Se suben al guardar (requiere conexión).</p>}
+
+        {/* Elegir de las evidencias ya guardadas del proyecto (B3) */}
+        {evidsProyecto.length > 0 && (
+          <div className="mt-2">
+            <button type="button" onClick={() => setEvOpen((v) => !v)} className="inline-flex items-center gap-1 text-xs font-medium text-azur-600">
+              <ImagePlus className="size-3.5" /> {evOpen ? 'Ocultar evidencias' : `Elegir de evidencias (${evidsProyecto.length})`}{evidsElegidas.length ? ` · ${evidsElegidas.length} elegida(s)` : ''}
+            </button>
+            {evOpen && (
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {evidsProyecto.map((e) => {
+                  const sel = evidsElegidas.includes(e.id);
+                  return (
+                    <button type="button" key={e.id} onClick={() => toggleEvid(e.id)} className={`relative overflow-hidden rounded-lg border-2 ${sel ? 'border-azur-600' : 'border-transparent'}`}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={e.url} alt="evidencia" className="h-20 w-full object-cover" />
+                      {sel && <span className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-azur-600 text-[11px] text-white">✓</span>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {evidsElegidas.length > 0 && <p className="mt-1 text-xs text-muted-foreground">{evidsElegidas.length} evidencia(s) se adjuntarán a este reporte.</p>}
+          </div>
+        )}
       </Field>
 
       <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>

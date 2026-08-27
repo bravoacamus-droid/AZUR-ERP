@@ -14,7 +14,7 @@ export default async function RdoPage() {
   const session = await requireSession();
   const supabase = createClient();
 
-  const [{ data: proyectos }, { data: partidas }, { data: partesRaw }] = await Promise.all([
+  const [{ data: proyectos }, { data: partidas }, { data: partesRaw }, { data: actsAcum }, { data: evidenciasRaw }] = await Promise.all([
     supabase.from('proyectos').select('id, nombre').order('created_at', { ascending: false }),
     supabase.from('proyecto_items').select('id, titulo, proyecto_id').eq('es_hoja', true).order('orden'),
     supabase
@@ -23,7 +23,15 @@ export default async function RdoPage() {
       .eq('created_by', session.id)
       .order('fecha', { ascending: false })
       .limit(10),
+    // Avance acumulado por partida (suma de todos los RDO) para la ayuda en pantalla.
+    (supabase as any).from('rdo_actividades').select('proyecto_item_id, avance_pct'),
+    // Evidencias del proyecto aún no adjuntas a un RDO (para elegirlas en el reporte).
+    supabase.from('evidencias').select('id, url, descripcion, proyecto_id').is('rdo_id', null).order('created_at', { ascending: false }),
   ]);
+
+  // Acumulado por partida (fracción 0–1).
+  const acum: Record<string, number> = {};
+  (actsAcum ?? []).forEach((a: any) => { if (a.proyecto_item_id) acum[a.proyecto_item_id] = (acum[a.proyecto_item_id] ?? 0) + Number(a.avance_pct ?? 0); });
 
   type ParteRow = {
     id: string;
@@ -50,7 +58,7 @@ export default async function RdoPage() {
         <h1 className="text-xl font-bold">Reporte diario de obra</h1>
       </div>
 
-      <RdoForm proyectos={proyectos ?? []} partidas={partidas ?? []} hoy={fmtDateInput(new Date())} />
+      <RdoForm proyectos={proyectos ?? []} partidas={partidas ?? []} hoy={fmtDateInput(new Date())} acum={acum} evidencias={evidenciasRaw ?? []} />
 
       {(proyectos ?? []).length > 0 && <ReporteConsolidado proyectos={proyectos ?? []} />}
 

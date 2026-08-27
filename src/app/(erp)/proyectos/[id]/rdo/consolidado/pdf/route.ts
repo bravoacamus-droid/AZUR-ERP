@@ -36,10 +36,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
 
   const lista = partes ?? [];
   const rdoIds = lista.map((p: any) => p.id);
-  const [{ data: fotos }, { data: allItems }] = await Promise.all([
-    rdoIds.length ? supabase.from('evidencias').select('url, descripcion, rdo_id').in('rdo_id', rdoIds) : Promise.resolve({ data: [] }),
+  const [{ data: evAttached }, { data: evSueltas }, { data: allItems }] = await Promise.all([
+    // Evidencias adjuntas a los RDO del periodo.
+    rdoIds.length ? supabase.from('evidencias').select('url, descripcion, rdo_id, created_at').in('rdo_id', rdoIds) : Promise.resolve({ data: [] as any[] }),
+    // Evidencias sueltas del proyecto (no adjuntas a un RDO) dentro del rango.
+    supabase.from('evidencias').select('url, descripcion, rdo_id, created_at').eq('proyecto_id', params.id).is('rdo_id', null).gte('created_at', desde).lte('created_at', `${hasta}T23:59:59`),
     supabase.from('proyecto_items').select('id, titulo').eq('proyecto_id', params.id),
   ]);
+  const fotos = [...(evAttached ?? []), ...(evSueltas ?? [])];
   const tituloById = new Map((allItems ?? []).map((i: any) => [i.id, i.titulo]));
   const fechaByRdo = new Map(lista.map((p: any) => [p.id, p.fecha]));
 
@@ -74,7 +78,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       personal: p.personal_count ?? undefined,
       estado: p.estado ?? 'borrador',
     })) : [],
-    fotos: (fotos ?? []).map((f: any) => ({ url: f.url, descripcion: f.descripcion ?? undefined, fecha: fmtDate(fechaByRdo.get(f.rdo_id) as string) })),
+    fotos: fotos.map((f: any) => ({ url: f.url, descripcion: f.descripcion ?? undefined, fecha: fmtDate((f.rdo_id ? fechaByRdo.get(f.rdo_id) : f.created_at?.slice(0, 10)) as string) })),
     notas: lista.filter((p: any) => p.observaciones || p.incidencias).map((p: any) => ({ fecha: fmtDate(p.fecha), observaciones: p.observaciones ?? undefined, incidencias: p.incidencias ?? undefined })),
   };
 
