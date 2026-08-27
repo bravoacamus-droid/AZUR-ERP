@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, Trash2, Save, Loader2, CheckCircle2, Calendar, Users, Layers,
   TrendingUp, FileBarChart, Banknote, ListChecks, X, ChevronRight, Link2, Flag,
@@ -68,7 +68,8 @@ export function ProyectoDetalle(props: any) {
       .subscribe(async (status) => { if (status === 'SUBSCRIBED') await ch.track({ nombre: userNombre }); });
     return () => { void supabase.removeChannel(ch); };
   }, [proy.id, userId, userNombre, router]);
-  const [tab, setTab] = useState('resumen');
+  const sp = useSearchParams();
+  const [tab, setTab] = useState(sp.get('tab') || 'resumen'); // deep-link ?tab=campo (notificaciones)
   const est = ESTADO_PROYECTO[proy.estado] ?? { label: proy.estado, variant: 'muted' as const };
   const cajaSaldo = cajas?.[0]?.saldo_actual ?? 0;
 
@@ -1590,7 +1591,8 @@ function ParteCard({ p, proyectoId, userRol }: any) {
 }
 
 function CampoTab({ campo, proyectoId, userRol }: any) {
-  const [sub, setSub] = useState('asistencias');
+  const spCampo = useSearchParams();
+  const [sub, setSub] = useState(spCampo.get('sub') || 'asistencias'); // deep-link ?sub=tareo
   const { asistencias, partes, evidencias, sstCharlas, sstObs, sstInc, tareo = [] } = campo;
   const sstTotal = sstCharlas.length + sstObs.length + sstInc.length;
   const tareoPorAprobar = tareo.filter((t: any) => t.estado === 'enviado').length;

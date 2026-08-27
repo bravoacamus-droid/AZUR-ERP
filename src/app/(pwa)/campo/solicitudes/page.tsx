@@ -20,7 +20,7 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
   const [{ data: proyectos }, { data: partidas }, { data: contrapartes }, { data: categorias }] = await Promise.all([
     supabase.from('proyectos').select('id, nombre').order('created_at', { ascending: false }),
     supabase.from('proyecto_items').select('id, titulo, proyecto_id').eq('es_hoja', true).order('orden'),
-    supabase.from('contrapartes').select('id, razon_social, ruc_dni, banco, cuenta, cci').eq('validado', true).order('razon_social'),
+    supabase.from('contrapartes').select('id, razon_social, tipo, ruc_dni, banco, cuenta, cci').eq('validado', true).order('razon_social'),
     supabase.from('categorias_gasto').select('id, nombre, tipo_base').eq('activo', true).order('nombre'),
   ]);
 

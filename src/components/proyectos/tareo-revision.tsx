@@ -233,8 +233,8 @@ export function TareoRevision({ tareo, proyectoId, userRol }: { tareo: Row[]; pr
                     <div key={f.id} className="flex flex-wrap items-center gap-2 py-1.5 text-sm">
                       <label className="flex items-center gap-1 text-xs"><input type="checkbox" className="size-4 accent-azur-600" checked={edit.presente} onChange={(e) => setEdit({ ...edit, presente: e.target.checked })} /> {f.trabajador_nombre}</label>
                       <span className="ml-auto flex items-center gap-1">
-                        <Input className="h-7 w-16 text-right" type="number" inputMode="decimal" placeholder="h" value={edit.horas} onChange={(e) => setEdit({ ...edit, horas: e.target.value })} />
-                        <Input className="h-7 w-16 text-right" type="number" inputMode="decimal" placeholder="extra" value={edit.extra} onChange={(e) => setEdit({ ...edit, extra: e.target.value })} />
+                        <Input className="h-7 w-20 px-1 text-right" type="number" inputMode="decimal" placeholder="h" value={edit.horas} onChange={(e) => setEdit({ ...edit, horas: e.target.value })} />
+                        <Input className="h-7 w-20 px-1 text-right" type="number" inputMode="decimal" placeholder="extra" value={edit.extra} onChange={(e) => setEdit({ ...edit, extra: e.target.value })} />
                         <button onClick={guardarFila} className="text-emerald-600" title="Guardar">{savingFila ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}</button>
                         <button onClick={() => setEdit(null)} className="text-muted-foreground" title="Cancelar"><X className="size-4" /></button>
                       </span>

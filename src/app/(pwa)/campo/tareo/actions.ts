@@ -174,7 +174,7 @@ export async function enviarTareo(proyectoId: string, desde: string, hasta: stri
   const { data: proy } = await admin.from('proyectos').select('nombre').eq('id', proyectoId).single();
   const { data: equipo } = await admin.from('proyecto_equipo').select('profile:profiles(id, rol)').eq('proyecto_id', proyectoId);
   const jefes = (equipo ?? []).map((e: any) => e.profile).filter((p: any) => p?.rol === 'jefe_proyectos');
-  const payload = { title: 'Tareo por aprobar', body: `${session.nombre} envió el tareo de ${proy?.nombre ?? 'un proyecto'} (${desde} a ${hasta})`, url: `/proyectos/${proyectoId}`, tag: 'tareo' };
+  const payload = { title: 'Tareo por aprobar', body: `${session.nombre} envió el tareo de ${proy?.nombre ?? 'un proyecto'} (${desde} a ${hasta})`, url: `/proyectos/${proyectoId}?tab=campo&sub=tareo`, tag: 'tareo' };
   if (jefes.length) jefes.forEach((j: any) => j && notifyUser(j.id, payload, 'tareo'));
   else notifyRoles(['jefe_proyectos', 'gerencia'], payload, 'tareo');
   revalidatePath('/campo/tareo');
@@ -249,7 +249,7 @@ export async function rechazarJornal(ids: string[], motivo?: string): Promise<Re
   const autores = [...new Set((filas ?? []).map((f: any) => f.created_by).filter(Boolean))] as string[];
   const admin = createAdminClient();
   const { data: proy } = proyectoId ? await admin.from('proyectos').select('nombre').eq('id', proyectoId).single() : { data: null };
-  const payload = { title: 'Jornal devuelto por finanzas', body: `${session.nombre} devolvió el tareo de ${proy?.nombre ?? 'un proyecto'}${motivo ? `: ${motivo}` : ''}`, url: proyectoId ? `/proyectos/${proyectoId}` : '/campo/tareo', tag: 'tareo' };
+  const payload = { title: 'Jornal devuelto por finanzas', body: `${session.nombre} devolvió el tareo de ${proy?.nombre ?? 'un proyecto'}${motivo ? `: ${motivo}` : ''}`, url: proyectoId ? `/proyectos/${proyectoId}?tab=campo&sub=tareo` : '/campo/tareo', tag: 'tareo' };
   autores.forEach((id) => notifyUser(id, payload, 'tareo'));
   if (proyectoId) {
     const { data: equipo } = await admin.from('proyecto_equipo').select('profile:profiles(id, rol)').eq('proyecto_id', proyectoId);

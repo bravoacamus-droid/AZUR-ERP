@@ -119,18 +119,18 @@ export function TareoForm({ proyectos, trabajadores }: { proyectos: { id: string
 
       {filas.length > 0 && (
         <div className="space-y-2">
-          <div className="grid grid-cols-[1fr_3.5rem_3.5rem_2.25rem] items-center gap-2 px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+          <div className="grid grid-cols-[1fr_4.5rem_4.5rem_2.25rem] items-center gap-2 px-1 text-[10px] uppercase tracking-wide text-muted-foreground">
             <span>Trabajador</span><span className="text-center">Horas</span><span className="text-center">Extra</span><span />
           </div>
           {filas.map((f, i) => (
-            <div key={i} className="grid grid-cols-[1fr_3.5rem_3.5rem_2.25rem] items-center gap-2">
+            <div key={i} className="grid grid-cols-[1fr_4.5rem_4.5rem_2.25rem] items-center gap-2">
               <div className="min-w-0">
                 {f.trabajador_id ? <p className="truncate text-sm font-medium">{f.trabajador_nombre}</p>
                   : <Input value={f.trabajador_nombre} onChange={(e) => upd(i, { trabajador_nombre: e.target.value })} placeholder="Nombre" />}
                 <button type="button" onClick={() => upd(i, { presente: !f.presente })} className={`text-[11px] font-medium ${f.presente ? 'text-emerald-600' : 'text-azur-600'}`}>{f.presente ? 'Presente' : 'Ausente'}</button>
               </div>
-              <Input className="text-center" type="number" inputMode="decimal" value={f.horas} onChange={(e) => upd(i, { horas: e.target.value })} />
-              <Input className="text-center" type="number" inputMode="decimal" placeholder="0" value={f.horas_extra} onChange={(e) => upd(i, { horas_extra: e.target.value })} />
+              <Input className="px-1 text-center" type="number" inputMode="decimal" value={f.horas} onChange={(e) => upd(i, { horas: e.target.value })} />
+              <Input className="px-1 text-center" type="number" inputMode="decimal" placeholder="0" value={f.horas_extra} onChange={(e) => upd(i, { horas_extra: e.target.value })} />
               <button type="button" onClick={() => setFilas((fs) => fs.filter((_, j) => j !== i))} className="flex size-9 items-center justify-center text-muted-foreground"><Trash2 className="size-4" /></button>
             </div>
           ))}

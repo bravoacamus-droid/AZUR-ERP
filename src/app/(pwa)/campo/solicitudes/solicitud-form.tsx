@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Receipt } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ const CONSTANCIAS = [
   { value: 'evidencia', label: 'Evidencia (captura / nota de venta)' },
 ];
 
-type Contraparte = { id: string; razon_social: string; ruc_dni?: string | null; banco?: string | null; cuenta?: string | null; cci?: string | null };
+type Contraparte = { id: string; razon_social: string; tipo?: string | null; ruc_dni?: string | null; banco?: string | null; cuenta?: string | null; cci?: string | null };
 type Categoria = { id: string; nombre: string; tipo_base: string };
 
 export function SolicitudForm({
@@ -73,6 +73,18 @@ export function SolicitudForm({
   const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null);
 
   const partidasProyecto = partidas.filter((p) => p.proyecto_id === proyectoId);
+  // Filtra el maestro según el tipo elegido: contratistas→contratista/ambos,
+  // proveedores→proveedor/ambos; caja chica/servicios/honorarios: sin restricción.
+  const contrapartesFiltradas = contrapartes.filter((c) => {
+    if (tipo === 'contratistas') return c.tipo === 'contratista' || c.tipo === 'ambos';
+    if (tipo === 'proveedores') return c.tipo === 'proveedor' || c.tipo === 'ambos';
+    return true;
+  });
+  // Si al cambiar el tipo el proveedor elegido ya no aplica, se limpia.
+  useEffect(() => {
+    if (contraparteId && !contrapartesFiltradas.some((c) => c.id === contraparteId)) setContraparteId('');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tipo]);
 
   function elegirProveedor(id: string) {
     setContraparteId(id);
@@ -184,11 +196,11 @@ export function SolicitudForm({
         </Select>
       </Field>
 
-      {contrapartes.length > 0 && (
-        <Field label="Proveedor del maestro" hint="Autocompleta RUC, razón social y cuenta">
+      {contrapartesFiltradas.length > 0 && (
+        <Field label="Proveedor del maestro" hint="Se filtra según el tipo elegido arriba">
           <Select value={contraparteId} onChange={(e) => elegirProveedor(e.target.value)}>
             <option value="">— Elegir del maestro (o escribir abajo) —</option>
-            {contrapartes.map((c) => <option key={c.id} value={c.id}>{c.razon_social}{c.ruc_dni ? ` · ${c.ruc_dni}` : ''}</option>)}
+            {contrapartesFiltradas.map((c) => <option key={c.id} value={c.id}>{c.razon_social}{c.ruc_dni ? ` · ${c.ruc_dni}` : ''}</option>)}
           </Select>
         </Field>
       )}
