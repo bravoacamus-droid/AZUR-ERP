@@ -24,6 +24,16 @@ export interface ReportesData {
   pnlProyectos: PnlRow[];
   pnlLineas: PnlLinea[];
   pnlPorMes: PnlMensual;
+  rol: string;
+  // Gastos de empresa (EEFF): no pasan por el flujo de obra.
+  gastosEmpresa: {
+    total: number;
+    sinLinea: number;
+    porLinea: { id: string; nombre: string; color: string; monto: number }[];
+    filas: { id: string; fecha: string; categoria: string | null; descripcion: string | null; monto: number; proyecto: string | null }[];
+  };
+  // "Caja chica reportada": gastos ya pagados de caja chica, para revisarlos/aprobarlos rápido.
+  cajaChica: { id: string; codigo: string | null; fecha: string; monto: number; status: string; sustento_url: string | null; beneficiario: string | null; descripcion: string | null; proyecto: string | null }[];
 }
 
 function desdeDe(periodo: string): Date | null {
@@ -38,7 +48,7 @@ function desdeDe(periodo: string): Date | null {
 }
 
 export default async function ReportesPage({ searchParams }: { searchParams: { periodo?: string; proyecto?: string; linea?: string } }) {
-  await requireModulo('reportes', 'ver');
+  const session = await requireModulo('reportes', 'ver');
   const supabase = createClient();
 
   const periodo = searchParams.periodo ?? '30';
@@ -136,6 +146,47 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   const proyLinea = new Map<string, string | null>((proyRaw ?? []).map((p) => [p.id, p.linea_id]));
   const pnlPorMes: PnlMensual = pnlMensual(abonos ?? [], (sols ?? []).map((s) => ({ monto: s.monto, pagado_at: s.pagado_at, proyecto_id: s.proyecto_id, linea_id: s.linea_id })), proyLinea, (lineasRaw ?? []).map((l) => ({ id: l.id, nombre: l.nombre })));
 
+  // ── Gastos de empresa (EEFF) y caja chica reportada ───────────────────
+  const sbAny = supabase as unknown as { from: (t: string) => any };
+  let qGastosEmp = sbAny.from('gastos_empresa')
+    .select('id, fecha, categoria, descripcion, monto, linea_id, proyecto_id, proyecto:proyectos(nombre)');
+  if (desdeISO) qGastosEmp = qGastosEmp.gte('fecha', desdeISO);
+  if (linea) qGastosEmp = qGastosEmp.eq('linea_id', linea);
+  if (proyecto) qGastosEmp = qGastosEmp.eq('proyecto_id', proyecto);
+
+  const [gastosEmpRes, cajaChicaRes] = await Promise.all([
+    qGastosEmp.order('fecha', { ascending: false }),
+    sbAny.from('solicitudes_pago')
+      .select('id, codigo, created_at, monto, status, sustento_url, beneficiario_nombre, descripcion, proyecto:proyectos(nombre)')
+      .eq('pagado_caja_chica', true).order('created_at', { ascending: false }),
+  ]);
+
+  const gastosEmpRaw = (gastosEmpRes.data ?? []) as any[];
+  const gastosPorLinea = new Map<string, number>();
+  let gastosSinLinea = 0;
+  gastosEmpRaw.forEach((g) => {
+    const m = Number(g.monto ?? 0);
+    if (g.linea_id) gastosPorLinea.set(g.linea_id, (gastosPorLinea.get(g.linea_id) ?? 0) + m);
+    else gastosSinLinea += m;
+  });
+  const gastosEmpresa = {
+    total: gastosEmpRaw.reduce((a, g) => a + Number(g.monto ?? 0), 0),
+    sinLinea: gastosSinLinea,
+    porLinea: (lineasRaw ?? [])
+      .map((l) => ({ id: l.id, nombre: l.nombre, color: l.color, monto: gastosPorLinea.get(l.id) ?? 0 }))
+      .filter((l) => l.monto > 0),
+    filas: gastosEmpRaw.map((g) => ({
+      id: g.id, fecha: g.fecha, categoria: g.categoria ?? null, descripcion: g.descripcion ?? null,
+      monto: Number(g.monto ?? 0), proyecto: g.proyecto?.nombre ?? null,
+    })),
+  };
+
+  const cajaChica = ((cajaChicaRes.data ?? []) as any[]).map((c) => ({
+    id: c.id, codigo: c.codigo ?? null, fecha: String(c.created_at).slice(0, 10), monto: Number(c.monto ?? 0),
+    status: c.status, sustento_url: c.sustento_url ?? null, beneficiario: c.beneficiario_nombre ?? null,
+    descripcion: c.descripcion ?? null, proyecto: c.proyecto?.nombre ?? null,
+  }));
+
   const data: ReportesData = {
     filtros: { periodo, proyecto, linea },
     proyectosLista: (proyRaw ?? []).map((p) => ({ id: p.id, nombre: p.nombre })),
@@ -150,6 +201,9 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     pnlProyectos,
     pnlLineas,
     pnlPorMes,
+    rol: session.rol,
+    gastosEmpresa,
+    cajaChica,
   };
 
   return <ReportesClient data={data} />;

@@ -7,7 +7,7 @@ import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, PieChart, Pie, Cell, Label, LabelList,
 } from 'recharts';
-import { Download, TrendingUp, TrendingDown, Wallet, HardHat, Loader2, FileSpreadsheet, Users, Search, FileDown } from 'lucide-react';
+import { Download, TrendingUp, TrendingDown, Wallet, HardHat, Loader2, FileSpreadsheet, Users, Search, FileDown, Receipt, CheckCircle2, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select } from '@/components/ui/select';
@@ -15,7 +15,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/misc';
 import { PageHeader, KpiCard } from '@/components/ui/page';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { fmtMoney, fmtPct } from '@/lib/format';
+import { fmtMoney, fmtPct, fmtDate } from '@/lib/format';
+import { Input } from '@/components/ui/input';
+import { STATUS_SOLICITUD } from '@/lib/estados';
+import { aprobarSolicitud, validarGastoCaja } from '@/app/(erp)/finanzas/actions';
 import { SALUD_LABEL } from '@/lib/salud';
 import type { ReportesData } from './page';
 
@@ -42,7 +45,22 @@ const fade = (i: number) => ({
 export function ReportesClient({ data }: { data: ReportesData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas, pnlPorMes } = data;
+  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas, pnlPorMes, rol, gastosEmpresa, cajaChica } = data;
+  // Filtro de fechas del listado de caja chica reportada (pedido de David).
+  const [ccDesde, setCcDesde] = useState('');
+  const [ccHasta, setCcHasta] = useState('');
+  const [ccBusy, setCcBusy] = useState<string | null>(null);
+  const ccFiltrada = cajaChica.filter((c) => (!ccDesde || c.fecha >= ccDesde) && (!ccHasta || c.fecha <= ccHasta));
+  const ccTotal = ccFiltrada.reduce((a, c) => a + c.monto, 0);
+  const ccPend = ccFiltrada.filter((c) => c.status === 'solicitada' || c.status === 'aprobada').length;
+  const utilidadEmpresa = kpis.ingresos - kpis.egresos - gastosEmpresa.total;
+  async function ccAccion(id: string, fn: (i: string) => Promise<{ ok: boolean; error?: string }>) {
+    setCcBusy(id);
+    const r = await fn(id);
+    if (!r.ok) alert(r.error ?? 'No se pudo completar');
+    setCcBusy(null);
+    router.refresh();
+  }
   const pnlUrl = (fmt: string) => `/reportes/pnl/${fmt}?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}`;
   const gapTone = (g: number) => (g >= 0 ? 'text-emerald-600' : 'text-red-600');
   const [tareoQ, setTareoQ] = useState('');
@@ -447,6 +465,150 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                         )}
                       </Fragment>
                     ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Gastos de empresa (EEFF) — no pasan por el flujo de obra */}
+      <motion.div {...fade(9)}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-2"><Receipt className="size-4 text-azur-600" /> Gastos de empresa (EEFF)</span>
+              <span className="text-sm font-normal text-muted-foreground">Planilla, publicidad, impuestos, gastos financieros… del periodo</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Gastos de empresa</p>
+                <p className="text-lg font-semibold tabular-nums text-azur-600">{fmtMoney(gastosEmpresa.total)}</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Sin línea (general)</p>
+                <p className="text-lg font-semibold tabular-nums">{fmtMoney(gastosEmpresa.sinLinea)}</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">Utilidad de empresa (ingresos − obra − empresa)</p>
+                <p className={utilidadEmpresa >= 0 ? 'text-lg font-semibold tabular-nums text-emerald-600' : 'text-lg font-semibold tabular-nums text-red-600'}>{fmtMoney(utilidadEmpresa)}</p>
+              </div>
+            </div>
+
+            {gastosEmpresa.porLinea.length > 0 && (
+              <div className="rounded-lg border p-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Por línea de negocio</p>
+                <div className="flex flex-wrap gap-3">
+                  {gastosEmpresa.porLinea.map((l) => (
+                    <span key={l.id} className="flex items-center gap-2 text-sm">
+                      <span className="inline-block size-3 rounded-full" style={{ background: l.color }} />
+                      {l.nombre}: <strong className="tabular-nums">{fmtMoney(l.monto)}</strong>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {gastosEmpresa.filas.length === 0 ? (
+              <EmptyState icon={<Receipt className="size-8" />} titulo="Sin gastos de empresa en el periodo" descripcion="Administración los registra en Finanzas → Gastos de empresa." />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead><TableHead>Categoría</TableHead><TableHead>Descripción</TableHead>
+                      <TableHead>Proyecto</TableHead><TableHead className="text-right">Monto</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {gastosEmpresa.filas.map((g) => (
+                      <TableRow key={g.id}>
+                        <TableCell className="tabular-nums">{fmtDate(g.fecha)}</TableCell>
+                        <TableCell>{g.categoria ? <Badge variant="muted">{g.categoria}</Badge> : '—'}</TableCell>
+                        <TableCell className="text-sm">{g.descripcion ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{g.proyecto ?? '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtMoney(g.monto)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/40 font-semibold">
+                      <TableCell colSpan={4} className="text-right">Total</TableCell>
+                      <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(gastosEmpresa.total)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* Caja chica reportada — listado por fechas para aprobar rápido */}
+      <motion.div {...fade(10)}>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex flex-wrap items-center justify-between gap-2">
+              <span className="flex items-center gap-2"><Wallet className="size-4 text-azur-600" /> Caja chica reportada</span>
+              <span className="text-sm font-normal text-muted-foreground">
+                {ccFiltrada.length} gasto(s) · {fmtMoney(ccTotal)}{ccPend ? ' · ' + ccPend + ' por revisar' : ''}
+              </span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex flex-wrap items-end gap-2">
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">Desde</p>
+                <Input type="date" value={ccDesde} onChange={(e) => setCcDesde(e.target.value)} className="w-40" />
+              </div>
+              <div>
+                <p className="mb-1 text-xs font-medium text-muted-foreground">Hasta</p>
+                <Input type="date" value={ccHasta} onChange={(e) => setCcHasta(e.target.value)} className="w-40" />
+              </div>
+              {(ccDesde || ccHasta) && <Button size="sm" variant="ghost" onClick={() => { setCcDesde(''); setCcHasta(''); }}>Limpiar</Button>}
+            </div>
+
+            {ccFiltrada.length === 0 ? (
+              <EmptyState icon={<Wallet className="size-8" />} titulo="Sin gastos de caja chica" descripcion="Aquí aparecen los gastos ya pagados desde caja chica, para revisarlos y aprobarlos rápido." />
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead><TableHead>Código</TableHead><TableHead>Proyecto</TableHead>
+                      <TableHead>Detalle</TableHead><TableHead className="text-right">Monto</TableHead>
+                      <TableHead>Estado</TableHead><TableHead>Sustento</TableHead><TableHead className="text-right">Acción</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {ccFiltrada.map((c) => {
+                      const st = STATUS_SOLICITUD[c.status] ?? { label: c.status, variant: 'muted' as const };
+                      const puedeAprobarCc = c.status === 'solicitada' && (rol === 'jefe_proyectos' || rol === 'gerencia');
+                      const puedeValidarCc = c.status === 'aprobada' && (rol === 'administrador' || rol === 'gerencia');
+                      return (
+                        <TableRow key={c.id}>
+                          <TableCell className="tabular-nums">{fmtDate(c.fecha)}</TableCell>
+                          <TableCell className="font-medium">{c.codigo ?? '—'}</TableCell>
+                          <TableCell className="text-sm text-muted-foreground">{c.proyecto ?? '—'}</TableCell>
+                          <TableCell className="text-sm">{c.descripcion || c.beneficiario || '—'}</TableCell>
+                          <TableCell className="text-right tabular-nums">{fmtMoney(c.monto)}</TableCell>
+                          <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
+                          <TableCell>{c.sustento_url ? <a href={c.sustento_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-azur-600 hover:underline"><FileText className="size-3.5" /> Ver</a> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                          <TableCell>
+                            <div className="flex justify-end gap-1">
+                              {puedeAprobarCc && <Button size="sm" variant="outline" disabled={ccBusy === c.id} onClick={() => ccAccion(c.id, aprobarSolicitud)}><CheckCircle2 className="size-3.5" /> Aprobar</Button>}
+                              {puedeValidarCc && <Button size="sm" variant="gradient" disabled={ccBusy === c.id} onClick={() => ccAccion(c.id, validarGastoCaja)}><CheckCircle2 className="size-3.5" /> Validar sustento</Button>}
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                    <TableRow className="bg-muted/40 font-semibold">
+                      <TableCell colSpan={4} className="text-right">Total del periodo</TableCell>
+                      <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(ccTotal)}</TableCell>
+                      <TableCell colSpan={3} />
+                    </TableRow>
                   </TableBody>
                 </Table>
               </div>

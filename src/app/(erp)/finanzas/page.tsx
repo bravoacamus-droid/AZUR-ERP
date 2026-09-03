@@ -37,6 +37,15 @@ export default async function FinanzasPage() {
   }));
   const medios = await supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares').order('orden');
 
+  // Gastos de empresa (EEFF) + sus categorías editables. Los carga Administración.
+  const sbAny = supabase as unknown as { from: (t: string) => any };
+  const [gastosEmpRes, catsEmpRes] = await Promise.all([
+    sbAny.from('gastos_empresa')
+      .select('id, fecha, categoria_id, categoria, proyecto_id, linea_id, descripcion, monto, sustento_url, proyecto:proyectos(nombre)')
+      .order('fecha', { ascending: false }),
+    sbAny.from('categorias_gasto_empresa').select('id, nombre, orden').eq('activo', true).order('orden'),
+  ]);
+
   // Jornales: tareo APROBADO (pendiente de pago) consolidado POR PERSONA,
   // con desglose por proyecto y total (una persona en varios proyectos = 1 fila).
   const { data: tareoAprob } = await (supabase as unknown as { from: (t: string) => any }).from('tareo')
@@ -79,6 +88,8 @@ export default async function FinanzasPage() {
       </div>
 
       <FinanzasClient
+        gastosEmpresa={gastosEmpRes.data ?? []}
+        catsEmpresa={catsEmpRes.data ?? []}
         rol={session.rol}
         canEdit={puedeEditar(session.permisos, 'finanzas')}
         solicitudes={solicitudes}

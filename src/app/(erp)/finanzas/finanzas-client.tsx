@@ -26,6 +26,7 @@ import {
   guardarCategoria, eliminarCategoria, validarProveedor, revisarCambioProveedor,
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
+import { GastosEmpresa } from './gastos-empresa';
 import { actualizarTarifaTrabajador, marcarTareoPagado, rechazarJornal } from '@/app/(pwa)/campo/tareo/actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -36,7 +37,9 @@ const METODOS = [
   { v: 'cheque', l: 'Cheque' }, { v: 'tarjeta', l: 'Tarjeta' }, { v: 'otro', l: 'Otro' },
 ];
 
-export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, contrapartes = [], proveedoresPend = [], cambiosProv = [], categorias = [], jornales = [], jornalesTotal = 0 }: any) {
+export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, armadas, cajas, clientes, proyectos, perfiles, dashboards, medios, contrapartes = [], proveedoresPend = [], cambiosProv = [], categorias = [], jornales = [], jornalesTotal = 0, gastosEmpresa = [], catsEmpresa = [] }: any) {
+  // Gastos de empresa (EEFF): solo Administración (carga) y Gerencia (ve).
+  const veGastosEmpresa = rol === 'administrador' || rol === 'gerencia';
   const [tab, setTab] = useState('solicitudes');
   return (
     <div className="space-y-4">
@@ -46,12 +49,14 @@ export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, arm
         { value: 'jornales', label: `Jornales${jornales.length ? ` (${jornales.length})` : ''}` },
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
+        ...(veGastosEmpresa ? [{ value: 'gastos', label: 'Gastos de empresa' }] : []),
       ]} />
       {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} proveedoresPend={proveedoresPend} cambiosProv={cambiosProv} categorias={categorias} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'jornales' && <Jornales rol={rol} jornales={jornales} total={jornalesTotal} />}
       {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
       {tab === 'cajas' && <Cajas rol={rol} canEdit={canEdit} cajas={cajas} proyectos={proyectos} perfiles={perfiles} dashboards={dashboards} />}
+      {tab === 'gastos' && veGastosEmpresa && <GastosEmpresa rol={rol} gastos={gastosEmpresa} categorias={catsEmpresa} proyectos={proyectos} />}
     </div>
   );
 }
