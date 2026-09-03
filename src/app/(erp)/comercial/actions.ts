@@ -23,7 +23,9 @@ const crearSchema = z.object({
   proyecto_nombre: z.string().min(2),
   asunto: z.string().optional(),
   ubicacion: z.string().optional(),
-  tipo_cotizacion: z.enum(['unica', 'programada', 'recurrencia']),
+  // tipo_cotizacion se conserva por compatibilidad; hoy se deriva del tamaño.
+  tipo_cotizacion: z.enum(['unica', 'programada', 'recurrencia']).optional(),
+  tipo_servicio_id: z.string().uuid().optional(),
   tipo_proyecto: z.enum(['grande', 'chico']),
   origen: z.enum(['directo', 'recomendacion', 'oficina', 'llamada']).optional(),
   vigencia_dias: z.coerce.number().optional(),
@@ -56,7 +58,7 @@ export async function crearCotizacion(input: z.input<typeof crearSchema>): Promi
     if (pl) cond = pl;
   }
 
-  const { data, error } = await supabase
+  const { data, error } = await (supabase as any)
     .from('cotizaciones')
     .insert({
       linea_id: d.linea_id,
@@ -64,7 +66,9 @@ export async function crearCotizacion(input: z.input<typeof crearSchema>): Promi
       proyecto_nombre: d.proyecto_nombre,
       asunto: d.asunto,
       ubicacion: d.ubicacion,
-      tipo_cotizacion: d.tipo_cotizacion,
+      // Deriva el tipo_cotizacion (legado) del tamaño si el form ya no lo envía.
+      tipo_cotizacion: d.tipo_cotizacion ?? (d.tipo_proyecto === 'grande' ? 'unica' : 'programada'),
+      tipo_servicio_id: d.tipo_servicio_id ?? null,
       tipo_proyecto: d.tipo_proyecto,
       origen: d.origen,
       vigencia_dias: d.vigencia_dias ?? 7,

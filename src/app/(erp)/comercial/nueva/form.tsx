@@ -25,10 +25,12 @@ export function NuevaCotizacionForm({
   lineas,
   clientes,
   plantillas,
+  servicios,
 }: {
   lineas: Opt[];
   clientes: Opt[];
   plantillas: Opt[];
+  servicios: Opt[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -40,7 +42,7 @@ export function NuevaCotizacionForm({
     origen: 'directo',
     cliente_id: clientes[0]?.id ?? '',
     linea_id: lineas[0]?.id ?? '',
-    tipo_cotizacion: 'unica',
+    tipo_servicio_id: servicios[0]?.id ?? '',
     tipo_proyecto: 'grande',
     proyecto_nombre: '',
     asunto: '',
@@ -64,7 +66,7 @@ export function NuevaCotizacionForm({
     setLoading(true);
     const res = await crearCotizacion({
       ...form,
-      tipo_cotizacion: form.tipo_cotizacion as 'unica' | 'programada' | 'recurrencia',
+      tipo_servicio_id: form.tipo_servicio_id || undefined,
       tipo_proyecto: form.tipo_proyecto as 'grande' | 'chico',
       origen: form.origen as 'directo' | 'recomendacion' | 'oficina' | 'llamada',
       moneda: form.moneda as 'PEN' | 'USD',
@@ -130,18 +132,18 @@ export function NuevaCotizacionForm({
               ))}
             </Select>
           </Field>
-          <Field label="Tipo de cotización" required>
-            <Select
-              value={form.tipo_cotizacion}
-              onChange={(e) => {
-                const v = e.target.value;
-                set('tipo_cotizacion', v);
-                set('tipo_proyecto', v === 'unica' ? 'grande' : 'chico');
-              }}
-            >
-              <option value="unica">Única de obra (Grande)</option>
-              <option value="programada">Programada de mantenimiento (Chico)</option>
-              <option value="recurrencia">Recurrencia variable (Chico)</option>
+          <Field label="Tipo de servicio" required>
+            <Select value={form.tipo_servicio_id} onChange={(e) => set('tipo_servicio_id', e.target.value)}>
+              {servicios.length === 0 && <option value="">— sin servicios (crea en Configuración) —</option>}
+              {servicios.map((s) => (
+                <option key={s.id} value={s.id}>{s.nombre}</option>
+              ))}
+            </Select>
+          </Field>
+          <Field label="Tamaño de proyecto" required hint="Grande = obra única; Chico = mantenimiento/recurrencia. Afecta la valorización.">
+            <Select value={form.tipo_proyecto} onChange={(e) => set('tipo_proyecto', e.target.value)}>
+              <option value="grande">Grande (obra única)</option>
+              <option value="chico">Chico (mantenimiento / recurrencia)</option>
             </Select>
           </Field>
         </div>

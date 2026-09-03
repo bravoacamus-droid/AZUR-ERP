@@ -31,7 +31,15 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
     .from('cotizaciones')
     .select('id, codigo, proyecto_nombre, estado, fecha, tipo_proyecto, cliente:clientes(razon_social), linea:lineas_negocio(codigo, nombre)', { count: 'exact' })
     .eq('es_plantilla', false);
-  if (q) query = query.or(`proyecto_nombre.ilike.%${q}%,codigo.ilike.%${q}%,asunto.ilike.%${q}%`);
+  if (q) {
+    // Busca por proyecto, código y asunto (columnas propias) y también por
+    // CLIENTE (tabla relacionada): resolvemos primero los ids que matchean.
+    const { data: cliMatch } = await supabase.from('clientes').select('id').ilike('razon_social', `%${q}%`);
+    const ids = (cliMatch ?? []).map((c) => c.id);
+    const partes = [`proyecto_nombre.ilike.%${q}%`, `codigo.ilike.%${q}%`, `asunto.ilike.%${q}%`];
+    if (ids.length) partes.push(`cliente_id.in.(${ids.join(',')})`);
+    query = query.or(partes.join(','));
+  }
   const { data: cots, count } = await query.order('created_at', { ascending: false }).range(desde, desde + PAGE_SIZE - 1);
 
   const cotizaciones = cots ?? [];
@@ -128,7 +136,7 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
         </Card>
       ) : (
       <>
-      <SearchBox placeholder="Buscar por proyecto, código o asunto…" />
+      <SearchBox placeholder="Buscar por proyecto, código, asunto o cliente…" />
 
       <Card>
         <CardContent className="p-0">

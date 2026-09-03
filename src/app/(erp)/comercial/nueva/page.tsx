@@ -8,10 +8,11 @@ export const dynamic = 'force-dynamic';
 export default async function NuevaCotizacionPage() {
   await requireModulo('comercial', 'editar');
   const supabase = createClient();
-  const [{ data: lineas }, { data: clientes }, { data: plantillas }] = await Promise.all([
-    supabase.from('lineas_negocio').select('id, codigo, nombre').eq('activo', true),
+  const [{ data: lineas }, { data: clientes }, { data: plantillas }, { data: servicios }] = await Promise.all([
+    supabase.from('lineas_negocio').select('id, codigo, nombre').eq('activo', true).order('nombre'),
     supabase.from('clientes').select('id, razon_social').order('razon_social'),
     supabase.from('plantillas_cotizacion').select('id, nombre'),
+    (supabase as any).from('tipos_servicio').select('id, nombre').eq('activo', true).order('orden'),
   ]);
 
   return (
@@ -21,6 +22,7 @@ export default async function NuevaCotizacionPage() {
         lineas={lineas ?? []}
         clientes={clientes ?? []}
         plantillas={plantillas ?? []}
+        servicios={servicios ?? []}
       />
     </div>
   );

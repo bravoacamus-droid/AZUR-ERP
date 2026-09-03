@@ -10,6 +10,7 @@ export const MODULOS = [
   'clientes',
   'catalogos',
   'proveedores',
+  'configuracion',
   'usuarios',
 ] as const;
 export type Modulo = (typeof MODULOS)[number];
@@ -25,6 +26,7 @@ export const MODULO_LABEL: Record<Modulo, string> = {
   clientes: 'Clientes',
   catalogos: 'Catálogos',
   proveedores: 'Proveedores',
+  configuracion: 'Configuración',
   usuarios: 'Usuarios',
 };
 
@@ -35,7 +37,7 @@ export type PermisosMap = Partial<Record<Modulo, Nivel>>;
 export const BASE_ROLE_PERMISOS: Record<Rol, PermisosMap> = {
   gerencia: {
     comercial: 'editar', proyectos: 'editar', finanzas: 'editar', inventario: 'editar',
-    reportes: 'ver', clientes: 'editar', catalogos: 'editar', proveedores: 'editar', usuarios: 'editar',
+    reportes: 'ver', clientes: 'editar', catalogos: 'editar', proveedores: 'editar', configuracion: 'editar', usuarios: 'editar',
   },
   jefe_proyectos: { proyectos: 'editar', finanzas: 'editar', reportes: 'ver', proveedores: 'ver' },
   presupuestos: { comercial: 'editar', proyectos: 'editar', reportes: 'ver', clientes: 'editar', catalogos: 'editar', proveedores: 'ver' },

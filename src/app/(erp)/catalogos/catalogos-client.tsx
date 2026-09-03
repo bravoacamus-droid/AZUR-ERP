@@ -650,8 +650,9 @@ function PlantillaForm({ plantilla, lineas, onClose }: { plantilla: Plantilla | 
   );
 }
 
-// ─────────────────────── Medios de pago ───────────────────────
-function MediosTab({ rows }: { rows: Medio[] }) {
+// ─────────────────────── Medios de pago (movido a Configuración) ───────────────────────
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function MediosTab_MOVIDO_A_CONFIGURACION({ rows }: { rows: Medio[] }) {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Medio | null>(null);
   return (
@@ -772,7 +773,6 @@ const TABS = [
   { value: 'partidas', label: 'Partidas' },
   { value: 'insumos', label: 'Insumos' },
   { value: 'plantillas', label: 'Plantillas' },
-  { value: 'medios', label: 'Medios de pago' },
 ];
 
 function PreciosMasivos() {
@@ -913,7 +913,6 @@ export function CatalogosClient({ data, canEdit = true, puedeTarifa = false }: {
         {tab === 'partidas' && <PartidasTab rows={data.partidas} lineas={data.lineas} />}
         {tab === 'insumos' && <InsumosTab rows={data.insumos} />}
         {tab === 'plantillas' && <PlantillasTab rows={data.plantillas} lineas={data.lineas} />}
-        {tab === 'medios' && <MediosTab rows={data.medios} />}
       </div>
     </div>
     </TarifaCtx.Provider>
