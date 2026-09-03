@@ -62,6 +62,7 @@ export function SolicitudForm({
   const [monto, setMonto] = useState('');
   const [constancia, setConstancia] = useState('');
   const [sustento, setSustento] = useState('');
+  const [pagadoCaja, setPagadoCaja] = useState(false);
   const [descripcion, setDescripcion] = useState('');
   const [ctaBancaria, setCtaBancaria] = useState('');
   const [rucDni, setRucDni] = useState('');
@@ -103,6 +104,14 @@ export function SolicitudForm({
       setMsg({ type: 'err', text: 'Ingresa un monto válido.' });
       return;
     }
+    if (pagadoCaja && !sustento) {
+      setMsg({ type: 'err', text: 'El gasto de caja chica requiere adjuntar el sustento.' });
+      return;
+    }
+    if (pagadoCaja && tipo === 'caja_chica') {
+      setMsg({ type: 'err', text: 'Elige la categoría real del gasto. "Caja chica" es solo la reposición de fondos.' });
+      return;
+    }
     setLoading(true);
     const payload: SolicitudInput = {
       tipo,
@@ -122,11 +131,12 @@ export function SolicitudForm({
       contraparte_id: contraparteId || null,
       moneda: moneda as 'PEN' | 'USD',
       detraccion_monto: tieneDetraccion ? Number(detraccion) || 0 : 0,
+      pagado_caja_chica: pagadoCaja,
     };
     function limpiar() {
       setPartidaPpto(''); setBeneficiario(''); setEspecialidad(''); setCategoria(''); setCategoriaSel('');
       setMonto(''); setConstancia(''); setSustento(''); setDescripcion(''); setCtaBancaria('');
-      setRucDni(''); setRazonSocial(''); setContraparteId(''); setMoneda('PEN'); setTieneDetraccion(false); setDetraccion('');
+      setRucDni(''); setRazonSocial(''); setContraparteId(''); setMoneda('PEN'); setTieneDetraccion(false); setDetraccion(''); setPagadoCaja(false);
     }
 
     if (!isOnline()) {
@@ -264,6 +274,14 @@ export function SolicitudForm({
       <Field label="Sustento (foto o PDF)" hint="Factura, boleta, RH, nota de venta o captura Yape/Plin">
         <VoucherUpload value={sustento} onChange={setSustento} carpeta="sustentos" />
       </Field>
+
+      <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
+        <input type="checkbox" className="mt-0.5 size-4 accent-azur-600" checked={pagadoCaja} onChange={(e) => setPagadoCaja(e.target.checked)} />
+        <span>
+          <span className="font-medium">Gasto ya pagado desde caja chica</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">Flujo corto: el Jefe de Proyectos aprueba y Administración valida el sustento; el gasto suma al proyecto sin pasar por programar/pagar. Requiere sustento.</span>
+        </span>
+      </label>
 
       <Field label="Descripción">
         <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />

@@ -20,7 +20,7 @@ import { fmtMoney, fmtDate, fmtDateInput } from '@/lib/format';
 import { STATUS_SOLICITUD, TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { VoucherUpload } from '@/components/finanzas/voucher-upload';
 import {
-  aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia,
+  aprobarSolicitud, rechazarSolicitud, programarPago, marcarPagada, aprobarGerencia, validarGastoCaja,
   emitirFactura, registrarAbono, crearFacturaManual, movimientoCaja, crearCajaChica,
   editarSolicitud, eliminarSolicitud, validarCuentaProveedor, validarCuentaCliente,
   guardarCategoria, eliminarCategoria, validarProveedor, revisarCambioProveedor,
@@ -170,7 +170,7 @@ function Jornales({ rol, jornales, total }: any) {
 }
 
 const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
-const SOL_VACIA = { id: '', tipo: 'contratistas', categoria: '', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '' };
+const SOL_VACIA = { id: '', tipo: 'contratistas', categoria: '', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '', pagado_caja_chica: false };
 
 const CAMPO_PROV_LBL: Record<string, string> = { razon_social: 'Razón social', ruc_dni: 'RUC/DNI', especialidad: 'Especialidad', contacto: 'Contacto', telefono: 'Teléfono', banco: 'Banco', cuenta: 'Cuenta', cci: 'CCI', cuenta_detraccion: 'Cta. detracción', tipo: 'Tipo' };
 
@@ -223,6 +223,8 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
   async function crearNueva() {
     setNsMsg(null);
     if (!ns.monto || Number(ns.monto) <= 0) { setNsMsg('Ingresa un monto válido.'); return; }
+    if (ns.pagado_caja_chica && !ns.sustento_url) { setNsMsg('El gasto de caja chica requiere adjuntar el sustento.'); return; }
+    if (ns.pagado_caja_chica && ns.tipo === 'caja_chica') { setNsMsg('Elige la categoría real del gasto. "Caja chica" es solo la reposición de fondos.'); return; }
     setBusy(true);
     const detr = ns.tiene_detraccion ? Number(ns.detraccion_monto) || 0 : 0;
     const res = ns.id
@@ -230,7 +232,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
           tipo: ns.tipo, categoria: ns.categoria || null, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
           beneficiario_nombre: ns.beneficiario_nombre || null, monto: Number(ns.monto),
           constancia: ns.constancia || null, sustento_url: ns.sustento_url || null, descripcion: ns.descripcion || null, cta_bancaria: ns.cta_bancaria || null,
-          ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null, moneda: ns.moneda, detraccion_monto: detr,
+          ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null, moneda: ns.moneda, detraccion_monto: detr, pagado_caja_chica: ns.pagado_caja_chica,
         })
       : await crearSolicitud({
           tipo: ns.tipo, categoria: ns.categoria || null, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
@@ -238,7 +240,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
           monto: Number(ns.monto), constancia: (ns.constancia || null) as any, sustento_url: ns.sustento_url || null, descripcion: ns.descripcion || null,
           cta_bancaria: ns.cta_bancaria || null, ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null,
           contraparte_id: ns.contraparte_id || null,
-          moneda: ns.moneda as 'PEN' | 'USD', detraccion_monto: detr,
+          moneda: ns.moneda as 'PEN' | 'USD', detraccion_monto: detr, pagado_caja_chica: ns.pagado_caja_chica,
         });
     setBusy(false);
     if (res.ok) { setNueva(false); setNs(SOL_VACIA); router.refresh(); }
@@ -354,6 +356,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
                     <TableCell>
                       <Badge variant={st.variant}>{st.label}</Badge>
                       {s.requiere_gerencia && !s.aprobado_gerencia_por && <Badge variant="warning" className="ml-1">Gerencia</Badge>}
+                      {s.pagado_caja_chica && <Badge variant="secondary" className="ml-1">Caja chica</Badge>}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -363,8 +366,11 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
                             <Button size="sm" variant="ghost" onClick={() => setRech(s)}><XCircle className="text-azur-600" /></Button>
                           </>
                         )}
-                        {s.status === 'aprobada' && puedeProgramar && (
+                        {s.status === 'aprobada' && !s.pagado_caja_chica && puedeProgramar && (
                           <Button size="sm" variant="outline" onClick={() => abrirProgramar(s)}><CalendarClock /> Programar</Button>
+                        )}
+                        {s.status === 'aprobada' && s.pagado_caja_chica && puedeProgramar && (
+                          <Button size="sm" variant="gradient" title="Validar sustento y cargar el gasto al proyecto" onClick={async () => { setBusy(true); const r = await validarGastoCaja(s.id); if (!r.ok) alert(r.error ?? 'No se pudo validar'); router.refresh(); setBusy(false); }}><CheckCircle2 /> Validar sustento</Button>
                         )}
                         {s.status === 'programada' && puedePagar && (
                           <Button size="sm" variant="gradient" onClick={() => { setPago(s); setVoucher(''); setDetr(0); }}><Banknote /> Pagar</Button>
@@ -489,6 +495,10 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
         </label>
         {ns.tiene_detraccion && <Field label="Monto de detracción"><Input type="number" value={ns.detraccion_monto} onChange={(e) => setNs((f: any) => ({ ...f, detraccion_monto: e.target.value }))} placeholder="0.00" /></Field>}
         <Field label="Partida presupuestal (opcional)"><Input value={ns.partida_ppto} onChange={(e) => setNs((f: any) => ({ ...f, partida_ppto: e.target.value }))} /></Field>
+        <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-2.5 text-sm">
+          <input type="checkbox" className="mt-0.5 size-4 accent-azur-600" checked={ns.pagado_caja_chica} onChange={(e) => setNs((f: any) => ({ ...f, pagado_caja_chica: e.target.checked }))} />
+          <span><span className="font-medium">Gasto ya pagado desde caja chica</span><span className="mt-0.5 block text-xs text-muted-foreground">Flujo corto: aprueba el Jefe y Administración valida el sustento; suma al proyecto sin programar/pagar. Requiere sustento y una categoría real (no “Caja chica”).</span></span>
+        </label>
         <Field label="Descripción"><Input value={ns.descripcion} onChange={(e) => setNs((f: any) => ({ ...f, descripcion: e.target.value }))} /></Field>
         {nsMsg && <p className="text-sm text-azur-600">{nsMsg}</p>}
       </div>

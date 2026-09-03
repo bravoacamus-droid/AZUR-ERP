@@ -88,11 +88,49 @@ export async function aprobarSolicitud(id: string): Promise<Res> {
     .update({ status: 'aprobada', aprobado_por: session.id, aprobado_at: new Date().toISOString() })
     .eq('id', id);
   if (error) return { ok: false, error: error.message };
-  await notifyRoles(['administrador'], {
+  // El gasto de caja chica (flujo corto) no se programa: el admin valida el sustento.
+  const { data: sol } = await (supabase as any).from('solicitudes_pago').select('pagado_caja_chica').eq('id', id).single();
+  await notifyRoles(['administrador'], sol?.pagado_caja_chica ? {
+    title: 'Gasto de caja chica — validar sustento',
+    body: 'Un gasto de caja chica fue aprobado; revisa el sustento para cargarlo al proyecto.',
+    url: '/finanzas',
+  } : {
     title: 'Solicitud aprobada — programar pago',
     body: 'Una solicitud fue aprobada y está lista para programar.',
     url: '/finanzas',
   }, 'finanzas');
+  revalidatePath('/finanzas');
+  return { ok: true };
+}
+
+// ── Gasto de caja chica: el Administrador valida el sustento y el gasto cuenta
+// al proyecto (flujo corto: no se programa ni se paga; cierra en conciliada). ──
+export async function validarGastoCaja(id: string): Promise<Res> {
+  const session = await requireModulo('finanzas', 'editar');
+  if (session.rol !== 'administrador' && session.rol !== 'gerencia') {
+    return { ok: false, error: 'Solo Administración o Gerencia validan el sustento del gasto.' };
+  }
+  const supabase = createClient();
+  const admin = createAdminClient();
+  const { data: sol } = await admin.from('solicitudes_pago').select('*').eq('id', id).single();
+  if (!sol) return { ok: false, error: 'No encontrada' };
+  if (!(sol as any).pagado_caja_chica) return { ok: false, error: 'Esta solicitud no es un gasto de caja chica.' };
+  if (sol.status !== 'aprobada') return { ok: false, error: 'El gasto debe estar aprobado por el Jefe de Proyectos antes de validar el sustento.' };
+  if (!sol.sustento_url && !sol.voucher_url) return { ok: false, error: 'El gasto no tiene sustento adjunto.' };
+
+  const { error } = await (supabase as any)
+    .from('solicitudes_pago')
+    .update({ status: 'conciliada', sustento_validado_por: session.id, sustento_validado_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) return { ok: false, error: error.message };
+
+  if (sol.solicitado_por) {
+    await notifyUser(sol.solicitado_por, {
+      title: 'Gasto de caja chica validado',
+      body: `${sol.codigo} · ${fmtMoney(Number(sol.monto))} — cargado al proyecto`,
+      url: '/campo/solicitudes',
+    }, 'finanzas');
+  }
   revalidatePath('/finanzas');
   return { ok: true };
 }

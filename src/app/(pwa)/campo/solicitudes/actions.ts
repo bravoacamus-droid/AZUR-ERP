@@ -27,6 +27,9 @@ const schema = z.object({
   num_comprobante: z.string().trim().nullable().optional(),
   moneda: z.enum(['PEN', 'USD']).optional(),
   detraccion_monto: z.coerce.number().optional().nullable(),
+  // Gasto YA ejecutado desde la caja chica: flujo corto (aprobar + validar
+  // sustento), sin programar/pagar. Exige sustento y no puede ser 'caja_chica'.
+  pagado_caja_chica: z.coerce.boolean().optional(),
 });
 
 export type SolicitudInput = z.infer<typeof schema>;
@@ -70,6 +73,14 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
     return { ok: false, error: parsed.error.errors[0]?.message ?? 'Datos inválidos' };
   }
   const d = parsed.data;
+
+  // Validación del gasto de caja chica (flujo corto): exige sustento y una
+  // categoría real (no la reposición 'caja_chica', que no suma al proyecto).
+  if (d.pagado_caja_chica) {
+    if (!d.sustento_url) return { ok: false, error: 'El gasto de caja chica requiere adjuntar el sustento.' };
+    if (d.tipo === 'caja_chica') return { ok: false, error: 'Elige la categoría real del gasto (materiales, servicios, otros gastos…). "Caja chica" es solo la reposición de fondos.' };
+  }
+
   const supabase = createClient() as any; // columnas recientes (categoria) aún no tipadas
 
   // heredar línea de negocio del proyecto
@@ -106,6 +117,7 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
       moneda: d.moneda ?? 'PEN',
       detraccion_monto: d.detraccion_monto ?? 0,
       linea_id,
+      pagado_caja_chica: d.pagado_caja_chica ?? false,
       solicitado_por: session.id,
       status: 'solicitada',
     })
