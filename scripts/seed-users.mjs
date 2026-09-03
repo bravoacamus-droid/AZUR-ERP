@@ -1,5 +1,21 @@
 // Crea los usuarios de prueba (uno por rol) vía la Auth Admin API.
 // Idempotente: si el email ya existe, lo omite. uso: node scripts/seed-users.mjs
+import { readFileSync, existsSync } from 'node:fs';
+
+// Carga .env.local (igual que apply-sql.mjs) para no depender del entorno del shell.
+if (existsSync('.env.local')) {
+  for (const raw of readFileSync('.env.local', 'utf8').split(/\r?\n/)) {
+    const line = raw.trim();
+    if (!line || line.startsWith('#')) continue;
+    const eq = line.indexOf('=');
+    if (eq === -1) continue;
+    const key = line.slice(0, eq).trim();
+    let val = line.slice(eq + 1).trim();
+    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) val = val.slice(1, -1);
+    if (key === 'NEXT_PUBLIC_SUPABASE_URL' || key === 'SUPABASE_SERVICE_ROLE_KEY') process.env[key] = process.env[key] || val;
+  }
+}
+
 const URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SERVICE = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!URL || !SERVICE) {
