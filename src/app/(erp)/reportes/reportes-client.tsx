@@ -567,6 +567,9 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                 <Input type="date" value={ccHasta} onChange={(e) => setCcHasta(e.target.value)} className="w-40" />
               </div>
               {(ccDesde || ccHasta) && <Button size="sm" variant="ghost" onClick={() => { setCcDesde(''); setCcHasta(''); }}>Limpiar</Button>}
+              <a href={'/reportes/caja-chica/excel?desde=' + ccDesde + '&hasta=' + ccHasta} className="ml-auto">
+                <Button size="sm" variant="outline"><FileSpreadsheet className="size-4" /> Excel</Button>
+              </a>
             </div>
 
             {ccFiltrada.length === 0 ? (

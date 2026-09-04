@@ -55,7 +55,42 @@ export async function GET(req: Request) {
   const proyLinea = new Map<string, string | null>((proyRaw ?? []).map((p: any) => [p.id, p.linea_id]));
   const mensual = pnlMensual(abonos ?? [], sols ?? [], proyLinea, (lineasRaw ?? []).map((l: any) => ({ id: l.id, nombre: l.nombre })));
 
-  const d: PnlPdfData = { periodo: 'Acumulado a la fecha', alcance, lineas, proyectos, mensual, fmtMoney: (n) => fmtMoney(n), fmtPct: (n) => fmtPct(n) };
+  // ── Gastos de empresa (EEFF): mismo alcance/periodo que el resto ──
+  let qGE = supabase.from('gastos_empresa')
+    .select('id, fecha, categoria, descripcion, monto, linea_id, proyecto_id, proyecto:proyectos(nombre)');
+  if (desdeISO) qGE = qGE.gte('fecha', desdeISO);
+  if (linea) qGE = qGE.eq('linea_id', linea);
+  if (proyecto) qGE = qGE.eq('proyecto_id', proyecto);
+  const { data: geRaw } = await qGE.order('fecha', { ascending: false });
+
+  const ge = (geRaw ?? []) as any[];
+  const gePorLinea = new Map<string, number>();
+  let geSinLinea = 0;
+  ge.forEach((g) => {
+    const m = Number(g.monto ?? 0);
+    if (g.linea_id) gePorLinea.set(g.linea_id, (gePorLinea.get(g.linea_id) ?? 0) + m);
+    else geSinLinea += m;
+  });
+  const geTotal = ge.reduce((a, g) => a + Number(g.monto ?? 0), 0);
+  const ingresos = proyectos.reduce((a: number, r: PnlRow) => a + r.cobrado, 0);
+  const egresosObra = proyectos.reduce((a: number, r: PnlRow) => a + r.gastado, 0);
+
+  const gastosEmpresa = {
+    total: geTotal,
+    sinLinea: geSinLinea,
+    ingresos,
+    egresosObra,
+    utilidadEmpresa: ingresos - egresosObra - geTotal,
+    porLinea: (lineasRaw ?? [])
+      .map((l: any) => ({ id: l.id, nombre: l.nombre, monto: gePorLinea.get(l.id) ?? 0 }))
+      .filter((l: any) => l.monto > 0),
+    filas: ge.map((g) => ({
+      id: g.id, fecha: String(g.fecha).slice(0, 10), categoria: g.categoria ?? null,
+      descripcion: g.descripcion ?? null, proyecto: g.proyecto?.nombre ?? null, monto: Number(g.monto ?? 0),
+    })),
+  };
+
+  const d: PnlPdfData = { periodo: 'Acumulado a la fecha', alcance, lineas, proyectos, mensual, gastosEmpresa, fmtMoney: (n) => fmtMoney(n), fmtPct: (n) => fmtPct(n) };
   const buffer = await renderToBuffer(createElement(PnlPDF as never, { d }) as never);
   return new Response(new Uint8Array(buffer), {
     headers: {

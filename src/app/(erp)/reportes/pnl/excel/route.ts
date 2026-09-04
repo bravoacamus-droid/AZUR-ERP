@@ -119,6 +119,73 @@ export async function GET(req: Request) {
   totRow.values = ['Total', mensual.total.cobrado, mensual.total.gastado, mensual.total.utilidad, ...mensual.lineas.map((l) => mensual.total.porLinea[l.id] ?? 0)];
   totRow.eachCell((c, i) => { c.font = { bold: true }; if (i >= 2) c.numFmt = money2; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREY } }; });
 
+  // ── Hoja 3: Gastos de empresa (EEFF) ──────────────────────────────────
+  let qGE = supabase.from('gastos_empresa')
+    .select('id, fecha, categoria, descripcion, monto, linea_id, proyecto_id, proyecto:proyectos(nombre)');
+  if (desdeISO) qGE = qGE.gte('fecha', desdeISO);
+  if (linea) qGE = qGE.eq('linea_id', linea);
+  if (proyecto) qGE = qGE.eq('proyecto_id', proyecto);
+  const { data: geRaw } = await qGE.order('fecha', { ascending: false });
+  const ge = (geRaw ?? []) as any[];
+
+  const gePorLinea = new Map<string, number>();
+  let geSinLinea = 0;
+  ge.forEach((g) => {
+    const m = Number(g.monto ?? 0);
+    if (g.linea_id) gePorLinea.set(g.linea_id, (gePorLinea.get(g.linea_id) ?? 0) + m);
+    else geSinLinea += m;
+  });
+  const geTotal = ge.reduce((a, g) => a + Number(g.monto ?? 0), 0);
+  const ingresosTot = proyectos.reduce((a: number, x: any) => a + x.cobrado, 0);
+  const egresosObraTot = proyectos.reduce((a: number, x: any) => a + x.gastado, 0);
+
+  const ws3 = wb.addWorksheet('Gastos de empresa', { views: [{ showGridLines: false }] });
+  ws3.columns = [{ width: 14 }, { width: 24 }, { width: 42 }, { width: 30 }, { width: 16 }];
+  ws3.mergeCells('A1:E1');
+  ws3.getCell('A1').value = `Gastos de empresa (EEFF) · ${alcance}`;
+  ws3.getCell('A1').font = { bold: true, size: 13, color: { argb: AZUR } };
+  ws3.mergeCells('A2:E2');
+  ws3.getCell('A2').value = 'Planilla, publicidad, impuestos, gastos financieros… No pasan por el flujo de obra.';
+  ws3.getCell('A2').font = { size: 9, italic: true, color: { argb: 'FF888888' } };
+
+  let r3 = 4;
+  const money3 = '#,##0.00';
+  const headRow3 = (vals: (string | number)[]) => {
+    const row = ws3.getRow(r3);
+    row.values = vals;
+    row.eachCell((c) => { c.font = { bold: true, color: { argb: 'FFFFFFFF' } }; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUR } }; });
+    r3++;
+  };
+
+  // Resumen
+  headRow3(['Ingresos (cobrado)', 'Gastos de obra', 'Gastos de empresa', 'Utilidad de empresa']);
+  const resRow = ws3.getRow(r3);
+  resRow.values = [ingresosTot, egresosObraTot, geTotal, ingresosTot - egresosObraTot - geTotal];
+  resRow.eachCell((c) => { c.font = { bold: true }; c.numFmt = money3; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREY } }; });
+  r3 += 2;
+
+  // Por línea
+  headRow3(['Línea de negocio', 'Gasto de empresa']);
+  (lineasRaw ?? []).forEach((l: any) => {
+    const m = gePorLinea.get(l.id) ?? 0;
+    if (!m) return;
+    const row = ws3.getRow(r3); row.values = [l.nombre, m]; row.getCell(2).numFmt = money3; r3++;
+  });
+  if (geSinLinea > 0) { const row = ws3.getRow(r3); row.values = ['Sin línea (general de empresa)', geSinLinea]; row.getCell(2).numFmt = money3; r3++; }
+  r3 += 1;
+
+  // Detalle
+  headRow3(['Fecha', 'Categoría', 'Descripción', 'Proyecto', 'Monto']);
+  ge.forEach((g) => {
+    const row = ws3.getRow(r3);
+    row.values = [String(g.fecha).slice(0, 10), g.categoria ?? '', g.descripcion ?? '', g.proyecto?.nombre ?? '', Number(g.monto ?? 0)];
+    row.getCell(5).numFmt = money3;
+    r3++;
+  });
+  const totGe = ws3.getRow(r3);
+  totGe.values = ['', '', '', 'Total gastos de empresa', geTotal];
+  totGe.eachCell((c, i) => { c.font = { bold: true }; if (i === 5) c.numFmt = money3; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREY } }; });
+
   const buffer = await wb.xlsx.writeBuffer();
   return new Response(buffer, {
     headers: {

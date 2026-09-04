@@ -29,12 +29,19 @@ const s = StyleSheet.create({
   nota: { fontSize: 7, color: '#888', marginTop: 10, lineHeight: 1.4 },
   footer: { position: 'absolute', bottom: 20, left: 28, right: 28, flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 0.5, borderTopColor: '#ddd', paddingTop: 6 },
   footerTxt: { fontSize: 7, color: '#999' },
+  subTit: { fontSize: 8, fontFamily: 'Helvetica-Bold', color: '#444', marginTop: 8, marginBottom: 3 },
 });
 
 export interface PnlPdfData {
   periodo: string; alcance: string;
   lineas: PnlLinea[]; proyectos: PnlRow[]; mensual: PnlMensual;
   fmtMoney: (n: number) => string; fmtPct: (n: number) => string;
+  // Gastos de empresa (EEFF): no pasan por el flujo de obra.
+  gastosEmpresa?: {
+    total: number; sinLinea: number; ingresos: number; egresosObra: number; utilidadEmpresa: number;
+    porLinea: { id: string; nombre: string; monto: number }[];
+    filas: { id: string; fecha: string; categoria: string | null; descripcion: string | null; proyecto: string | null; monto: number }[];
+  };
 }
 
 export function PnlPDF({ d }: { d: PnlPdfData }) {
@@ -114,6 +121,75 @@ export function PnlPDF({ d }: { d: PnlPdfData }) {
             <Text style={[s.cell, { width: '16%', textAlign: 'right' }]}>{M(d.mensual.total.gastado)}</Text>
             <Text style={[s.cell, { width: '16%', textAlign: 'right' }]}>{M(d.mensual.total.utilidad)}</Text>
             {d.mensual.lineas.map((l) => <Text key={l.id} style={[s.cell, { width: `${36 / Math.max(1, d.mensual.lineas.length)}%`, textAlign: 'right' }]}>{M(d.mensual.total.porLinea[l.id] ?? 0)}</Text>)}
+          </View>
+        )}
+
+
+        {/* Gastos de empresa (EEFF): no pasan por el flujo de obra */}
+        {d.gastosEmpresa && (
+          <View break={d.gastosEmpresa.filas.length > 12}>
+            <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>Gastos de empresa (EEFF)</Text></View>
+
+            <View style={s.thead}>
+              <Text style={[{ width: '25%' }, s.th]}>INGRESOS (COBRADO)</Text>
+              <Text style={[{ width: '25%', textAlign: 'right' }, s.th]}>GASTOS DE OBRA</Text>
+              <Text style={[{ width: '25%', textAlign: 'right' }, s.th]}>GASTOS DE EMPRESA</Text>
+              <Text style={[{ width: '25%', textAlign: 'right' }, s.th]}>UTILIDAD DE EMPRESA</Text>
+            </View>
+            <View style={s.trTot}>
+              <Text style={[s.cell, { width: '25%' }]}>{M(d.gastosEmpresa.ingresos)}</Text>
+              <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(d.gastosEmpresa.egresosObra)}</Text>
+              <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(d.gastosEmpresa.total)}</Text>
+              <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(d.gastosEmpresa.utilidadEmpresa)}</Text>
+            </View>
+
+            {d.gastosEmpresa.porLinea.length > 0 && (
+              <View>
+                <Text style={s.subTit}>Por línea de negocio</Text>
+                <View style={s.thead}>
+                  <Text style={[{ width: '70%' }, s.th]}>LÍNEA</Text>
+                  <Text style={[{ width: '30%', textAlign: 'right' }, s.th]}>GASTO DE EMPRESA</Text>
+                </View>
+                {d.gastosEmpresa.porLinea.map((l, i) => (
+                  <View key={l.id} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+                    <Text style={[s.cell, { width: '70%' }]}>{l.nombre}</Text>
+                    <Text style={[s.cell, { width: '30%', textAlign: 'right' }]}>{M(l.monto)}</Text>
+                  </View>
+                ))}
+                {d.gastosEmpresa.sinLinea > 0 && (
+                  <View style={s.tr} wrap={false}>
+                    <Text style={[s.cell, { width: '70%' }]}>Sin línea (general de empresa)</Text>
+                    <Text style={[s.cell, { width: '30%', textAlign: 'right' }]}>{M(d.gastosEmpresa.sinLinea)}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <Text style={s.subTit}>Detalle</Text>
+            <View style={s.thead}>
+              <Text style={[{ width: '12%' }, s.th]}>FECHA</Text>
+              <Text style={[{ width: '20%' }, s.th]}>CATEGORÍA</Text>
+              <Text style={[{ width: '32%' }, s.th]}>DESCRIPCIÓN</Text>
+              <Text style={[{ width: '22%' }, s.th]}>PROYECTO</Text>
+              <Text style={[{ width: '14%', textAlign: 'right' }, s.th]}>MONTO</Text>
+            </View>
+            {d.gastosEmpresa.filas.length === 0 ? (
+              <View style={s.tr}><Text style={s.cell}>Sin gastos de empresa en el periodo.</Text></View>
+            ) : d.gastosEmpresa.filas.map((g, i) => (
+              <View key={g.id} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+                <Text style={[s.cell, { width: '12%' }]}>{g.fecha}</Text>
+                <Text style={[s.cell, { width: '20%' }]}>{g.categoria ?? '—'}</Text>
+                <Text style={[s.cell, { width: '32%' }]}>{g.descripcion ?? '—'}</Text>
+                <Text style={[s.cell, { width: '22%' }]}>{g.proyecto ?? '—'}</Text>
+                <Text style={[s.cell, { width: '14%', textAlign: 'right' }]}>{M(g.monto)}</Text>
+              </View>
+            ))}
+            {d.gastosEmpresa.filas.length > 0 && (
+              <View style={s.trTot}>
+                <Text style={[s.cell, { width: '86%' }]}>Total gastos de empresa</Text>
+                <Text style={[s.cell, { width: '14%', textAlign: 'right' }]}>{M(d.gastosEmpresa.total)}</Text>
+              </View>
+            )}
           </View>
         )}
 
