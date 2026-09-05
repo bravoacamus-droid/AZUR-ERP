@@ -548,22 +548,27 @@ export function ReportesClient({ data }: { data: ReportesData }) {
               </div>
             )}
 
-            <div className="grid gap-3 sm:grid-cols-3">
+            {/* Estado de resultados completo: los 4 importes juntos, igual que en el PDF/Excel. */}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Gastos de empresa · del periodo</p>
+                <p className="text-xs text-muted-foreground">Ingresos (cobrado) · del periodo</p>
+                <p className="text-lg font-semibold tabular-nums text-sky-600">{fmtMoney(kpis.ingresos)}</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">(−) Gastos de obra · del periodo</p>
+                <p className="text-lg font-semibold tabular-nums text-azur-600">{fmtMoney(kpis.egresos)}</p>
+              </div>
+              <div className="rounded-lg border p-3">
+                <p className="text-xs text-muted-foreground">(−) Gastos de empresa · del periodo</p>
                 <p className="text-lg font-semibold tabular-nums text-azur-600">{fmtMoney(gastosEmpresa.total)}</p>
               </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Sin línea (general)</p>
-                <p className="text-lg font-semibold tabular-nums">{fmtMoney(gastosEmpresa.sinLinea)}</p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Utilidad de empresa · del periodo (ingresos − obra − empresa)</p>
+              <div className="rounded-lg border-2 border-azur-200 bg-azur-50/40 p-3">
+                <p className="text-xs font-medium text-muted-foreground">(=) Utilidad de empresa · del periodo</p>
                 <p className={utilidadEmpresa >= 0 ? 'text-lg font-semibold tabular-nums text-emerald-600' : 'text-lg font-semibold tabular-nums text-red-600'}>{fmtMoney(utilidadEmpresa)}</p>
               </div>
             </div>
 
-            {gastosEmpresa.porLinea.length > 0 && (
+            {(gastosEmpresa.porLinea.length > 0 || gastosEmpresa.sinLinea > 0) && (
               <div className="rounded-lg border p-3">
                 <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Por línea de negocio</p>
                 <div className="flex flex-wrap gap-3">
@@ -573,6 +578,12 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                       {l.nombre}: <strong className="tabular-nums">{fmtMoney(l.monto)}</strong>
                     </span>
                   ))}
+                  {gastosEmpresa.sinLinea > 0 && (
+                    <span className="flex items-center gap-2 text-sm">
+                      <span className="inline-block size-3 rounded-full bg-muted-foreground/40" />
+                      Sin línea (general): <strong className="tabular-nums">{fmtMoney(gastosEmpresa.sinLinea)}</strong>
+                    </span>
+                  )}
                 </div>
               </div>
             )}
