@@ -17,11 +17,13 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
   const page = Math.max(1, Number(searchParams.page) || 1);
   const desde = (page - 1) * PAGE_SIZE;
 
-  const [{ data: proyectos }, { data: partidas }, { data: contrapartes }, { data: categorias }] = await Promise.all([
+  const [{ data: proyectos }, { data: partidas }, { data: contrapartes }, { data: categorias }, { data: perfiles }] = await Promise.all([
     supabase.from('proyectos').select('id, nombre').order('created_at', { ascending: false }),
     supabase.from('proyecto_items').select('id, titulo, proyecto_id').eq('es_hoja', true).order('orden'),
     supabase.from('contrapartes').select('id, razon_social, tipo, ruc_dni, banco, cuenta, cci').eq('validado', true).order('razon_social'),
     supabase.from('categorias_gasto').select('id, nombre, tipo_base').eq('activo', true).order('nombre'),
+    // Para el campo "Gestor" (lista de usuarios + opción de escribir).
+    supabase.from('profiles').select('id, nombre').eq('activo', true).order('nombre'),
   ]);
 
   // Mis solicitudes con filtro por estado/búsqueda y paginación.
@@ -42,7 +44,7 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
         <h1 className="text-xl font-bold">Solicitud de pago</h1>
       </div>
 
-      <SolicitudForm proyectos={proyectos ?? []} partidas={partidas ?? []} contrapartes={contrapartes ?? []} categorias={categorias ?? []} />
+      <SolicitudForm proyectos={proyectos ?? []} partidas={partidas ?? []} contrapartes={contrapartes ?? []} categorias={categorias ?? []} perfiles={perfiles ?? []} />
 
       <MisSolicitudes
         solicitudes={solicitudes ?? []}

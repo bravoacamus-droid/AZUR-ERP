@@ -3,7 +3,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Pencil, Trash2, Loader2, FileText, Receipt, Tags } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Receipt, Tags } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Modal } from '@/components/ui/dialog';
@@ -13,12 +13,12 @@ import { Field, EmptyState } from '@/components/ui/misc';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { fmtMoney, fmtDate } from '@/lib/format';
-import { VoucherUpload } from '@/components/finanzas/voucher-upload';
+import { GestorInput } from '@/components/finanzas/gestor-input';
 import { guardarGastoEmpresa, eliminarGastoEmpresa, guardarCategoriaEmpresa, eliminarCategoriaEmpresa } from './gastos-actions';
 
-const VACIO = { id: '', fecha: new Date().toISOString().slice(0, 10), categoria_id: '', proyecto_id: '', descripcion: '', monto: '', sustento_url: '' };
+const VACIO = { id: '', fecha: new Date().toISOString().slice(0, 10), categoria_id: '', proyecto_id: '', descripcion: '', monto: '', gestor: '' };
 
-export function GastosEmpresa({ rol, gastos = [], categorias = [], proyectos = [] }: any) {
+export function GastosEmpresa({ rol, gastos = [], categorias = [], proyectos = [], perfiles = [] }: any) {
   const router = useRouter();
   const canEdit = rol === 'administrador';
   const [open, setOpen] = useState(false);
@@ -43,7 +43,7 @@ export function GastosEmpresa({ rol, gastos = [], categorias = [], proyectos = [
     setBusy(true);
     const res = await guardarGastoEmpresa({
       id: g.id || undefined, fecha: g.fecha, categoria_id: g.categoria_id || '', proyecto_id: g.proyecto_id || '',
-      descripcion: g.descripcion || '', monto: Number(g.monto), sustento_url: g.sustento_url || '',
+      descripcion: g.descripcion || '', monto: Number(g.monto), gestor: g.gestor || '',
     });
     setBusy(false);
     if (res.ok) { setOpen(false); setG(VACIO); router.refresh(); }
@@ -87,8 +87,8 @@ export function GastosEmpresa({ rol, gastos = [], categorias = [], proyectos = [
               <TableHeader>
                 <TableRow>
                   <TableHead>Fecha</TableHead><TableHead>Categoría</TableHead><TableHead>Proyecto</TableHead>
-                  <TableHead>Descripción</TableHead><TableHead className="text-right">Monto</TableHead>
-                  <TableHead>Sustento</TableHead><TableHead className="text-right">Acciones</TableHead>
+                  <TableHead>Gestor</TableHead><TableHead>Descripción</TableHead>
+                  <TableHead className="text-right">Monto</TableHead><TableHead className="text-right">Acciones</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -97,12 +97,12 @@ export function GastosEmpresa({ rol, gastos = [], categorias = [], proyectos = [
                     <TableCell className="tabular-nums">{fmtDate(x.fecha)}</TableCell>
                     <TableCell>{x.categoria ? <Badge variant="muted">{x.categoria}</Badge> : '—'}</TableCell>
                     <TableCell className="text-sm text-muted-foreground">{x.proyecto?.nombre ?? '—'}</TableCell>
+                    <TableCell className="text-sm">{x.gestor ?? '—'}</TableCell>
                     <TableCell className="text-sm">{x.descripcion ?? '—'}</TableCell>
                     <TableCell className="text-right font-medium tabular-nums">{fmtMoney(Number(x.monto))}</TableCell>
-                    <TableCell>{x.sustento_url ? <a href={x.sustento_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-azur-600 hover:underline"><FileText className="size-3.5" /> Ver</a> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                     <TableCell>
                       <div className="flex justify-end gap-1">
-                        {canEdit && <Button size="sm" variant="ghost" title="Editar" onClick={() => { setG({ id: x.id, fecha: x.fecha, categoria_id: x.categoria_id ?? '', proyecto_id: x.proyecto_id ?? '', descripcion: x.descripcion ?? '', monto: String(x.monto), sustento_url: x.sustento_url ?? '' }); setMsg(null); setOpen(true); }}><Pencil className="size-4" /></Button>}
+                        {canEdit && <Button size="sm" variant="ghost" title="Editar" onClick={() => { setG({ id: x.id, fecha: x.fecha, categoria_id: x.categoria_id ?? '', proyecto_id: x.proyecto_id ?? '', descripcion: x.descripcion ?? '', monto: String(x.monto), gestor: x.gestor ?? '' }); setMsg(null); setOpen(true); }}><Pencil className="size-4" /></Button>}
                         {canEdit && <Button size="sm" variant="ghost" className="text-azur-600" title="Eliminar" onClick={() => borrar(x)}><Trash2 className="size-4" /></Button>}
                       </div>
                     </TableCell>
@@ -111,7 +111,7 @@ export function GastosEmpresa({ rol, gastos = [], categorias = [], proyectos = [
                 <TableRow className="bg-muted/40 font-semibold">
                   <TableCell colSpan={4} className="text-right">Total del periodo</TableCell>
                   <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(total)}</TableCell>
-                  <TableCell colSpan={2} />
+                  <TableCell />
                 </TableRow>
               </TableBody>
             </Table>
@@ -121,7 +121,7 @@ export function GastosEmpresa({ rol, gastos = [], categorias = [], proyectos = [
 
       {/* Alta / edición */}
       <Modal open={open} onClose={() => setOpen(false)} title={g.id ? 'Editar gasto de empresa' : 'Nuevo gasto de empresa'}
-        description="Fecha, proyecto (opcional), descripción, monto y sustento."
+        description="Fecha, proyecto (opcional), gestor, descripción y monto. Estos gastos no llevan sustento."
         footer={<><Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
           <Button variant="gradient" disabled={busy} onClick={guardar}>{busy ? <Loader2 className="animate-spin" /> : null} Guardar</Button></>}>
         <div className="space-y-3">
@@ -140,7 +140,7 @@ export function GastosEmpresa({ rol, gastos = [], categorias = [], proyectos = [
           </Field>
           <Field label="Descripción"><Input value={g.descripcion} onChange={(e) => setG((f: any) => ({ ...f, descripcion: e.target.value }))} placeholder="Ej. Planilla quincena 1 - setiembre" /></Field>
           <Field label="Monto (S/)" required><Input type="number" step="0.01" value={g.monto} onChange={(e) => setG((f: any) => ({ ...f, monto: e.target.value }))} placeholder="0.00" /></Field>
-          <Field label="Sustento (foto o PDF)"><VoucherUpload value={g.sustento_url} onChange={(u) => setG((f: any) => ({ ...f, sustento_url: u }))} carpeta="gastos-empresa" /></Field>
+          <Field label="Gestor"><GestorInput value={g.gestor} onChange={(v) => setG((f: any) => ({ ...f, gestor: v }))} perfiles={perfiles} /></Field>
           {msg && <p className="rounded-lg bg-azur-50 px-3 py-2 text-sm text-azur-700">{msg}</p>}
         </div>
       </Modal>

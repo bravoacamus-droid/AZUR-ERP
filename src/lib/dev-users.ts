@@ -4,8 +4,9 @@ import type { Rol } from './roles';
 // Quitar antes de producción (eliminar este archivo y <DevUsers/> del login).
 export const DEV_PASSWORD = 'Azur2026!';
 
+// Nota: gerencia@azur.pe NO se lista aquí a propósito. Da acceso total y su
+// contraseña es distinta a DEV_PASSWORD; se entra escribiéndola a mano.
 export const DEV_USERS: { email: string; nombre: string; rol: Rol }[] = [
-  { email: 'gerencia@azur.pe', nombre: 'Juan Pérez', rol: 'gerencia' },
   { email: 'proyectos@azur.pe', nombre: 'Carlos Ruiz', rol: 'jefe_proyectos' },
   { email: 'presupuestos@azur.pe', nombre: 'Andrea Salas', rol: 'presupuestos' },
   { email: 'admin@azur.pe', nombre: 'Pamela Díaz', rol: 'administrador' },

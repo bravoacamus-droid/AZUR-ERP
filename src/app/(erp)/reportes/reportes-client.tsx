@@ -580,7 +580,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Fecha</TableHead><TableHead>Código</TableHead><TableHead>Proyecto</TableHead>
-                      <TableHead>Detalle</TableHead><TableHead className="text-right">Monto</TableHead>
+                      <TableHead>Gestor</TableHead><TableHead>Detalle</TableHead><TableHead className="text-right">Monto</TableHead>
                       <TableHead>Estado</TableHead><TableHead>Sustento</TableHead><TableHead className="text-right">Acción</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -594,10 +594,11 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                           <TableCell className="tabular-nums">{fmtDate(c.fecha)}</TableCell>
                           <TableCell className="font-medium">{c.codigo ?? '—'}</TableCell>
                           <TableCell className="text-sm text-muted-foreground">{c.proyecto ?? '—'}</TableCell>
+                          <TableCell className="text-sm">{c.gestor ?? '—'}</TableCell>
                           <TableCell className="text-sm">{c.descripcion || c.beneficiario || '—'}</TableCell>
                           <TableCell className="text-right tabular-nums">{fmtMoney(c.monto)}</TableCell>
                           <TableCell><Badge variant={st.variant}>{st.label}</Badge></TableCell>
-                          <TableCell>{c.sustento_url ? <a href={c.sustento_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-azur-600 hover:underline"><FileText className="size-3.5" /> Ver</a> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
+                          <TableCell>{c.sustento_url ? <a href={c.sustento_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs text-azur-600 hover:underline"><FileText className="size-3.5" /> Ver{c.nFotos > 1 ? ` (${c.nFotos})` : ''}</a> : <span className="text-xs text-muted-foreground">—</span>}</TableCell>
                           <TableCell>
                             <div className="flex justify-end gap-1">
                               {puedeAprobarCc && <Button size="sm" variant="outline" disabled={ccBusy === c.id} onClick={() => ccAccion(c.id, aprobarSolicitud)}><CheckCircle2 className="size-3.5" /> Aprobar</Button>}
@@ -608,7 +609,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                       );
                     })}
                     <TableRow className="bg-muted/40 font-semibold">
-                      <TableCell colSpan={4} className="text-right">Total del periodo</TableCell>
+                      <TableCell colSpan={5} className="text-right">Total del periodo</TableCell>
                       <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(ccTotal)}</TableCell>
                       <TableCell colSpan={3} />
                     </TableRow>

@@ -27,6 +27,8 @@ import {
 } from './actions';
 import { crearSolicitud } from '@/app/(pwa)/campo/solicitudes/actions';
 import { GastosEmpresa } from './gastos-empresa';
+import { VoucherUploadMulti } from '@/components/finanzas/voucher-upload-multi';
+import { GestorInput } from '@/components/finanzas/gestor-input';
 import { actualizarTarifaTrabajador, marcarTareoPagado, rechazarJornal } from '@/app/(pwa)/campo/tareo/actions';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -51,12 +53,12 @@ export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, arm
         { value: 'cajas', label: 'Cajas' },
         ...(veGastosEmpresa ? [{ value: 'gastos', label: 'Gastos de empresa' }] : []),
       ]} />
-      {tab === 'solicitudes' && <Solicitudes rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} proveedoresPend={proveedoresPend} cambiosProv={cambiosProv} categorias={categorias} />}
+      {tab === 'solicitudes' && <Solicitudes perfiles={perfiles} rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} proveedoresPend={proveedoresPend} cambiosProv={cambiosProv} categorias={categorias} />}
       {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
       {tab === 'jornales' && <Jornales rol={rol} jornales={jornales} total={jornalesTotal} />}
       {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
       {tab === 'cajas' && <Cajas rol={rol} canEdit={canEdit} cajas={cajas} proyectos={proyectos} perfiles={perfiles} dashboards={dashboards} />}
-      {tab === 'gastos' && veGastosEmpresa && <GastosEmpresa rol={rol} gastos={gastosEmpresa} categorias={catsEmpresa} proyectos={proyectos} />}
+      {tab === 'gastos' && veGastosEmpresa && <GastosEmpresa rol={rol} gastos={gastosEmpresa} categorias={catsEmpresa} proyectos={proyectos} perfiles={perfiles} />}
     </div>
   );
 }
@@ -175,11 +177,11 @@ function Jornales({ rol, jornales, total }: any) {
 }
 
 const TIPOS_SOL = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
-const SOL_VACIA = { id: '', tipo: 'contratistas', categoria: '', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '', pagado_caja_chica: false };
+const SOL_VACIA = { id: '', tipo: 'contratistas', categoria: '', proyecto_id: '', beneficiario_nombre: '', monto: '', constancia: '', sustento_url: '', ruc_dni: '', razon_social: '', cta_bancaria: '', contraparte_id: '', moneda: 'PEN', tiene_detraccion: false, detraccion_monto: '', partida_ppto: '', descripcion: '', pagado_caja_chica: false, fecha_gasto: new Date().toISOString().slice(0, 10), gestor: '', sustento_urls: [], num_comprobante: '' };
 
 const CAMPO_PROV_LBL: Record<string, string> = { razon_social: 'Razón social', ruc_dni: 'RUC/DNI', especialidad: 'Especialidad', contacto: 'Contacto', telefono: 'Teléfono', banco: 'Banco', cuenta: 'Cuenta', cci: 'CCI', cuenta_detraccion: 'Cta. detracción', tipo: 'Tipo' };
 
-function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [], contrapartes = [], proveedoresPend = [], cambiosProv = [], categorias = [] }: any) {
+function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios = [], contrapartes = [], proveedoresPend = [], cambiosProv = [], categorias = [], perfiles = [] }: any) {
   const router = useRouter();
   const esAdmin = rol === 'administrador' || rol === 'gerencia';
   const [gestCat, setGestCat] = useState(false);
@@ -228,8 +230,8 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
   async function crearNueva() {
     setNsMsg(null);
     if (!ns.monto || Number(ns.monto) <= 0) { setNsMsg('Ingresa un monto válido.'); return; }
-    if (ns.pagado_caja_chica && !ns.sustento_url) { setNsMsg('El gasto de caja chica requiere adjuntar el sustento.'); return; }
-    if (ns.pagado_caja_chica && ns.tipo === 'caja_chica') { setNsMsg('Elige la categoría real del gasto. "Caja chica" es solo la reposición de fondos.'); return; }
+    if (ns.pagado_caja_chica && (ns.sustento_urls ?? []).length === 0) { setNsMsg('Adjunta al menos una foto del sustento.'); return; }
+    if (ns.pagado_caja_chica && !String(ns.descripcion || '').trim()) { setNsMsg('Ingresa la descripción del gasto.'); return; }
     setBusy(true);
     const detr = ns.tiene_detraccion ? Number(ns.detraccion_monto) || 0 : 0;
     const res = ns.id
@@ -240,12 +242,16 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
           ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null, moneda: ns.moneda, detraccion_monto: detr, pagado_caja_chica: ns.pagado_caja_chica,
         })
       : await crearSolicitud({
-          tipo: ns.tipo, categoria: ns.categoria || null, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
+          tipo: ns.pagado_caja_chica ? 'otros_gastos' : ns.tipo, categoria: ns.categoria || null, proyecto_id: ns.proyecto_id || null, partida_ppto: ns.partida_ppto || null,
           beneficiario_nombre: ns.beneficiario_nombre || null, especialidad: null, categoria_etapa: null,
           monto: Number(ns.monto), constancia: (ns.constancia || null) as any, sustento_url: ns.sustento_url || null, descripcion: ns.descripcion || null,
           cta_bancaria: ns.cta_bancaria || null, ruc_dni: ns.ruc_dni || null, razon_social: ns.razon_social || null,
           contraparte_id: ns.contraparte_id || null,
           moneda: ns.moneda as 'PEN' | 'USD', detraccion_monto: detr, pagado_caja_chica: ns.pagado_caja_chica,
+          fecha_gasto: ns.pagado_caja_chica ? ns.fecha_gasto : null,
+          gestor: ns.gestor || null,
+          sustento_urls: ns.pagado_caja_chica ? ns.sustento_urls : undefined,
+          num_comprobante: ns.num_comprobante || null,
         });
     setBusy(false);
     if (res.ok) { setNueva(false); setNs(SOL_VACIA); router.refresh(); }
@@ -468,6 +474,28 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
       footer={<><Button variant="outline" onClick={() => setNueva(false)}>Cancelar</Button>
         <Button variant="gradient" disabled={busy} onClick={crearNueva}>{busy ? <Loader2 className="animate-spin" /> : null} {ns.id ? 'Guardar' : 'Enviar'}</Button></>}>
       <div className="space-y-2">
+        {/* Check al inicio: al marcarlo el formulario se reduce a lo esencial (pedido de David) */}
+        <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-2.5 text-sm">
+          <input type="checkbox" className="mt-0.5 size-4 accent-azur-600" checked={ns.pagado_caja_chica} onChange={(e) => setNs((f: any) => ({ ...f, pagado_caja_chica: e.target.checked }))} />
+          <span><span className="font-medium">Gasto ya pagado desde caja chica</span><span className="mt-0.5 block text-xs text-muted-foreground">Flujo corto: aprueba el Jefe y Administración valida el sustento; suma al proyecto sin programar/pagar.</span></span>
+        </label>
+
+        {ns.pagado_caja_chica && (
+          <>
+            <Field label="Proyecto" required><Select value={ns.proyecto_id} onChange={(e) => setNs((f: any) => ({ ...f, proyecto_id: e.target.value }))}><option value="">Sin proyecto</option>{proyectos.map((p: any) => <option key={p.id} value={p.id}>{p.nombre}</option>)}</Select></Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Fecha del gasto" required><Input type="date" value={ns.fecha_gasto} onChange={(e) => setNs((f: any) => ({ ...f, fecha_gasto: e.target.value }))} /></Field>
+              <Field label="Monto" required><Input type="number" value={ns.monto} onChange={(e) => setNs((f: any) => ({ ...f, monto: e.target.value }))} placeholder="0.00" /></Field>
+            </div>
+            <Field label="Gestor"><GestorInput value={ns.gestor} onChange={(v) => setNs((f: any) => ({ ...f, gestor: v }))} perfiles={perfiles} /></Field>
+            <Field label="Descripción" required><Input value={ns.descripcion} onChange={(e) => setNs((f: any) => ({ ...f, descripcion: e.target.value }))} placeholder="¿En qué se gastó?" /></Field>
+            <Field label="N° de Factura / RHE"><Input value={ns.num_comprobante} onChange={(e) => setNs((f: any) => ({ ...f, num_comprobante: e.target.value }))} placeholder="Ej. F001-00123" /></Field>
+            <Field label="Sustento" hint="Puedes adjuntar varias fotos (o PDF)"><VoucherUploadMulti value={ns.sustento_urls} onChange={(u) => setNs((f: any) => ({ ...f, sustento_urls: u }))} carpeta="sustentos" /></Field>
+          </>
+        )}
+
+        {!ns.pagado_caja_chica && (
+          <>
         <div className="grid grid-cols-2 gap-2">
           <Field label="Tipo / categoría"><Select
             value={ns.categoria ? `cat:${categorias.find((c: any) => c.nombre === ns.categoria)?.id ?? ''}` : `base:${ns.tipo}`}
@@ -500,11 +528,9 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
         </label>
         {ns.tiene_detraccion && <Field label="Monto de detracción"><Input type="number" value={ns.detraccion_monto} onChange={(e) => setNs((f: any) => ({ ...f, detraccion_monto: e.target.value }))} placeholder="0.00" /></Field>}
         <Field label="Partida presupuestal (opcional)"><Input value={ns.partida_ppto} onChange={(e) => setNs((f: any) => ({ ...f, partida_ppto: e.target.value }))} /></Field>
-        <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-2.5 text-sm">
-          <input type="checkbox" className="mt-0.5 size-4 accent-azur-600" checked={ns.pagado_caja_chica} onChange={(e) => setNs((f: any) => ({ ...f, pagado_caja_chica: e.target.checked }))} />
-          <span><span className="font-medium">Gasto ya pagado desde caja chica</span><span className="mt-0.5 block text-xs text-muted-foreground">Flujo corto: aprueba el Jefe y Administración valida el sustento; suma al proyecto sin programar/pagar. Requiere sustento y una categoría real (no “Caja chica”).</span></span>
-        </label>
         <Field label="Descripción"><Input value={ns.descripcion} onChange={(e) => setNs((f: any) => ({ ...f, descripcion: e.target.value }))} /></Field>
+          </>
+        )}
         {nsMsg && <p className="text-sm text-azur-600">{nsMsg}</p>}
       </div>
     </Modal>

@@ -12,6 +12,8 @@ import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { crearSolicitud, registrarProveedor, type SolicitudInput } from './actions';
 import { enqueue, isOnline } from '@/lib/offline-queue';
 import { VoucherUpload } from '@/components/finanzas/voucher-upload';
+import { VoucherUploadMulti } from '@/components/finanzas/voucher-upload-multi';
+import { GestorInput } from '@/components/finanzas/gestor-input';
 
 type Proyecto = { id: string; nombre: string };
 type Partida = { id: string; titulo: string; proyecto_id: string };
@@ -32,11 +34,13 @@ export function SolicitudForm({
   partidas,
   contrapartes = [],
   categorias = [],
+  perfiles = [],
 }: {
   proyectos: Proyecto[];
   partidas: Partida[];
   contrapartes?: Contraparte[];
   categorias?: Categoria[];
+  perfiles?: { id: string; nombre: string }[];
 }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<(typeof TIPOS)[number]>('contratistas');
@@ -63,6 +67,10 @@ export function SolicitudForm({
   const [constancia, setConstancia] = useState('');
   const [sustento, setSustento] = useState('');
   const [pagadoCaja, setPagadoCaja] = useState(false);
+  const [fechaGasto, setFechaGasto] = useState(new Date().toISOString().slice(0, 10));
+  const [gestor, setGestor] = useState('');
+  const [sustentos, setSustentos] = useState<string[]>([]);
+  const [numComprobante, setNumComprobante] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [ctaBancaria, setCtaBancaria] = useState('');
   const [rucDni, setRucDni] = useState('');
@@ -104,17 +112,19 @@ export function SolicitudForm({
       setMsg({ type: 'err', text: 'Ingresa un monto válido.' });
       return;
     }
-    if (pagadoCaja && !sustento) {
-      setMsg({ type: 'err', text: 'El gasto de caja chica requiere adjuntar el sustento.' });
+    if (pagadoCaja && sustentos.length === 0) {
+      setMsg({ type: 'err', text: 'Adjunta al menos una foto del sustento.' });
       return;
     }
-    if (pagadoCaja && tipo === 'caja_chica') {
-      setMsg({ type: 'err', text: 'Elige la categoría real del gasto. "Caja chica" es solo la reposición de fondos.' });
+    if (pagadoCaja && !descripcion.trim()) {
+      setMsg({ type: 'err', text: 'Ingresa la descripción del gasto.' });
       return;
     }
     setLoading(true);
     const payload: SolicitudInput = {
-      tipo,
+      // En modo caja chica la categoría queda como 'Otros gastos' (no puede ser
+      // 'caja_chica', que es la reposición y no suma al proyecto).
+      tipo: pagadoCaja ? 'otros_gastos' : tipo,
       proyecto_id: proyectoId || null,
       partida_ppto: partidaPpto || null,
       beneficiario_nombre: beneficiario || null,
@@ -132,11 +142,16 @@ export function SolicitudForm({
       moneda: moneda as 'PEN' | 'USD',
       detraccion_monto: tieneDetraccion ? Number(detraccion) || 0 : 0,
       pagado_caja_chica: pagadoCaja,
+      fecha_gasto: pagadoCaja ? fechaGasto : null,
+      gestor: gestor || null,
+      sustento_urls: pagadoCaja ? sustentos : undefined,
+      num_comprobante: numComprobante || null,
     };
     function limpiar() {
       setPartidaPpto(''); setBeneficiario(''); setEspecialidad(''); setCategoria(''); setCategoriaSel('');
       setMonto(''); setConstancia(''); setSustento(''); setDescripcion(''); setCtaBancaria('');
       setRucDni(''); setRazonSocial(''); setContraparteId(''); setMoneda('PEN'); setTieneDetraccion(false); setDetraccion(''); setPagadoCaja(false);
+      setGestor(''); setSustentos([]); setNumComprobante(''); setFechaGasto(new Date().toISOString().slice(0, 10));
     }
 
     if (!isOnline()) {
@@ -172,6 +187,53 @@ export function SolicitudForm({
         <p className="font-semibold">Nueva solicitud de pago</p>
       </div>
 
+      {/* Check al inicio: al marcarlo el formulario se reduce a lo esencial (pedido de David) */}
+      <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
+        <input type="checkbox" className="mt-0.5 size-4 accent-azur-600" checked={pagadoCaja} onChange={(e) => setPagadoCaja(e.target.checked)} />
+        <span>
+          <span className="font-medium">Gasto ya pagado desde caja chica</span>
+          <span className="mt-0.5 block text-xs text-muted-foreground">Flujo corto: el Jefe de Proyectos aprueba y Administración valida el sustento; el gasto suma al proyecto sin pasar por programar/pagar.</span>
+        </span>
+      </label>
+
+      {pagadoCaja && (
+        <>
+          <Field label="Proyecto" required>
+            <Select value={proyectoId} onChange={(e) => setProyectoId(e.target.value)}>
+              <option value="">Sin proyecto</option>
+              {proyectos.map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+            </Select>
+          </Field>
+
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Fecha del gasto" required>
+              <Input type="date" value={fechaGasto} onChange={(e) => setFechaGasto(e.target.value)} />
+            </Field>
+            <Field label="Monto (S/)" required>
+              <Input type="number" inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} placeholder="0.00" />
+            </Field>
+          </div>
+
+          <Field label="Gestor">
+            <GestorInput value={gestor} onChange={setGestor} perfiles={perfiles} />
+          </Field>
+
+          <Field label="Descripción" required>
+            <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} placeholder="¿En qué se gastó?" />
+          </Field>
+
+          <Field label="N° de Factura / RHE">
+            <Input value={numComprobante} onChange={(e) => setNumComprobante(e.target.value)} placeholder="Ej. F001-00123" />
+          </Field>
+
+          <Field label="Sustento" hint="Puedes adjuntar varias fotos (o PDF)">
+            <VoucherUploadMulti value={sustentos} onChange={setSustentos} carpeta="sustentos" />
+          </Field>
+        </>
+      )}
+
+      {!pagadoCaja && (
+        <>
       <Field label="Tipo / categoría" required>
         <Select
           value={categoriaSel ? `cat:${categorias.find((c) => c.nombre === categoriaSel)?.id ?? ''}` : `base:${tipo}`}
@@ -275,14 +337,6 @@ export function SolicitudForm({
         <VoucherUpload value={sustento} onChange={setSustento} carpeta="sustentos" />
       </Field>
 
-      <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-3 text-sm">
-        <input type="checkbox" className="mt-0.5 size-4 accent-azur-600" checked={pagadoCaja} onChange={(e) => setPagadoCaja(e.target.checked)} />
-        <span>
-          <span className="font-medium">Gasto ya pagado desde caja chica</span>
-          <span className="mt-0.5 block text-xs text-muted-foreground">Flujo corto: el Jefe de Proyectos aprueba y Administración valida el sustento; el gasto suma al proyecto sin pasar por programar/pagar. Requiere sustento.</span>
-        </span>
-      </label>
-
       <Field label="Descripción">
         <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} />
       </Field>
@@ -315,6 +369,9 @@ export function SolicitudForm({
         <Field label="Monto de detracción (S/)">
           <Input type="number" inputMode="decimal" value={detraccion} onChange={(e) => setDetraccion(e.target.value)} placeholder="0.00" />
         </Field>
+      )}
+
+        </>
       )}
 
       <Button variant="gradient" size="lg" className="w-full" disabled={loading} onClick={onSubmit}>

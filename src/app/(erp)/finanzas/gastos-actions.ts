@@ -76,7 +76,8 @@ const gastoSchema = z.object({
   proyecto_id: z.string().uuid().optional().or(z.literal('')).transform((v) => (v ? v : null)),
   descripcion: z.string().optional().or(z.literal('')).transform((v) => (v ? v : null)),
   monto: z.coerce.number().positive('El monto debe ser mayor a 0'),
-  sustento_url: z.string().optional().or(z.literal('')).transform((v) => (v ? v : null)),
+  // Gestor del gasto (pedido de David). En gastos de empresa NO se adjunta sustento.
+  gestor: z.string().optional().or(z.literal('')).transform((v) => (v ? v : null)),
 });
 
 export async function guardarGastoEmpresa(input: z.input<typeof gastoSchema>): Promise<Res> {

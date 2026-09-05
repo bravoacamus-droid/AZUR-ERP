@@ -33,7 +33,7 @@ export interface ReportesData {
     filas: { id: string; fecha: string; categoria: string | null; descripcion: string | null; monto: number; proyecto: string | null }[];
   };
   // "Caja chica reportada": gastos ya pagados de caja chica, para revisarlos/aprobarlos rápido.
-  cajaChica: { id: string; codigo: string | null; fecha: string; monto: number; status: string; sustento_url: string | null; beneficiario: string | null; descripcion: string | null; proyecto: string | null }[];
+  cajaChica: { id: string; codigo: string | null; fecha: string; monto: number; status: string; sustento_url: string | null; beneficiario: string | null; descripcion: string | null; gestor: string | null; nFotos: number; proyecto: string | null }[];
 }
 
 function desdeDe(periodo: string): Date | null {
@@ -157,7 +157,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   const [gastosEmpRes, cajaChicaRes] = await Promise.all([
     qGastosEmp.order('fecha', { ascending: false }),
     sbAny.from('solicitudes_pago')
-      .select('id, codigo, created_at, monto, status, sustento_url, beneficiario_nombre, descripcion, proyecto:proyectos(nombre)')
+      .select('id, codigo, created_at, fecha_gasto, monto, status, sustento_url, beneficiario_nombre, descripcion, gestor, sustento_urls, proyecto:proyectos(nombre)')
       .eq('pagado_caja_chica', true).order('created_at', { ascending: false }),
   ]);
 
@@ -182,8 +182,8 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   };
 
   const cajaChica = ((cajaChicaRes.data ?? []) as any[]).map((c) => ({
-    id: c.id, codigo: c.codigo ?? null, fecha: String(c.created_at).slice(0, 10), monto: Number(c.monto ?? 0),
-    status: c.status, sustento_url: c.sustento_url ?? null, beneficiario: c.beneficiario_nombre ?? null,
+    id: c.id, codigo: c.codigo ?? null, fecha: String(c.fecha_gasto ?? c.created_at).slice(0, 10), monto: Number(c.monto ?? 0), gestor: c.gestor ?? null,
+    status: c.status, sustento_url: (c.sustento_urls?.[0] ?? c.sustento_url) ?? null, nFotos: c.sustento_urls?.length ?? (c.sustento_url ? 1 : 0), beneficiario: c.beneficiario_nombre ?? null,
     descripcion: c.descripcion ?? null, proyecto: c.proyecto?.nombre ?? null,
   }));
 

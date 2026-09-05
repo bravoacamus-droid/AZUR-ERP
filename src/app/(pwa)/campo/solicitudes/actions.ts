@@ -30,6 +30,10 @@ const schema = z.object({
   // Gasto YA ejecutado desde la caja chica: flujo corto (aprobar + validar
   // sustento), sin programar/pagar. Exige sustento y no puede ser 'caja_chica'.
   pagado_caja_chica: z.coerce.boolean().optional(),
+  // Campos pedidos por David para el gasto de caja chica.
+  fecha_gasto: z.string().optional().nullable(),
+  gestor: z.string().trim().optional().nullable(),
+  sustento_urls: z.array(z.string()).optional(),
 });
 
 export type SolicitudInput = z.infer<typeof schema>;
@@ -77,7 +81,8 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
   // Validación del gasto de caja chica (flujo corto): exige sustento y una
   // categoría real (no la reposición 'caja_chica', que no suma al proyecto).
   if (d.pagado_caja_chica) {
-    if (!d.sustento_url) return { ok: false, error: 'El gasto de caja chica requiere adjuntar el sustento.' };
+    const tieneSustento = !!d.sustento_url || (d.sustento_urls?.length ?? 0) > 0;
+    if (!tieneSustento) return { ok: false, error: 'El gasto de caja chica requiere adjuntar el sustento.' };
     if (d.tipo === 'caja_chica') return { ok: false, error: 'Elige la categoría real del gasto (materiales, servicios, otros gastos…). "Caja chica" es solo la reposición de fondos.' };
   }
 
@@ -118,6 +123,9 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
       detraccion_monto: d.detraccion_monto ?? 0,
       linea_id,
       pagado_caja_chica: d.pagado_caja_chica ?? false,
+      fecha_gasto: d.fecha_gasto || null,
+      gestor: d.gestor || null,
+      sustento_urls: d.sustento_urls?.length ? d.sustento_urls : null,
       solicitado_por: session.id,
       status: 'solicitada',
     })
