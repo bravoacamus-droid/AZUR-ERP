@@ -60,7 +60,7 @@ const fade = (i: number) => ({
 export function ReportesClient({ data }: { data: ReportesData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas, pnlPorMes, rol, gastosEmpresa, cajaChica } = data;
+  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas, pnlPorMes, rol, gastosEmpresa, cajaChica, eeffCtx } = data;
   // Filtro de fechas del listado de caja chica reportada (pedido de David).
   const [ccDesde, setCcDesde] = useState('');
   const [ccHasta, setCcHasta] = useState('');
@@ -321,7 +321,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       {/* Tabla de proyectos */}
       <motion.div id="proyectos" className="scroll-mt-24" {...fade(3)}>
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Proyectos · salud y resultados</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Proyectos · salud y resultados <span className="font-normal text-muted-foreground">· acumulado histórico (no depende del filtro de periodo)</span></CardTitle></CardHeader>
           <CardContent className="p-0">
             {proyectos.length === 0 ? <div className="p-6"><EmptyState titulo="Sin proyectos para el filtro" /></div> : (
               <Table>
@@ -537,9 +537,20 @@ export function ReportesClient({ data }: { data: ReportesData }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {kpis.ingresos === 0 && kpis.egresos === 0 && eeffCtx.hayHistorico && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                <strong>En este periodo no hay cobros ni pagos de obra registrados.</strong>{' '}
+                {eeffCtx.ultimoCobro && <>Último cobro: <strong>{fmtDate(eeffCtx.ultimoCobro)}</strong>. </>}
+                {eeffCtx.ultimoPago && <>Último pago: <strong>{fmtDate(eeffCtx.ultimoPago)}</strong>. </>}
+                Por eso los ingresos y los gastos de obra salen en cero. Cambia el filtro de arriba a{' '}
+                <strong>Histórico</strong> o elige un <strong>Rango de fechas</strong> que los incluya.
+                <span className="mt-1 block text-xs">La tabla “Proyectos · salud y resultados” sí muestra el acumulado histórico, por eso ahí ves montos.</span>
+              </div>
+            )}
+
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Gastos de empresa</p>
+                <p className="text-xs text-muted-foreground">Gastos de empresa · del periodo</p>
                 <p className="text-lg font-semibold tabular-nums text-azur-600">{fmtMoney(gastosEmpresa.total)}</p>
               </div>
               <div className="rounded-lg border p-3">
@@ -547,7 +558,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                 <p className="text-lg font-semibold tabular-nums">{fmtMoney(gastosEmpresa.sinLinea)}</p>
               </div>
               <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Utilidad de empresa (ingresos − obra − empresa)</p>
+                <p className="text-xs text-muted-foreground">Utilidad de empresa · del periodo (ingresos − obra − empresa)</p>
                 <p className={utilidadEmpresa >= 0 ? 'text-lg font-semibold tabular-nums text-emerald-600' : 'text-lg font-semibold tabular-nums text-red-600'}>{fmtMoney(utilidadEmpresa)}</p>
               </div>
             </div>

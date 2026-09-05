@@ -33,6 +33,8 @@ export interface ReportesData {
     filas: { id: string; fecha: string; categoria: string | null; descripcion: string | null; monto: number; proyecto: string | null }[];
   };
   // "Caja chica reportada": gastos ya pagados de caja chica, para revisarlos/aprobarlos rápido.
+  // Contexto para explicar un EEFF en cero (no hubo movimientos en el periodo).
+  eeffCtx: { ultimoCobro: string | null; ultimoPago: string | null; hayHistorico: boolean };
   cajaChica: { id: string; codigo: string | null; fecha: string; monto: number; status: string; sustento_url: string | null; beneficiario: string | null; descripcion: string | null; gestor: string | null; nFotos: number; proyecto: string | null }[];
 }
 
@@ -168,6 +170,20 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
       .eq('pagado_caja_chica', true).order('created_at', { ascending: false }),
   ]);
 
+  // Último cobro/pago SIN filtro de periodo: sirve para avisar cuando el EEFF
+  // sale en cero porque el periodo elegido no contiene movimientos.
+  const [ultCobroRes, ultPagoRes] = await Promise.all([
+    supabase.from('abonos_cliente').select('fecha').order('fecha', { ascending: false }).limit(1),
+    supabase.from('solicitudes_pago').select('pagado_at').in('status', ['pagada', 'conciliada']).neq('tipo', 'caja_chica').order('pagado_at', { ascending: false }).limit(1),
+  ]);
+  const ultimoCobro = (ultCobroRes.data ?? [])[0]?.fecha ?? null;
+  const ultimoPagoRaw = (ultPagoRes.data ?? [])[0]?.pagado_at ?? null;
+  const eeffCtx = {
+    ultimoCobro: ultimoCobro ? String(ultimoCobro).slice(0, 10) : null,
+    ultimoPago: ultimoPagoRaw ? String(ultimoPagoRaw).slice(0, 10) : null,
+    hayHistorico: !!ultimoCobro || !!ultimoPagoRaw,
+  };
+
   const gastosEmpRaw = (gastosEmpRes.data ?? []) as any[];
   const gastosPorLinea = new Map<string, number>();
   let gastosSinLinea = 0;
@@ -210,6 +226,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     pnlPorMes,
     rol: session.rol,
     gastosEmpresa,
+    eeffCtx,
     cajaChica,
   };
 
