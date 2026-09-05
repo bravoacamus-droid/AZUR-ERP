@@ -31,6 +31,20 @@ const VIOLET = '#8b5cf6';
 const PIE_COLORS = [AZUR, SKY, EMERALD, AMBER, VIOLET];
 const kfmt = (v: number) => (v ? `S/${(Number(v) / 1000).toFixed(0)}k` : '');
 
+// Índice de acceso rápido: la página es larga y las secciones operativas
+// quedaban al final (David no las encontraba).
+const SECCIONES = [
+  { id: 'ingresos-egresos', label: 'Ingresos vs egresos' },
+  { id: 'por-linea', label: 'Por línea' },
+  { id: 'por-categoria', label: 'Por categoría' },
+  { id: 'proyectado-real', label: 'Proyectado vs Real' },
+  { id: 'proyectos', label: 'Proyectos' },
+  { id: 'pnl', label: 'Estado de resultados' },
+  { id: 'tareo', label: 'Tareo' },
+  { id: 'gastos-empresa', label: 'Gastos de empresa' },
+  { id: 'caja-chica', label: 'Caja chica reportada' },
+];
+
 const PERIODOS = [
   { v: '7', l: '7 días' }, { v: '15', l: '15 días' }, { v: '30', l: '30 días' },
   { v: 'sem', l: 'Semanal (12 sem)' }, { v: 'mes', l: 'Este mes' }, { v: 'todo', l: 'Histórico' },
@@ -126,6 +140,20 @@ export function ReportesClient({ data }: { data: ReportesData }) {
         </CardContent>
       </Card>
 
+      {/* Índice de acceso rápido a las secciones */}
+      <div className="flex flex-wrap gap-1.5">
+        {SECCIONES.map((sec) => (
+          <button
+            key={sec.id}
+            type="button"
+            onClick={() => document.getElementById(sec.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="rounded-full border bg-white px-3 py-1 text-xs font-medium text-muted-foreground transition-colors hover:border-azur-300 hover:bg-azur-50 hover:text-azur-700"
+          >
+            {sec.label}
+          </button>
+        ))}
+      </div>
+
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {[
@@ -141,7 +169,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       </div>
 
       {/* Serie temporal ingresos vs egresos */}
-      <motion.div {...fade(0)}>
+      <motion.div id="ingresos-egresos" className="scroll-mt-24" {...fade(0)}>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Ingresos vs. egresos en el tiempo</CardTitle></CardHeader>
           <CardContent>
@@ -174,7 +202,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Resultados por línea */}
-        <motion.div {...fade(1)}>
+        <motion.div id="por-linea" className="scroll-mt-24" {...fade(1)}>
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base">Resultados por línea de negocio</CardTitle></CardHeader>
             <CardContent>
@@ -199,7 +227,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
         </motion.div>
 
         {/* Gasto por categoría */}
-        <motion.div {...fade(2)}>
+        <motion.div id="por-categoria" className="scroll-mt-24" {...fade(2)}>
           <Card>
             <CardHeader className="pb-2"><CardTitle className="text-base">Gasto por categoría (5 tipos)</CardTitle></CardHeader>
             <CardContent>
@@ -223,7 +251,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       </div>
 
       {/* Proyectado vs Real por tipo de gasto (control financiero) */}
-      <motion.div {...fade(2)}>
+      <motion.div id="proyectado-real" className="scroll-mt-24" {...fade(2)}>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">Proyectado vs Real por tipo de gasto</CardTitle>
@@ -265,7 +293,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       </motion.div>
 
       {/* Tabla de proyectos */}
-      <motion.div {...fade(3)}>
+      <motion.div id="proyectos" className="scroll-mt-24" {...fade(3)}>
         <Card>
           <CardHeader className="pb-2"><CardTitle className="text-base">Proyectos · salud y resultados</CardTitle></CardHeader>
           <CardContent className="p-0">
@@ -291,7 +319,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       </motion.div>
 
       {/* Estado de resultados (P&L): utilidad real vs cotizada */}
-      <motion.div {...fade(4)}>
+      <motion.div id="pnl" className="scroll-mt-24" {...fade(4)}>
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="text-base">Estado de resultados (P&amp;L) · utilidad real vs cotizada</CardTitle>
@@ -411,7 +439,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       </motion.div>
 
       {/* Tareo consolidado (todos los proyectos) */}
-      <motion.div {...fade(5)}>
+      <motion.div id="tareo" className="scroll-mt-24" {...fade(5)}>
         <Card>
           <CardHeader className="flex-row items-center justify-between gap-2 pb-2">
             <CardTitle className="flex items-center gap-2 text-base"><Users className="size-4 text-azur-600" /> Tareo consolidado <Badge variant="info">{fmtMoney(tareoTotal)}</Badge></CardTitle>
@@ -474,7 +502,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       </motion.div>
 
       {/* Gastos de empresa (EEFF) — no pasan por el flujo de obra */}
-      <motion.div {...fade(9)}>
+      <motion.div id="gastos-empresa" className="scroll-mt-24" {...fade(9)}>
         <Card>
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center justify-between gap-2">
@@ -546,7 +574,7 @@ export function ReportesClient({ data }: { data: ReportesData }) {
       </motion.div>
 
       {/* Caja chica reportada — listado por fechas para aprobar rápido */}
-      <motion.div {...fade(10)}>
+      <motion.div id="caja-chica" className="scroll-mt-24" {...fade(10)}>
         <Card>
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center justify-between gap-2">
