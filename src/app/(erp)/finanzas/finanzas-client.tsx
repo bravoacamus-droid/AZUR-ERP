@@ -619,9 +619,15 @@ function DetalleSolicitud({ s, full }: { s: any; full?: boolean }) {
           </div>
         ))}
       </div>
-      {s.sustento_url && (
-        <a href={s.sustento_url} target="_blank" rel="noreferrer" className="mt-2 mr-3 inline-block text-xs text-azur-600 hover:underline">Ver sustento</a>
-      )}
+      {(() => {
+        // Sustentos: el formulario nuevo guarda varias fotos en sustento_urls.
+        const fotos: string[] = (s.sustento_urls?.length ? s.sustento_urls : (s.sustento_url ? [s.sustento_url] : []));
+        return fotos.map((u: string, i: number) => (
+          <a key={u} href={u} target="_blank" rel="noreferrer" className="mt-2 mr-3 inline-block text-xs text-azur-600 hover:underline">
+            Ver sustento{fotos.length > 1 ? ` ${i + 1}/${fotos.length}` : ''}
+          </a>
+        ));
+      })()}
       {full && s.voucher_url && (
         <a href={s.voucher_url} target="_blank" rel="noreferrer" className="mt-2 inline-block text-xs text-azur-600 hover:underline">Ver voucher / comprobante</a>
       )}

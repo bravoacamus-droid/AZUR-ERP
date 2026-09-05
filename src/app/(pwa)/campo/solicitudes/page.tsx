@@ -29,7 +29,7 @@ export default async function SolicitudesPage({ searchParams }: { searchParams: 
   // Mis solicitudes con filtro por estado/búsqueda y paginación.
   let query = supabase
     .from('solicitudes_pago')
-    .select('id, codigo, tipo, categoria, categoria_etapa, monto, moneda, status, beneficiario_nombre, razon_social, ruc_dni, descripcion, sustento_url, voucher_url, detraccion_monto, motivo_rechazo, fecha_programada, aprobado_at, programado_at, pagado_at, num_operacion, created_at, proyecto:proyectos(nombre)', { count: 'exact' })
+    .select('id, codigo, tipo, categoria, categoria_etapa, monto, moneda, status, beneficiario_nombre, razon_social, ruc_dni, descripcion, sustento_url, sustento_urls, voucher_url, detraccion_monto, motivo_rechazo, fecha_programada, aprobado_at, programado_at, pagado_at, num_operacion, created_at, proyecto:proyectos(nombre)', { count: 'exact' })
     .eq('solicitado_por', session.id);
   if (estado) query = query.eq('status', estado);
   if (q) query = query.or(`codigo.ilike.%${q}%,beneficiario_nombre.ilike.%${q}%`);

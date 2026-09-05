@@ -116,11 +116,29 @@ export async function validarGastoCaja(id: string): Promise<Res> {
   if (!sol) return { ok: false, error: 'No encontrada' };
   if (!(sol as any).pagado_caja_chica) return { ok: false, error: 'Esta solicitud no es un gasto de caja chica.' };
   if (sol.status !== 'aprobada') return { ok: false, error: 'El gasto debe estar aprobado por el Jefe de Proyectos antes de validar el sustento.' };
-  if (!sol.sustento_url && !sol.voucher_url) return { ok: false, error: 'El gasto no tiene sustento adjunto.' };
+  // El formulario nuevo guarda las fotos en sustento_urls (varias); los antiguos
+  // usaban sustento_url/voucher_url. Se aceptan ambos.
+  const nFotos = ((sol as any).sustento_urls?.length ?? 0);
+  if (!sol.sustento_url && !sol.voucher_url && nFotos === 0) {
+    return { ok: false, error: 'El gasto no tiene sustento adjunto.' };
+  }
+
+  // El gasto ya salió de la caja: se le asigna como fecha de pago la FECHA DEL
+  // GASTO (no la de validación), porque los reportes y el EEFF filtran por
+  // pagado_at. Sin esto el gasto solo aparecería en "Histórico" y nunca dentro
+  // de un periodo o rango de fechas.
+  const fechaPago = (sol as any).fecha_gasto
+    ? new Date(`${(sol as any).fecha_gasto}T12:00:00`).toISOString()
+    : new Date().toISOString();
 
   const { error } = await (supabase as any)
     .from('solicitudes_pago')
-    .update({ status: 'conciliada', sustento_validado_por: session.id, sustento_validado_at: new Date().toISOString() })
+    .update({
+      status: 'conciliada',
+      pagado_at: fechaPago,
+      sustento_validado_por: session.id,
+      sustento_validado_at: new Date().toISOString(),
+    })
     .eq('id', id);
   if (error) return { ok: false, error: error.message };
 

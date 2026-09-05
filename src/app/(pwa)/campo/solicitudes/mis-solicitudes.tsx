@@ -14,7 +14,7 @@ type Solicitud = {
   id: string; codigo: string | null; tipo: string; categoria: string | null; categoria_etapa: string | null;
   monto: number; moneda: string | null; status: string; beneficiario_nombre: string | null;
   razon_social: string | null; ruc_dni: string | null; descripcion: string | null;
-  sustento_url: string | null; voucher_url: string | null; detraccion_monto: number | null;
+  sustento_url: string | null; sustento_urls?: string[] | null; voucher_url: string | null; detraccion_monto: number | null;
   motivo_rechazo: string | null; fecha_programada: string | null;
   aprobado_at: string | null; programado_at: string | null; pagado_at: string | null;
   num_operacion: string | null; created_at: string; proyecto?: { nombre?: string } | null;
@@ -140,13 +140,13 @@ function DetalleModal({ s, onClose }: { s: Solicitud | null; onClose: () => void
           ) : null}
         </div>
 
-        {(s.sustento_url || s.voucher_url) && (
+        {(s.sustento_url || s.voucher_url || (s.sustento_urls?.length ?? 0) > 0) && (
           <div className="flex flex-wrap gap-2">
-            {s.sustento_url && (
-              <a href={s.sustento_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-azur-600">
-                <ExternalLink className="size-3.5" /> Ver sustento
+            {(s.sustento_urls?.length ? s.sustento_urls : (s.sustento_url ? [s.sustento_url] : [])).map((u, i, arr) => (
+              <a key={u} href={u} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-azur-600">
+                <ExternalLink className="size-3.5" /> Ver sustento{arr.length > 1 ? ` ${i + 1}/${arr.length}` : ''}
               </a>
-            )}
+            ))}
             {s.voucher_url && (
               <a href={s.voucher_url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border px-3 py-1.5 text-xs font-medium text-azur-600">
                 <ExternalLink className="size-3.5" /> Ver voucher
