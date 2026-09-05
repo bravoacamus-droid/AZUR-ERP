@@ -22,7 +22,11 @@ export async function GET(req: Request) {
   const periodo = searchParams.get('periodo') ?? '30';
   const proyecto = searchParams.get('proyecto') ?? '';
   const linea = searchParams.get('linea') ?? '';
-  const desdeISO = desdeDe(periodo);
+  const esRango = periodo === 'rango';
+  const rDesde = searchParams.get('desde') || '';
+  const rHasta = searchParams.get('hasta') || '';
+  const desdeISO = esRango ? (rDesde || null) : desdeDe(periodo);
+  const hastaISO = esRango ? (rHasta || null) : null;
   const supabase = createClient() as any;
 
   const [{ data: dashRaw }, { data: proyRaw }, { data: lineasRaw }] = await Promise.all([
@@ -37,6 +41,7 @@ export async function GET(req: Request) {
   let qAb = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
   let qSo = supabase.from('solicitudes_pago').select('monto, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
   if (desdeISO) { qAb = qAb.gte('fecha', desdeISO); qSo = qSo.gte('pagado_at', desdeISO); }
+  if (hastaISO) { qAb = qAb.lte('fecha', hastaISO); qSo = qSo.lte('pagado_at', `${hastaISO}T23:59:59`); }
   if (proyIds) { const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000']; qAb = qAb.in('proyecto_id', ids); qSo = qSo.in('proyecto_id', ids); }
   const [{ data: abonos }, { data: sols }] = await Promise.all([qAb, qSo]);
 
@@ -61,7 +66,7 @@ export async function GET(req: Request) {
     ws.addImage(imgId, { tl: { col: 0, row: 0 }, ext: { width: 56, height: 56 } });
   } catch { /* */ }
   ws.mergeCells('B1:H1'); ws.getCell('B1').value = 'AZUR CONSTRUCTORA E INMOBILIARIA'; ws.getCell('B1').font = { bold: true, size: 16, color: { argb: AZUR } };
-  ws.mergeCells('B2:H2'); ws.getCell('B2').value = `Estado de resultados (P&L) · Acumulado · ${alcance}`; ws.getCell('B2').font = { size: 11, color: { argb: 'FF666666' } };
+  ws.mergeCells('B2:H2'); ws.getCell('B2').value = `Estado de resultados (P&L) · ${esRango && (rDesde || rHasta) ? `Del ${rDesde || 'inicio'} al ${rHasta || 'hoy'}` : 'Acumulado'} · ${alcance}`; ws.getCell('B2').font = { size: 11, color: { argb: 'FF666666' } };
   ws.getRow(1).height = 22;
 
   let r = 4;
@@ -123,6 +128,7 @@ export async function GET(req: Request) {
   let qGE = supabase.from('gastos_empresa')
     .select('id, fecha, categoria, descripcion, monto, linea_id, proyecto_id, proyecto:proyectos(nombre)');
   if (desdeISO) qGE = qGE.gte('fecha', desdeISO);
+  if (hastaISO) qGE = qGE.lte('fecha', hastaISO);
   if (linea) qGE = qGE.eq('linea_id', linea);
   if (proyecto) qGE = qGE.eq('proyecto_id', proyecto);
   const { data: geRaw } = await qGE.order('fecha', { ascending: false });
@@ -136,8 +142,10 @@ export async function GET(req: Request) {
     else geSinLinea += m;
   });
   const geTotal = ge.reduce((a, g) => a + Number(g.monto ?? 0), 0);
-  const ingresosTot = proyectos.reduce((a: number, x: any) => a + x.cobrado, 0);
-  const egresosObraTot = proyectos.reduce((a: number, x: any) => a + x.gastado, 0);
+  // Ingresos y gastos de obra DEL PERIODO/RANGO (no los acumulados del dashboard):
+  // así la "Utilidad de empresa" compara los tres importes sobre el mismo lapso.
+  const ingresosTot = (abonos ?? []).reduce((a: number, x: any) => a + Number(x.monto ?? 0), 0);
+  const egresosObraTot = (sols ?? []).reduce((a: number, x: any) => a + Number(x.monto ?? 0), 0);
 
   const ws3 = wb.addWorksheet('Gastos de empresa', { views: [{ showGridLines: false }] });
   ws3.columns = [{ width: 14 }, { width: 24 }, { width: 42 }, { width: 30 }, { width: 16 }];

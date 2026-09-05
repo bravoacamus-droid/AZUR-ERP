@@ -23,7 +23,11 @@ export async function GET(req: Request) {
   const periodo = searchParams.get('periodo') ?? '30';
   const proyecto = searchParams.get('proyecto') ?? '';
   const linea = searchParams.get('linea') ?? '';
-  const desdeISO = desdeDe(periodo);
+  const esRango = periodo === 'rango';
+  const rDesde = searchParams.get('desde') || '';
+  const rHasta = searchParams.get('hasta') || '';
+  const desdeISO = esRango ? (rDesde || null) : desdeDe(periodo);
+  const hastaISO = esRango ? (rHasta || null) : null;
   const supabase = createClient();
 
   const [{ data: dashRaw }, { data: lineasRaw }, { data: proyRaw }] = await Promise.all([
@@ -38,6 +42,7 @@ export async function GET(req: Request) {
   let qSols = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id').in('status', ['pagada', 'conciliada']).neq('tipo', 'caja_chica');
   let qAbonos = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
   if (desdeISO) { qSols = qSols.gte('pagado_at', desdeISO); qAbonos = qAbonos.gte('fecha', desdeISO); }
+  if (hastaISO) { qSols = qSols.lte('pagado_at', `${hastaISO}T23:59:59`); qAbonos = qAbonos.lte('fecha', hastaISO); }
   if (proyIds) { const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000']; qSols = qSols.in('proyecto_id', ids); qAbonos = qAbonos.in('proyecto_id', ids); }
   const [{ data: sols }, { data: abonos }] = await Promise.all([qSols, qAbonos]);
 
@@ -50,7 +55,7 @@ export async function GET(req: Request) {
     .map((d) => ({ proyecto_id: d.proyecto_id ?? '', codigo: d.codigo, nombre: d.nombre ?? '', linea_id: d.linea_id, estado: d.estado ?? '', tipo_proyecto: d.tipo_proyecto ?? '', proyectado: Number(d.proyectado ?? 0), pagos: Number(d.pagos ?? 0), gasto: Number(d.gasto ?? 0), valorizado: Number(d.valorizado ?? 0) }))
     .filter((d) => (!proyecto || d.proyecto_id === proyecto) && (!linea || d.linea_id === linea));
 
-  const periodoLabel = { '7': 'Últimos 7 días', '15': 'Últimos 15 días', '30': 'Últimos 30 días', mes: 'Este mes', todo: 'Histórico' }[periodo] ?? periodo;
+  const periodoLabel = { '7': 'Últimos 7 días', '15': 'Últimos 15 días', '30': 'Últimos 30 días', mes: 'Este mes', todo: 'Histórico' }[periodo] ?? (esRango ? `Del ${rDesde || 'inicio'} al ${rHasta || 'hoy'}` : periodo);
 
   const wb = new ExcelJS.Workbook();
   wb.creator = 'AZUR ERP';

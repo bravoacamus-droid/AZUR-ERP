@@ -24,7 +24,12 @@ export async function GET(req: Request) {
   const proyecto = url.searchParams.get('proyecto') || '';
   const linea = url.searchParams.get('linea') || '';
   const dl = url.searchParams.get('dl') === '1';
-  const desdeISO = desdeDe(periodo);
+  // Rango de fechas personalizado (para generar el EEFF por periodo exacto).
+  const esRango = periodo === 'rango';
+  const rDesde = url.searchParams.get('desde') || '';
+  const rHasta = url.searchParams.get('hasta') || '';
+  const desdeISO = esRango ? (rDesde || null) : desdeDe(periodo);
+  const hastaISO = esRango ? (rHasta || null) : null;
 
   const [{ data: dashRaw }, { data: proyRaw }, { data: lineasRaw }] = await Promise.all([
     supabase.from('v_dashboard_proyecto').select('proyecto_id, codigo, nombre, linea_id, proyectado, pagos, gasto'),
@@ -39,6 +44,7 @@ export async function GET(req: Request) {
   let qAb = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
   let qSo = supabase.from('solicitudes_pago').select('monto, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
   if (desdeISO) { qAb = qAb.gte('fecha', desdeISO); qSo = qSo.gte('pagado_at', desdeISO); }
+  if (hastaISO) { qAb = qAb.lte('fecha', hastaISO); qSo = qSo.lte('pagado_at', `${hastaISO}T23:59:59`); }
   if (proyIds) { const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000']; qAb = qAb.in('proyecto_id', ids); qSo = qSo.in('proyecto_id', ids); }
   const [{ data: abonos }, { data: sols }] = await Promise.all([qAb, qSo]);
 
@@ -59,6 +65,7 @@ export async function GET(req: Request) {
   let qGE = supabase.from('gastos_empresa')
     .select('id, fecha, categoria, descripcion, monto, linea_id, proyecto_id, proyecto:proyectos(nombre)');
   if (desdeISO) qGE = qGE.gte('fecha', desdeISO);
+  if (hastaISO) qGE = qGE.lte('fecha', hastaISO);
   if (linea) qGE = qGE.eq('linea_id', linea);
   if (proyecto) qGE = qGE.eq('proyecto_id', proyecto);
   const { data: geRaw } = await qGE.order('fecha', { ascending: false });
@@ -72,8 +79,10 @@ export async function GET(req: Request) {
     else geSinLinea += m;
   });
   const geTotal = ge.reduce((a, g) => a + Number(g.monto ?? 0), 0);
-  const ingresos = proyectos.reduce((a: number, r: PnlRow) => a + r.cobrado, 0);
-  const egresosObra = proyectos.reduce((a: number, r: PnlRow) => a + r.gastado, 0);
+  // Ingresos y gastos de obra DEL PERIODO/RANGO (no los acumulados del dashboard):
+  // así la "Utilidad de empresa" compara los tres importes sobre el mismo lapso.
+  const ingresos = (abonos ?? []).reduce((a: number, r: any) => a + Number(r.monto ?? 0), 0);
+  const egresosObra = (sols ?? []).reduce((a: number, r: any) => a + Number(r.monto ?? 0), 0);
 
   const gastosEmpresa = {
     total: geTotal,
@@ -90,7 +99,8 @@ export async function GET(req: Request) {
     })),
   };
 
-  const d: PnlPdfData = { periodo: 'Acumulado a la fecha', alcance, lineas, proyectos, mensual, gastosEmpresa, fmtMoney: (n) => fmtMoney(n), fmtPct: (n) => fmtPct(n) };
+  const etiquetaPeriodo = esRango && (rDesde || rHasta) ? `Del ${rDesde || 'inicio'} al ${rHasta || 'hoy'}` : 'Acumulado a la fecha';
+  const d: PnlPdfData = { periodo: etiquetaPeriodo, alcance, lineas, proyectos, mensual, gastosEmpresa, fmtMoney: (n) => fmtMoney(n), fmtPct: (n) => fmtPct(n) };
   const buffer = await renderToBuffer(createElement(PnlPDF as never, { d }) as never);
   return new Response(new Uint8Array(buffer), {
     headers: {

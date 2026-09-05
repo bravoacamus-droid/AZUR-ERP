@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 const CATEGORIAS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
 
 export interface ReportesData {
-  filtros: { periodo: string; proyecto: string; linea: string };
+  filtros: { periodo: string; proyecto: string; linea: string; desde: string; hasta: string };
   proyectosLista: { id: string; nombre: string }[];
   lineasLista: { id: string; nombre: string; color: string }[];
   kpis: { ingresos: number; egresos: number; utilidad: number; nProyectos: number };
@@ -47,15 +47,20 @@ function desdeDe(periodo: string): Date | null {
   return d;
 }
 
-export default async function ReportesPage({ searchParams }: { searchParams: { periodo?: string; proyecto?: string; linea?: string } }) {
+export default async function ReportesPage({ searchParams }: { searchParams: { periodo?: string; proyecto?: string; linea?: string; desde?: string; hasta?: string } }) {
   const session = await requireModulo('reportes', 'ver');
   const supabase = createClient();
 
   const periodo = searchParams.periodo ?? '30';
   const proyecto = searchParams.proyecto ?? '';
   const linea = searchParams.linea ?? '';
+  // Rango de fechas personalizado (pedido de David: generar el EEFF por rango).
+  const esRango = periodo === 'rango';
+  const rDesde = esRango ? (searchParams.desde ?? '') : '';
+  const rHasta = esRango ? (searchParams.hasta ?? '') : '';
   const desde = desdeDe(periodo);
-  const desdeISO = desde ? desde.toISOString().slice(0, 10) : null;
+  const desdeISO = esRango ? (rDesde || null) : (desde ? desde.toISOString().slice(0, 10) : null);
+  const hastaISO = esRango ? (rHasta || null) : null;
 
   const [{ data: dashRaw }, { data: lineasRaw }, { data: proyRaw }] = await Promise.all([
     supabase.from('v_dashboard_proyecto').select('*'),
@@ -77,6 +82,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     .select('trabajador_id, trabajador_nombre, presente, horas, horas_extra, jornal_semana, fecha, es_correccion, proyecto:proyectos(nombre)')
     .in('estado', ['aprobado', 'pagado']);
   if (desdeISO) { qAbonos = qAbonos.gte('fecha', desdeISO); qSols = qSols.gte('pagado_at', desdeISO); qTareo = qTareo.gte('fecha', desdeISO); }
+  if (hastaISO) { qAbonos = qAbonos.lte('fecha', hastaISO); qSols = qSols.lte('pagado_at', `${hastaISO}T23:59:59`); qTareo = qTareo.lte('fecha', hastaISO); }
   if (proyIds) {
     const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000'];
     qAbonos = qAbonos.in('proyecto_id', ids); qSols = qSols.in('proyecto_id', ids); qPtg = qPtg.in('proyecto_id', ids); qTareo = qTareo.in('proyecto_id', ids);
@@ -151,6 +157,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   let qGastosEmp = sbAny.from('gastos_empresa')
     .select('id, fecha, categoria, descripcion, monto, linea_id, proyecto_id, proyecto:proyectos(nombre)');
   if (desdeISO) qGastosEmp = qGastosEmp.gte('fecha', desdeISO);
+  if (hastaISO) qGastosEmp = qGastosEmp.lte('fecha', hastaISO);
   if (linea) qGastosEmp = qGastosEmp.eq('linea_id', linea);
   if (proyecto) qGastosEmp = qGastosEmp.eq('proyecto_id', proyecto);
 
@@ -188,7 +195,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   }));
 
   const data: ReportesData = {
-    filtros: { periodo, proyecto, linea },
+    filtros: { periodo, proyecto, linea, desde: rDesde, hasta: rHasta },
     proyectosLista: (proyRaw ?? []).map((p) => ({ id: p.id, nombre: p.nombre })),
     lineasLista: (lineasRaw ?? []).map((l) => ({ id: l.id, nombre: l.nombre, color: l.color })),
     kpis: { ingresos, egresos, utilidad: ingresos - egresos, nProyectos: dash.length },

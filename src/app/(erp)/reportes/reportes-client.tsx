@@ -48,6 +48,7 @@ const SECCIONES = [
 const PERIODOS = [
   { v: '7', l: '7 días' }, { v: '15', l: '15 días' }, { v: '30', l: '30 días' },
   { v: 'sem', l: 'Semanal (12 sem)' }, { v: 'mes', l: 'Este mes' }, { v: 'todo', l: 'Histórico' },
+  { v: 'rango', l: 'Rango de fechas' },
 ];
 
 const fade = (i: number) => ({
@@ -75,12 +76,13 @@ export function ReportesClient({ data }: { data: ReportesData }) {
     setCcBusy(null);
     router.refresh();
   }
-  const pnlUrl = (fmt: string) => `/reportes/pnl/${fmt}?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}`;
+  const rangoQS = filtros.periodo === 'rango' ? `&desde=${filtros.desde}&hasta=${filtros.hasta}` : '';
+  const pnlUrl = (fmt: string) => `/reportes/pnl/${fmt}?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}${rangoQS}`;
   const gapTone = (g: number) => (g >= 0 ? 'text-emerald-600' : 'text-red-600');
   const [tareoQ, setTareoQ] = useState('');
   const [tareoExp, setTareoExp] = useState<string | null>(null);
   const tareoFiltrado = tareo.filter((t) => t.nombre.toLowerCase().includes(tareoQ.trim().toLowerCase()));
-  const tareoPdfUrl = `/reportes/tareo/pdf?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}`;
+  const tareoPdfUrl = `/reportes/tareo/pdf?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}${filtros.periodo === 'rango' ? `&desde=${filtros.desde}&hasta=${filtros.hasta}` : ''}`;
 
   function setFiltro(patch: Partial<typeof filtros>) {
     const next = { ...filtros, ...patch };
@@ -88,10 +90,15 @@ export function ReportesClient({ data }: { data: ReportesData }) {
     if (next.periodo) sp.set('periodo', next.periodo);
     if (next.proyecto) sp.set('proyecto', next.proyecto);
     if (next.linea) sp.set('linea', next.linea);
+    // El rango de fechas solo aplica al periodo 'rango'.
+    if (next.periodo === 'rango') {
+      if (next.desde) sp.set('desde', next.desde);
+      if (next.hasta) sp.set('hasta', next.hasta);
+    }
     startTransition(() => router.push(`/reportes?${sp.toString()}`));
   }
 
-  const excelUrl = `/reportes/excel?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}`;
+  const excelUrl = `/reportes/excel?periodo=${filtros.periodo}&proyecto=${filtros.proyecto}&linea=${filtros.linea}${rangoQS}`;
   const saludVariant = (s: string) => (s === 'ok' ? 'success' : s === 'advertencia' ? 'warning' : 'danger');
   const catData = categorias.filter((c) => c.monto > 0).map((c) => ({ name: c.label, value: c.monto }));
   const catComp = categorias
@@ -125,6 +132,25 @@ export function ReportesClient({ data }: { data: ReportesData }) {
                 {p.l}
               </button>
             ))}
+            {filtros.periodo === 'rango' && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Input
+                  type="date"
+                  value={filtros.desde}
+                  onChange={(e) => setFiltro({ desde: e.target.value })}
+                  className="h-8 w-40"
+                  aria-label="Desde"
+                />
+                <span className="text-xs text-muted-foreground">a</span>
+                <Input
+                  type="date"
+                  value={filtros.hasta}
+                  onChange={(e) => setFiltro({ hasta: e.target.value })}
+                  className="h-8 w-40"
+                  aria-label="Hasta"
+                />
+              </div>
+            )}
             {pending && <Loader2 className="size-4 animate-spin text-azur-600" />}
           </div>
           <div className="flex flex-wrap gap-2">
