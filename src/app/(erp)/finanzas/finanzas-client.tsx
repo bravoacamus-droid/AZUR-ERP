@@ -477,7 +477,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
         {/* Check al inicio: al marcarlo el formulario se reduce a lo esencial (pedido de David) */}
         <label className="flex items-start gap-2 rounded-lg border bg-muted/30 p-2.5 text-sm">
           <input type="checkbox" className="mt-0.5 size-4 accent-azur-600" checked={ns.pagado_caja_chica} onChange={(e) => setNs((f: any) => ({ ...f, pagado_caja_chica: e.target.checked }))} />
-          <span><span className="font-medium">Gasto ya pagado desde caja chica</span><span className="mt-0.5 block text-xs text-muted-foreground">Flujo corto: aprueba el Jefe y Administración valida el sustento; suma al proyecto sin programar/pagar.</span></span>
+          <span><span className="font-medium">Gasto ya pagado desde caja chica</span><span className="mt-0.5 block text-xs text-muted-foreground">Flujo corto, sin programar/pagar. Si lo registra Administración, con la aprobación del Jefe de Proyectos queda conciliado y suma al proyecto (no requiere validar el sustento aparte).</span></span>
         </label>
 
         {ns.pagado_caja_chica && (

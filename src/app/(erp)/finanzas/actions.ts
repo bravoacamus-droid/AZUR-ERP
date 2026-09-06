@@ -83,23 +83,50 @@ export async function revisarCambioProveedor(cambioId: string, aprobado: boolean
 export async function aprobarSolicitud(id: string): Promise<Res> {
   const session = await requireModulo('finanzas', 'editar');
   const supabase = createClient();
-  const { error } = await supabase
+  const admin = createAdminClient();
+
+  const { data: sol } = await (admin as any)
     .from('solicitudes_pago')
-    .update({ status: 'aprobada', aprobado_por: session.id, aprobado_at: new Date().toISOString() })
-    .eq('id', id);
+    .select('pagado_caja_chica, fecha_gasto, solicitado_por')
+    .eq('id', id)
+    .single();
+
+  // Si el gasto de caja chica lo registró la propia Administración (o Gerencia),
+  // no tiene sentido que después valide su propio sustento: sería un reproceso.
+  // En ese caso, al aprobar el Jefe de Proyectos queda conciliado y suma al
+  // proyecto. Si lo registró el campo, sigue el flujo con validación.
+  let autoConciliar = false;
+  if (sol?.pagado_caja_chica && sol?.solicitado_por) {
+    const { data: creador } = await (admin as any).from('profiles').select('rol').eq('id', sol.solicitado_por).single();
+    autoConciliar = creador?.rol === 'administrador' || creador?.rol === 'gerencia';
+  }
+
+  const ahora = new Date().toISOString();
+  const patch: Record<string, unknown> = { aprobado_por: session.id, aprobado_at: ahora };
+  if (autoConciliar) {
+    patch.status = 'conciliada';
+    // pagado_at = fecha del gasto, para que entre en los filtros por periodo.
+    patch.pagado_at = sol?.fecha_gasto ? new Date(`${sol.fecha_gasto}T12:00:00`).toISOString() : ahora;
+  } else {
+    patch.status = 'aprobada';
+  }
+
+  const { error } = await (supabase as any).from('solicitudes_pago').update(patch).eq('id', id);
   if (error) return { ok: false, error: error.message };
-  // El gasto de caja chica (flujo corto) no se programa: el admin valida el sustento.
-  const { data: sol } = await (supabase as any).from('solicitudes_pago').select('pagado_caja_chica').eq('id', id).single();
-  await notifyRoles(['administrador'], sol?.pagado_caja_chica ? {
-    title: 'Gasto de caja chica — validar sustento',
-    body: 'Un gasto de caja chica fue aprobado; revisa el sustento para cargarlo al proyecto.',
-    url: '/finanzas',
-  } : {
-    title: 'Solicitud aprobada — programar pago',
-    body: 'Una solicitud fue aprobada y está lista para programar.',
-    url: '/finanzas',
-  }, 'finanzas');
+
+  if (!autoConciliar) {
+    await notifyRoles(['administrador'], sol?.pagado_caja_chica ? {
+      title: 'Gasto de caja chica — validar sustento',
+      body: 'Un gasto de caja chica fue aprobado; revisa el sustento para cargarlo al proyecto.',
+      url: '/finanzas',
+    } : {
+      title: 'Solicitud aprobada — programar pago',
+      body: 'Una solicitud fue aprobada y está lista para programar.',
+      url: '/finanzas',
+    }, 'finanzas');
+  }
   revalidatePath('/finanzas');
+  revalidatePath('/reportes');
   return { ok: true };
 }
 

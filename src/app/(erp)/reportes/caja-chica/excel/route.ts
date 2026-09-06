@@ -48,7 +48,7 @@ export async function GET(req: Request) {
   ws.getCell('B2').value = `Caja chica reportada · ${rango}`;
   ws.getCell('B2').font = { size: 11, color: { argb: 'FF666666' } };
   ws.mergeCells('B3:I3');
-  ws.getCell('B3').value = 'Gastos ya pagados desde caja chica. Flujo corto: aprueba el Jefe de Proyectos y Administración valida el sustento; ahí suma al proyecto.';
+  ws.getCell('B3').value = 'Gastos ya pagados desde caja chica. Flujo corto: aprueba el Jefe de Proyectos y, si lo registró el campo, Administración valida el sustento; ahí suma al proyecto.';
   ws.getCell('B3').font = { size: 9, italic: true, color: { argb: 'FF888888' } };
   ws.getRow(1).height = 22;
 
