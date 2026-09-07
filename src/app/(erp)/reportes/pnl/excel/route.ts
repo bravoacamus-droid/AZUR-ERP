@@ -149,15 +149,25 @@ export async function GET(req: Request) {
   const egresosObraTot = (sols ?? []).reduce((a: number, x: any) => a + Number(x.monto ?? 0), 0);
 
   const ws3 = wb.addWorksheet('EEFF consolidado', { views: [{ showGridLines: false }] });
-  ws3.columns = [{ width: 14 }, { width: 24 }, { width: 42 }, { width: 30 }, { width: 16 }];
-  ws3.mergeCells('A1:E1');
-  ws3.getCell('A1').value = `Estado de resultados de la empresa (EEFF) · ${alcance}`;
-  ws3.getCell('A1').font = { bold: true, size: 13, color: { argb: AZUR } };
-  ws3.mergeCells('A2:E2');
-  ws3.getCell('A2').value = 'Consolidado del periodo: ingresos, gastos de obra por tipo y gastos de empresa por categoría.';
-  ws3.getCell('A2').font = { size: 9, italic: true, color: { argb: 'FF888888' } };
+  ws3.columns = [{ width: 34 }, { width: 22 }, { width: 34 }, { width: 26 }, { width: 16 }];
+  // Encabezado con la marca: esta hoja se descarga sola desde la sección del
+  // EEFF, así que lleva logo y cabecera propios como el resto de documentos.
+  try {
+    const imgId3 = wb.addImage({ base64: LOGO_DATA_URI.split(',')[1], extension: 'png' });
+    ws3.addImage(imgId3, { tl: { col: 0, row: 0 }, ext: { width: 56, height: 56 } });
+  } catch { /* si falla la imagen, el reporte igual se genera */ }
+  ws3.mergeCells('B1:E1');
+  ws3.getCell('B1').value = 'AZUR CONSTRUCTORA E INMOBILIARIA';
+  ws3.getCell('B1').font = { bold: true, size: 16, color: { argb: AZUR } };
+  ws3.mergeCells('B2:E2');
+  ws3.getCell('B2').value = `Estado de resultados de la empresa (EEFF) · ${esRango && (rDesde || rHasta) ? `Del ${rDesde || 'inicio'} al ${rHasta || 'hoy'}` : 'Acumulado'} · ${alcance}`;
+  ws3.getCell('B2').font = { size: 11, color: { argb: 'FF666666' } };
+  ws3.mergeCells('B3:E3');
+  ws3.getCell('B3').value = 'Consolidado: ingresos, gastos de obra por tipo y gastos de empresa por categoría.';
+  ws3.getCell('B3').font = { size: 9, italic: true, color: { argb: 'FF888888' } };
+  ws3.getRow(1).height = 22;
 
-  let r3 = 4;
+  let r3 = 5;
   const money3 = '#,##0.00';
   const headRow3 = (vals: (string | number)[]) => {
     const row = ws3.getRow(r3);

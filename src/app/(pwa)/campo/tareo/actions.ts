@@ -242,33 +242,41 @@ export async function marcarTareoPagado(ids: string[]): Promise<Res> {
   if (error) return { ok: false, error: error.message };
 
   // La mano de obra es un gasto real de la obra y de la empresa: al pagarla se
-  // registra el egreso (uno por proyecto) para que entre al EEFF, al gasto del
-  // proyecto y a los reportes. Antes solo se marcaba el tareo y no se veía.
-  const porProyecto = new Map<string, { monto: number; desde: string; hasta: string; personas: Set<string> }>();
+  // registra el egreso para que entre al EEFF, al gasto del proyecto y a los
+  // reportes. Se genera UNO POR TRABAJADOR y proyecto (pedido de David: que la
+  // mano de obra se vea desglosada por persona, no en un solo monto).
+  const porPersona = new Map<string, { proyectoId: string; trabajador: string; monto: number; desde: string; hasta: string; dias: number }>();
   for (const f of (filas ?? []) as any[]) {
     if (!f.presente || !f.proyecto_id) continue;
     const monto = montoDia(Number(f.jornal_semana ?? 0), Number(f.horas ?? 0), Number(f.horas_extra ?? 0));
     if (monto <= 0) continue;
     const fecha = String(f.fecha).slice(0, 10);
-    const g = porProyecto.get(f.proyecto_id) ?? { monto: 0, desde: fecha, hasta: fecha, personas: new Set<string>() };
+    const trabajador = f.trabajador_nombre || 'Sin nombre';
+    const key = `${f.proyecto_id}||${trabajador}`;
+    const g = porPersona.get(key) ?? { proyectoId: f.proyecto_id, trabajador, monto: 0, desde: fecha, hasta: fecha, dias: 0 };
     g.monto += monto;
+    g.dias += 1;
     if (fecha < g.desde) g.desde = fecha;
     if (fecha > g.hasta) g.hasta = fecha;
-    if (f.trabajador_nombre) g.personas.add(f.trabajador_nombre);
-    porProyecto.set(f.proyecto_id, g);
+    porPersona.set(key, g);
   }
 
-  for (const [proyectoId, g] of porProyecto) {
-    const { data: proy } = await admin.from('proyectos').select('linea_id').eq('id', proyectoId).single();
+  const lineaPorProyecto = new Map<string, string | null>();
+  for (const g of porPersona.values()) {
+    if (!lineaPorProyecto.has(g.proyectoId)) {
+      const { data: proy } = await admin.from('proyectos').select('linea_id').eq('id', g.proyectoId).single();
+      lineaPorProyecto.set(g.proyectoId, proy?.linea_id ?? null);
+    }
+    const rango = g.desde === g.hasta ? g.desde : `${g.desde} al ${g.hasta}`;
     const { data: sol } = await admin
       .from('solicitudes_pago')
       .insert({
         tipo: 'jornales',
-        proyecto_id: proyectoId,
-        linea_id: proy?.linea_id ?? null,
+        proyecto_id: g.proyectoId,
+        linea_id: lineaPorProyecto.get(g.proyectoId) ?? null,
         monto: Math.round(g.monto * 100) / 100,
-        beneficiario_nombre: 'Jornales de obra',
-        descripcion: `Jornales del ${g.desde} al ${g.hasta} · ${g.personas.size} persona(s)`,
+        beneficiario_nombre: g.trabajador,
+        descripcion: `${g.trabajador} · Jornales ${rango} (${g.dias} día(s))`,
         status: 'conciliada',
         fecha_gasto: g.hasta,
         pagado_at: new Date(`${g.hasta}T12:00:00`).toISOString(),
