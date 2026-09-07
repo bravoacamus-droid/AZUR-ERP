@@ -67,6 +67,8 @@ export async function registrarProveedor(input: z.input<typeof provSchema>): Pro
     title: 'Proveedor por validar', body: `${session.nombre} registró a ${d.razon_social}`, url: '/finanzas', tag: 'proveedor',
   }, 'campo');
   revalidatePath('/campo/solicitudes');
+  revalidatePath('/finanzas');
+  revalidatePath('/reportes');
   return { ok: true };
 }
 
@@ -85,6 +87,14 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
     if (!tieneSustento) return { ok: false, error: 'El gasto de caja chica requiere adjuntar el sustento.' };
     if (d.tipo === 'caja_chica') return { ok: false, error: 'Elige la categoría real del gasto (materiales, servicios, otros gastos…). "Caja chica" es solo la reposición de fondos.' };
   }
+
+  // David: los gastos de caja chica que registra Administración/Gerencia los
+  // gestionan ellos mismos y NO requieren validación de otra persona. Entran
+  // directamente conciliados y suman al proyecto, sin aprobación ni validación.
+  const gestionDirecta = !!d.pagado_caja_chica && (session.rol === 'administrador' || session.rol === 'gerencia');
+  const pagadoAt = gestionDirecta
+    ? (d.fecha_gasto ? new Date(`${d.fecha_gasto}T12:00:00`).toISOString() : new Date().toISOString())
+    : null;
 
   const supabase = createClient() as any; // columnas recientes (categoria) aún no tipadas
 
@@ -127,7 +137,8 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
       gestor: d.gestor || null,
       sustento_urls: d.sustento_urls?.length ? d.sustento_urls : null,
       solicitado_por: session.id,
-      status: 'solicitada',
+      status: gestionDirecta ? 'conciliada' : 'solicitada',
+      pagado_at: pagadoAt,
     })
     .select('id, correlativo')
     .single();
@@ -137,16 +148,20 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
   const codigo = formatCodigo('SP', sol.correlativo);
   await supabase.from('solicitudes_pago').update({ codigo }).eq('id', sol.id);
 
-  await notifyRoles(
-    ['jefe_proyectos', 'gerencia'],
-    {
-      title: 'Nueva solicitud de pago',
-      body: `${codigo} · ${d.beneficiario_nombre ?? 'Sin beneficiario'} por S/ ${d.monto.toFixed(2)}`,
-      url: '/finanzas',
-      tag: `sp-${sol.id}`,
-    },
-    'campo',
-  );
+  // Si lo gestiona Administración directamente ya quedó conciliado: no hay nada
+  // que aprobar, así que no se notifica pidiendo aprobación.
+  if (!gestionDirecta) {
+    await notifyRoles(
+      ['jefe_proyectos', 'gerencia'],
+      {
+        title: 'Nueva solicitud de pago',
+        body: `${codigo} · ${d.beneficiario_nombre ?? 'Sin beneficiario'} por S/ ${d.monto.toFixed(2)}`,
+        url: '/finanzas',
+        tag: `sp-${sol.id}`,
+      },
+      'campo',
+    );
+  }
 
   revalidatePath('/campo/solicitudes');
   return { ok: true };
