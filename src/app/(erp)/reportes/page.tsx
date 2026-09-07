@@ -8,7 +8,7 @@ import { ReportesClient } from './reportes-client';
 
 export const dynamic = 'force-dynamic';
 
-const CATEGORIAS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
+const CATEGORIAS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos', 'jornales'] as const;
 
 export interface ReportesData {
   filtros: { periodo: string; proyecto: string; linea: string; desde: string; hasta: string };

@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { montoDia } from '@/lib/tareo';
+import { formatCodigo } from '@/lib/codigo';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -226,9 +228,64 @@ export async function marcarTareoPagado(ids: string[]): Promise<Res> {
   if (session.rol !== 'administrador' && session.rol !== 'gerencia') return { ok: false, error: 'Solo administración o gerencia' };
   if (!ids.length) return { ok: true };
   const supabase = createClient() as any;
+  const admin = createAdminClient() as any;
+
+  // Solo las filas que AÚN NO estaban pagadas: así el gasto no se duplica si se
+  // vuelve a marcar el mismo jornal.
+  const { data: filas } = await admin
+    .from('tareo')
+    .select('id, proyecto_id, fecha, presente, horas, horas_extra, jornal_semana, trabajador_nombre')
+    .in('id', ids)
+    .neq('estado', 'pagado');
+
   const { error } = await supabase.from('tareo').update({ estado: 'pagado' }).in('id', ids);
   if (error) return { ok: false, error: error.message };
+
+  // La mano de obra es un gasto real de la obra y de la empresa: al pagarla se
+  // registra el egreso (uno por proyecto) para que entre al EEFF, al gasto del
+  // proyecto y a los reportes. Antes solo se marcaba el tareo y no se veía.
+  const porProyecto = new Map<string, { monto: number; desde: string; hasta: string; personas: Set<string> }>();
+  for (const f of (filas ?? []) as any[]) {
+    if (!f.presente || !f.proyecto_id) continue;
+    const monto = montoDia(Number(f.jornal_semana ?? 0), Number(f.horas ?? 0), Number(f.horas_extra ?? 0));
+    if (monto <= 0) continue;
+    const fecha = String(f.fecha).slice(0, 10);
+    const g = porProyecto.get(f.proyecto_id) ?? { monto: 0, desde: fecha, hasta: fecha, personas: new Set<string>() };
+    g.monto += monto;
+    if (fecha < g.desde) g.desde = fecha;
+    if (fecha > g.hasta) g.hasta = fecha;
+    if (f.trabajador_nombre) g.personas.add(f.trabajador_nombre);
+    porProyecto.set(f.proyecto_id, g);
+  }
+
+  for (const [proyectoId, g] of porProyecto) {
+    const { data: proy } = await admin.from('proyectos').select('linea_id').eq('id', proyectoId).single();
+    const { data: sol } = await admin
+      .from('solicitudes_pago')
+      .insert({
+        tipo: 'jornales',
+        proyecto_id: proyectoId,
+        linea_id: proy?.linea_id ?? null,
+        monto: Math.round(g.monto * 100) / 100,
+        beneficiario_nombre: 'Jornales de obra',
+        descripcion: `Jornales del ${g.desde} al ${g.hasta} · ${g.personas.size} persona(s)`,
+        status: 'conciliada',
+        fecha_gasto: g.hasta,
+        pagado_at: new Date(`${g.hasta}T12:00:00`).toISOString(),
+        solicitado_por: session.id,
+        aprobado_por: session.id,
+        aprobado_at: new Date().toISOString(),
+        pagado_por: session.id,
+      })
+      .select('id, correlativo')
+      .single();
+    if (sol?.id) {
+      await admin.from('solicitudes_pago').update({ codigo: formatCodigo('SP', sol.correlativo) }).eq('id', sol.id);
+    }
+  }
+
   revalidatePath('/finanzas');
+  revalidatePath('/reportes');
   return { ok: true };
 }
 

@@ -36,6 +36,7 @@ export const TIPO_SOLICITUD_LABEL: Record<string, string> = {
   servicios: 'Servicios',
   honorarios: 'Honorarios',
   otros_gastos: 'Otros gastos',
+  jornales: 'Jornales (mano de obra)',
 };
 
 export const ESTADO_TAREA: Record<string, { label: string; variant: V }> = {

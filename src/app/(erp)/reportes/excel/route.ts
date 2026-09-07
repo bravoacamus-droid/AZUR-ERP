@@ -7,7 +7,7 @@ import { saludGlobal, SALUD_LABEL, type DashboardProyecto } from '@/lib/salud';
 export const runtime = 'nodejs';
 const AZUR = 'FFC02128';
 const GREY = 'FFF3F4F6';
-const CATS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos'] as const;
+const CATS = ['contratistas', 'proveedores', 'caja_chica', 'servicios', 'honorarios', 'otros_gastos', 'jornales'] as const;
 
 function desdeDe(periodo: string): string | null {
   const hoy = new Date();
