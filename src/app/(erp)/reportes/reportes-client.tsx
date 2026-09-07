@@ -60,7 +60,7 @@ const fade = (i: number) => ({
 export function ReportesClient({ data }: { data: ReportesData }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas, pnlPorMes, rol, gastosEmpresa, cajaChica, eeffCtx } = data;
+  const { filtros, proyectosLista, lineasLista, kpis, serie, lineas, categorias, proyectos, tareo, tareoTotal, pnlProyectos, pnlLineas, pnlPorMes, rol, gastosEmpresa, cajaChica, eeffCtx, gastosObraDetalle } = data;
   // Filtro de fechas del listado de caja chica reportada (pedido de David).
   const [ccDesde, setCcDesde] = useState('');
   const [ccHasta, setCcHasta] = useState('');
@@ -532,8 +532,8 @@ export function ReportesClient({ data }: { data: ReportesData }) {
         <Card>
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center justify-between gap-2">
-              <span className="flex items-center gap-2"><Receipt className="size-4 text-azur-600" /> Gastos de empresa (EEFF)</span>
-              <span className="text-sm font-normal text-muted-foreground">Planilla, publicidad, impuestos, gastos financieros… del periodo</span>
+              <span className="flex items-center gap-2"><Receipt className="size-4 text-azur-600" /> Estado de resultados de la empresa (EEFF)</span>
+              <span className="text-sm font-normal text-muted-foreground">Ingresos − gastos de obra − gastos de empresa · del periodo</span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -557,10 +557,12 @@ export function ReportesClient({ data }: { data: ReportesData }) {
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">(−) Gastos de obra · del periodo</p>
                 <p className="text-lg font-semibold tabular-nums text-azur-600">{fmtMoney(kpis.egresos)}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Incluye la caja chica reportada</p>
               </div>
               <div className="rounded-lg border p-3">
                 <p className="text-xs text-muted-foreground">(−) Gastos de empresa · del periodo</p>
                 <p className="text-lg font-semibold tabular-nums text-azur-600">{fmtMoney(gastosEmpresa.total)}</p>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">Planilla, impuestos, publicidad…</p>
               </div>
               <div className="rounded-lg border-2 border-azur-200 bg-azur-50/40 p-3">
                 <p className="text-xs font-medium text-muted-foreground">(=) Utilidad de empresa · del periodo</p>
@@ -588,8 +590,43 @@ export function ReportesClient({ data }: { data: ReportesData }) {
               </div>
             )}
 
+            <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detalle de gastos de obra</p>
+            {gastosObraDetalle.length === 0 ? (
+              <p className="rounded-lg border border-dashed p-3 text-sm text-muted-foreground">Sin gastos de obra pagados en este periodo.</p>
+            ) : (
+              <div className="max-h-80 overflow-auto rounded-lg border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Fecha</TableHead><TableHead>Código</TableHead><TableHead>Proyecto</TableHead>
+                      <TableHead>Tipo</TableHead><TableHead>Detalle</TableHead><TableHead className="text-right">Monto</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {gastosObraDetalle.map((g) => (
+                      <TableRow key={g.id}>
+                        <TableCell className="tabular-nums">{g.fecha ? fmtDate(g.fecha) : '—'}</TableCell>
+                        <TableCell className="font-medium">{g.codigo ?? '—'}</TableCell>
+                        <TableCell className="text-sm text-muted-foreground">{g.proyecto ?? '—'}</TableCell>
+                        <TableCell className="text-sm">
+                          {g.tipo}{g.cajaChica && <Badge variant="secondary" className="ml-1">Caja chica</Badge>}
+                        </TableCell>
+                        <TableCell className="text-sm">{g.detalle ?? '—'}</TableCell>
+                        <TableCell className="text-right tabular-nums">{fmtMoney(g.monto)}</TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow className="bg-muted/40 font-semibold">
+                      <TableCell colSpan={5} className="text-right">Total gastos de obra</TableCell>
+                      <TableCell className="text-right tabular-nums text-azur-600">{fmtMoney(kpis.egresos)}</TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+
+            <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Detalle de gastos de empresa</p>
             {gastosEmpresa.filas.length === 0 ? (
-              <EmptyState icon={<Receipt className="size-8" />} titulo="Sin gastos de empresa en el periodo" descripcion="Administración los registra en Finanzas → Gastos de empresa." />
+              <EmptyState icon={<Receipt className="size-8" />} titulo="Sin gastos de empresa en el periodo" descripcion="Aquí solo se listan planilla, impuestos, publicidad y similares (Finanzas → Gastos de empresa). Los gastos de obra y de caja chica se ven arriba, en el recuadro “Gastos de obra”." />
             ) : (
               <div className="overflow-x-auto">
                 <Table>

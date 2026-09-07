@@ -33,6 +33,8 @@ export interface ReportesData {
     filas: { id: string; fecha: string; categoria: string | null; descripcion: string | null; monto: number; proyecto: string | null }[];
   };
   // "Caja chica reportada": gastos ya pagados de caja chica, para revisarlos/aprobarlos rápido.
+  // Detalle de los gastos de obra del periodo (para poder abrir el importe).
+  gastosObraDetalle: { id: string; fecha: string; codigo: string | null; proyecto: string | null; tipo: string; detalle: string | null; cajaChica: boolean; monto: number }[];
   // Contexto para explicar un EEFF en cero (no hubo movimientos en el periodo).
   eeffCtx: { ultimoCobro: string | null; ultimoPago: string | null; hayHistorico: boolean };
   cajaChica: { id: string; codigo: string | null; fecha: string; monto: number; status: string; sustento_url: string | null; beneficiario: string | null; descripcion: string | null; gestor: string | null; nFotos: number; proyecto: string | null }[];
@@ -77,7 +79,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
 
   let qAbonos = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
   // Caja chica es un pedido, no gasto del proyecto → se excluye de egresos.
-  let qSols = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']).neq('tipo', 'caja_chica');
+  let qSols = (supabase as any).from('solicitudes_pago').select('codigo, monto, tipo, pagado_at, proyecto_id, linea_id, descripcion, beneficiario_nombre, pagado_caja_chica, proyecto:proyectos(nombre)').in('status', ['pagada', 'conciliada']).neq('tipo', 'caja_chica');
   let qPtg = supabase.from('presupuesto_tipo_gasto').select('tipo, monto_proyectado, proyecto_id');
   // Tareo consolidado (todos los proyectos): jornales aprobados/pagados del periodo.
   let qTareo = (supabase as unknown as { from: (t: string) => any }).from('tareo')
@@ -114,15 +116,15 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
   const serieMap = new Map<string, { Ingresos: number; Egresos: number }>();
   const get = (k: string) => serieMap.get(k) ?? { Ingresos: 0, Egresos: 0 };
   (abonos ?? []).forEach((a) => { const k = bucket(a.fecha); const v = get(k); v.Ingresos += Number(a.monto); serieMap.set(k, v); });
-  (sols ?? []).forEach((s) => { if (!s.pagado_at) return; const k = bucket(s.pagado_at); const v = get(k); v.Egresos += Number(s.monto); serieMap.set(k, v); });
+  ((sols ?? []) as any[]).forEach((s) => { if (!s.pagado_at) return; const k = bucket(s.pagado_at); const v = get(k); v.Egresos += Number(s.monto); serieMap.set(k, v); });
   const fmtLbl = (k: string) => (periodo === 'sem' ? `Sem ${k.slice(8, 10)}/${k.slice(5, 7)}` : k);
   const serie = [...serieMap.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([label, v]) => ({ label: fmtLbl(label), ...v }));
 
   const ingresos = (abonos ?? []).reduce((a, r) => a + Number(r.monto), 0);
-  const egresos = (sols ?? []).reduce((a, r) => a + Number(r.monto), 0);
+  const egresos = ((sols ?? []) as any[]).reduce((a: number, r: any) => a + Number(r.monto), 0);
 
   const acc = new Map<string, number>();
-  (sols ?? []).forEach((s) => acc.set(s.tipo, (acc.get(s.tipo) ?? 0) + Number(s.monto)));
+  ((sols ?? []) as any[]).forEach((s) => acc.set(s.tipo, (acc.get(s.tipo) ?? 0) + Number(s.monto)));
   const proyAcc = new Map<string, number>();
   (ptg ?? []).forEach((p) => proyAcc.set(p.tipo, (proyAcc.get(p.tipo) ?? 0) + Number(p.monto_proyectado)));
   const categorias = CATEGORIAS.map((tipo) => ({ tipo, label: TIPO_SOLICITUD_LABEL[tipo] ?? tipo, monto: acc.get(tipo) ?? 0, proyectado: proyAcc.get(tipo) ?? 0 }));
@@ -152,7 +154,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
 
   // Estado de resultados por línea/mes (base caja: cobrado − gastado del mes).
   const proyLinea = new Map<string, string | null>((proyRaw ?? []).map((p) => [p.id, p.linea_id]));
-  const pnlPorMes: PnlMensual = pnlMensual(abonos ?? [], (sols ?? []).map((s) => ({ monto: s.monto, pagado_at: s.pagado_at, proyecto_id: s.proyecto_id, linea_id: s.linea_id })), proyLinea, (lineasRaw ?? []).map((l) => ({ id: l.id, nombre: l.nombre })));
+  const pnlPorMes: PnlMensual = pnlMensual(abonos ?? [], ((sols ?? []) as any[]).map((s) => ({ monto: s.monto, pagado_at: s.pagado_at, proyecto_id: s.proyecto_id, linea_id: s.linea_id })), proyLinea, (lineasRaw ?? []).map((l) => ({ id: l.id, nombre: l.nombre })));
 
   // ── Gastos de empresa (EEFF) y caja chica reportada ───────────────────
   const sbAny = supabase as unknown as { from: (t: string) => any };
@@ -183,6 +185,20 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     ultimoPago: ultimoPagoRaw ? String(ultimoPagoRaw).slice(0, 10) : null,
     hayHistorico: !!ultimoCobro || !!ultimoPagoRaw,
   };
+
+  // Detalle de gastos de obra: las mismas solicitudes que suman al periodo.
+  const gastosObraDetalle = ((sols ?? []) as any[])
+    .map((x) => ({
+      id: `${x.codigo ?? ''}-${x.pagado_at ?? ''}-${x.monto}`,
+      fecha: x.pagado_at ? String(x.pagado_at).slice(0, 10) : '',
+      codigo: x.codigo ?? null,
+      proyecto: x.proyecto?.nombre ?? null,
+      tipo: TIPO_SOLICITUD_LABEL[x.tipo] ?? x.tipo,
+      detalle: x.descripcion || x.beneficiario_nombre || null,
+      cajaChica: !!x.pagado_caja_chica,
+      monto: Number(x.monto ?? 0),
+    }))
+    .sort((a, b) => (a.fecha < b.fecha ? 1 : -1));
 
   const gastosEmpRaw = (gastosEmpRes.data ?? []) as any[];
   const gastosPorLinea = new Map<string, number>();
@@ -226,6 +242,7 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     pnlPorMes,
     rol: session.rol,
     gastosEmpresa,
+    gastosObraDetalle,
     eeffCtx,
     cajaChica,
   };
