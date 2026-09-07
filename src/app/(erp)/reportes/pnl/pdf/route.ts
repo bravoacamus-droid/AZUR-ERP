@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
 import { fmtMoney, fmtPct } from '@/lib/format';
 import { pnlProyecto, agruparPnlPorLinea, pnlMensual, type PnlRow } from '@/lib/pnl';
+import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { PnlPDF, type PnlPdfData } from './pnl-pdf';
 
 export const runtime = 'nodejs';
@@ -42,7 +43,7 @@ export async function GET(req: Request) {
   if (proyecto) proyIds = [proyecto];
   else if (linea) proyIds = (proyRaw ?? []).filter((p: any) => p.linea_id === linea).map((p: any) => p.id);
   let qAb = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
-  let qSo = supabase.from('solicitudes_pago').select('monto, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
+  let qSo = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
   if (desdeISO) { qAb = qAb.gte('fecha', desdeISO); qSo = qSo.gte('pagado_at', desdeISO); }
   if (hastaISO) { qAb = qAb.lte('fecha', hastaISO); qSo = qSo.lte('pagado_at', `${hastaISO}T23:59:59`); }
   if (proyIds) { const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000']; qAb = qAb.in('proyecto_id', ids); qSo = qSo.in('proyecto_id', ids); }
@@ -84,7 +85,21 @@ export async function GET(req: Request) {
   const ingresos = (abonos ?? []).reduce((a: number, r: any) => a + Number(r.monto ?? 0), 0);
   const egresosObra = (sols ?? []).reduce((a: number, r: any) => a + Number(r.monto ?? 0), 0);
 
+  // Desglose por tipo (obra) y por categoría (empresa), para el EEFF.
+  const obraMap = new Map<string, number>();
+  ((sols ?? []) as any[]).forEach((x) => {
+    if (x.tipo === 'caja_chica') return; // la reposición no es gasto
+    obraMap.set(x.tipo, (obraMap.get(x.tipo) ?? 0) + Number(x.monto ?? 0));
+  });
+  const empMap = new Map<string, number>();
+  ge.forEach((g) => {
+    const k = g.categoria ?? 'Sin categoría';
+    empMap.set(k, (empMap.get(k) ?? 0) + Number(g.monto ?? 0));
+  });
+
   const gastosEmpresa = {
+    obraPorTipo: [...obraMap.entries()].map(([tipo, monto]) => ({ nombre: TIPO_SOLICITUD_LABEL[tipo] ?? tipo, monto })).sort((a, b) => b.monto - a.monto),
+    empPorCategoria: [...empMap.entries()].map(([nombre, monto]) => ({ nombre, monto })).sort((a, b) => b.monto - a.monto),
     total: geTotal,
     sinLinea: geSinLinea,
     ingresos,

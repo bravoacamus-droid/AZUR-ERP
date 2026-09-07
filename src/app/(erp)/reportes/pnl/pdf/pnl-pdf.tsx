@@ -40,6 +40,8 @@ export interface PnlPdfData {
   gastosEmpresa?: {
     total: number; sinLinea: number; ingresos: number; egresosObra: number; utilidadEmpresa: number;
     porLinea: { id: string; nombre: string; monto: number }[];
+    obraPorTipo: { nombre: string; monto: number }[];
+    empPorCategoria: { nombre: string; monto: number }[];
     filas: { id: string; fecha: string; categoria: string | null; descripcion: string | null; proyecto: string | null; monto: number }[];
   };
 }
@@ -130,16 +132,45 @@ export function PnlPDF({ d }: { d: PnlPdfData }) {
           <View break={d.gastosEmpresa.filas.length > 12}>
             <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>Gastos de empresa (EEFF)</Text></View>
 
-            <View style={s.thead}>
-              <Text style={[{ width: '25%' }, s.th]}>INGRESOS (COBRADO)</Text>
-              <Text style={[{ width: '25%', textAlign: 'right' }, s.th]}>GASTOS DE OBRA</Text>
-              <Text style={[{ width: '25%', textAlign: 'right' }, s.th]}>GASTOS DE EMPRESA</Text>
-              <Text style={[{ width: '25%', textAlign: 'right' }, s.th]}>UTILIDAD DE EMPRESA</Text>
-            </View>
+            {/* Estructura contable: ingresos, gastos de obra por tipo,
+                gastos de empresa por categoría y la utilidad al final. */}
             <View style={s.trTot}>
-              <Text style={[s.cell, { width: '25%' }]}>{M(d.gastosEmpresa.ingresos)}</Text>
+              <Text style={[s.cell, { width: '75%' }]}>INGRESOS</Text>
+              <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(d.gastosEmpresa.ingresos)}</Text>
+            </View>
+            <View style={s.tr} wrap={false}>
+              <Text style={[s.cell, { width: '75%', paddingLeft: 14 }]}>Cobrado a clientes</Text>
+              <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(d.gastosEmpresa.ingresos)}</Text>
+            </View>
+
+            <View style={s.trTot}>
+              <Text style={[s.cell, { width: '75%' }]}>(−) GASTOS DE OBRA</Text>
               <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(d.gastosEmpresa.egresosObra)}</Text>
+            </View>
+            {d.gastosEmpresa.obraPorTipo.length === 0 ? (
+              <View style={s.tr}><Text style={[s.cell, { paddingLeft: 14 }]}>Sin gastos de obra en el periodo.</Text></View>
+            ) : d.gastosEmpresa.obraPorTipo.map((c, i) => (
+              <View key={c.nombre} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+                <Text style={[s.cell, { width: '75%', paddingLeft: 14 }]}>{c.nombre}</Text>
+                <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(c.monto)}</Text>
+              </View>
+            ))}
+
+            <View style={s.trTot}>
+              <Text style={[s.cell, { width: '75%' }]}>(−) GASTOS DE EMPRESA</Text>
               <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(d.gastosEmpresa.total)}</Text>
+            </View>
+            {d.gastosEmpresa.empPorCategoria.length === 0 ? (
+              <View style={s.tr}><Text style={[s.cell, { paddingLeft: 14 }]}>Sin gastos de empresa en el periodo (planilla, impuestos, publicidad…).</Text></View>
+            ) : d.gastosEmpresa.empPorCategoria.map((c, i) => (
+              <View key={c.nombre} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
+                <Text style={[s.cell, { width: '75%', paddingLeft: 14 }]}>{c.nombre}</Text>
+                <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(c.monto)}</Text>
+              </View>
+            ))}
+
+            <View style={s.trTot}>
+              <Text style={[s.cell, { width: '75%' }]}>(=) UTILIDAD DE LA EMPRESA</Text>
               <Text style={[s.cell, { width: '25%', textAlign: 'right' }]}>{M(d.gastosEmpresa.utilidadEmpresa)}</Text>
             </View>
 

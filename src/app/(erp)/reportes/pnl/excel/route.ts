@@ -1,5 +1,6 @@
 import ExcelJS from 'exceljs';
 import { createClient } from '@/lib/supabase/server';
+import { TIPO_SOLICITUD_LABEL } from '@/lib/estados';
 import { requireModulo } from '@/lib/auth';
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 import { pnlProyecto, agruparPnlPorLinea, pnlMensual, type PnlRow } from '@/lib/pnl';
@@ -39,7 +40,7 @@ export async function GET(req: Request) {
   if (proyecto) proyIds = [proyecto];
   else if (linea) proyIds = (proyRaw ?? []).filter((p: any) => p.linea_id === linea).map((p: any) => p.id);
   let qAb = supabase.from('abonos_cliente').select('monto, fecha, proyecto_id');
-  let qSo = supabase.from('solicitudes_pago').select('monto, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
+  let qSo = supabase.from('solicitudes_pago').select('monto, tipo, pagado_at, proyecto_id, linea_id').in('status', ['pagada', 'conciliada']);
   if (desdeISO) { qAb = qAb.gte('fecha', desdeISO); qSo = qSo.gte('pagado_at', desdeISO); }
   if (hastaISO) { qAb = qAb.lte('fecha', hastaISO); qSo = qSo.lte('pagado_at', `${hastaISO}T23:59:59`); }
   if (proyIds) { const ids = proyIds.length ? proyIds : ['00000000-0000-0000-0000-000000000000']; qAb = qAb.in('proyecto_id', ids); qSo = qSo.in('proyecto_id', ids); }
@@ -147,13 +148,13 @@ export async function GET(req: Request) {
   const ingresosTot = (abonos ?? []).reduce((a: number, x: any) => a + Number(x.monto ?? 0), 0);
   const egresosObraTot = (sols ?? []).reduce((a: number, x: any) => a + Number(x.monto ?? 0), 0);
 
-  const ws3 = wb.addWorksheet('Gastos de empresa', { views: [{ showGridLines: false }] });
+  const ws3 = wb.addWorksheet('EEFF consolidado', { views: [{ showGridLines: false }] });
   ws3.columns = [{ width: 14 }, { width: 24 }, { width: 42 }, { width: 30 }, { width: 16 }];
   ws3.mergeCells('A1:E1');
-  ws3.getCell('A1').value = `Gastos de empresa (EEFF) · ${alcance}`;
+  ws3.getCell('A1').value = `Estado de resultados de la empresa (EEFF) · ${alcance}`;
   ws3.getCell('A1').font = { bold: true, size: 13, color: { argb: AZUR } };
   ws3.mergeCells('A2:E2');
-  ws3.getCell('A2').value = 'Planilla, publicidad, impuestos, gastos financieros… No pasan por el flujo de obra.';
+  ws3.getCell('A2').value = 'Consolidado del periodo: ingresos, gastos de obra por tipo y gastos de empresa por categoría.';
   ws3.getCell('A2').font = { size: 9, italic: true, color: { argb: 'FF888888' } };
 
   let r3 = 4;
@@ -165,12 +166,51 @@ export async function GET(req: Request) {
     r3++;
   };
 
-  // Resumen
-  headRow3(['Ingresos (cobrado)', 'Gastos de obra', 'Gastos de empresa', 'Utilidad de empresa']);
-  const resRow = ws3.getRow(r3);
-  resRow.values = [ingresosTot, egresosObraTot, geTotal, ingresosTot - egresosObraTot - geTotal];
-  resRow.eachCell((c) => { c.font = { bold: true }; c.numFmt = money3; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREY } }; });
-  r3 += 2;
+  // Estructura contable: ingresos, gastos de obra por tipo, gastos de empresa
+  // por categoria y la utilidad al final (pedido de David).
+  const obraMap = new Map<string, number>();
+  ((sols ?? []) as any[]).forEach((x) => {
+    if (x.tipo === 'caja_chica') return;
+    obraMap.set(x.tipo, (obraMap.get(x.tipo) ?? 0) + Number(x.monto ?? 0));
+  });
+  const empMap = new Map<string, number>();
+  ge.forEach((g) => {
+    const k = g.categoria ?? 'Sin categoría';
+    empMap.set(k, (empMap.get(k) ?? 0) + Number(g.monto ?? 0));
+  });
+
+  const seccion = (titulo: string, monto: number) => {
+    const row = ws3.getRow(r3);
+    row.values = [titulo, '', '', '', monto];
+    row.eachCell((c, i) => {
+      c.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: AZUR } };
+      if (i === 5) c.numFmt = money3;
+    });
+    r3++;
+  };
+  const filaEeff = (nombre: string, monto: number) => {
+    const row = ws3.getRow(r3);
+    row.values = [`    ${nombre}`, '', '', '', monto];
+    row.getCell(5).numFmt = money3;
+    r3++;
+  };
+
+  seccion('INGRESOS', ingresosTot);
+  filaEeff('Cobrado a clientes', ingresosTot);
+
+  seccion('(−) GASTOS DE OBRA', egresosObraTot);
+  if (obraMap.size === 0) filaEeff('Sin gastos de obra en el periodo', 0);
+  else [...obraMap.entries()].sort((a, b) => b[1] - a[1]).forEach(([t, m]) => filaEeff(TIPO_SOLICITUD_LABEL[t] ?? t, m));
+
+  seccion('(−) GASTOS DE EMPRESA', geTotal);
+  if (empMap.size === 0) filaEeff('Sin gastos de empresa en el periodo', 0);
+  else [...empMap.entries()].sort((a, b) => b[1] - a[1]).forEach(([n, m]) => filaEeff(n, m));
+
+  const utilRow = ws3.getRow(r3);
+  utilRow.values = ['(=) UTILIDAD DE LA EMPRESA', '', '', '', ingresosTot - egresosObraTot - geTotal];
+  utilRow.eachCell((c, i) => { c.font = { bold: true, size: 12 }; if (i === 5) c.numFmt = money3; c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: GREY } }; });
+  r3 += 3;
 
   // Por línea
   headRow3(['Línea de negocio', 'Gasto de empresa']);

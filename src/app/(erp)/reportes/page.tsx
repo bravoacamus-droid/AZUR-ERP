@@ -30,6 +30,7 @@ export interface ReportesData {
     total: number;
     sinLinea: number;
     porLinea: { id: string; nombre: string; color: string; monto: number }[];
+    porCategoria: { nombre: string; monto: number }[];
     filas: { id: string; fecha: string; categoria: string | null; descripcion: string | null; monto: number; proyecto: string | null }[];
   };
   // "Caja chica reportada": gastos ya pagados de caja chica, para revisarlos/aprobarlos rápido.
@@ -208,7 +209,14 @@ export default async function ReportesPage({ searchParams }: { searchParams: { p
     if (g.linea_id) gastosPorLinea.set(g.linea_id, (gastosPorLinea.get(g.linea_id) ?? 0) + m);
     else gastosSinLinea += m;
   });
+  const catEmpMap = new Map<string, number>();
+  gastosEmpRaw.forEach((g) => {
+    const k = g.categoria ?? 'Sin categoría';
+    catEmpMap.set(k, (catEmpMap.get(k) ?? 0) + Number(g.monto ?? 0));
+  });
+
   const gastosEmpresa = {
+    porCategoria: [...catEmpMap.entries()].map(([nombre, monto]) => ({ nombre, monto })).sort((a, b) => b.monto - a.monto),
     total: gastosEmpRaw.reduce((a, g) => a + Number(g.monto ?? 0), 0),
     sinLinea: gastosSinLinea,
     porLinea: (lineasRaw ?? [])

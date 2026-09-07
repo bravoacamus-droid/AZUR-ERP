@@ -533,7 +533,11 @@ export function ReportesClient({ data }: { data: ReportesData }) {
           <CardHeader>
             <CardTitle className="flex flex-wrap items-center justify-between gap-2">
               <span className="flex items-center gap-2"><Receipt className="size-4 text-azur-600" /> Estado de resultados de la empresa (EEFF)</span>
-              <span className="text-sm font-normal text-muted-foreground">Ingresos − gastos de obra − gastos de empresa · del periodo</span>
+              <span className="flex flex-wrap items-center gap-2">
+                <span className="text-sm font-normal text-muted-foreground">Consolidado del periodo</span>
+                <a href={pnlUrl('excel')}><Button variant="outline" size="sm"><FileSpreadsheet className="size-4" /> Excel</Button></a>
+                <a href={pnlUrl('pdf')} target="_blank" rel="noreferrer"><Button variant="outline" size="sm"><FileDown className="size-4" /> PDF</Button></a>
+              </span>
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -548,26 +552,57 @@ export function ReportesClient({ data }: { data: ReportesData }) {
               </div>
             )}
 
-            {/* Estado de resultados completo: los 4 importes juntos, igual que en el PDF/Excel. */}
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">Ingresos (cobrado) · del periodo</p>
-                <p className="text-lg font-semibold tabular-nums text-sky-600">{fmtMoney(kpis.ingresos)}</p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">(−) Gastos de obra · del periodo</p>
-                <p className="text-lg font-semibold tabular-nums text-azur-600">{fmtMoney(kpis.egresos)}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Incluye la caja chica reportada</p>
-              </div>
-              <div className="rounded-lg border p-3">
-                <p className="text-xs text-muted-foreground">(−) Gastos de empresa · del periodo</p>
-                <p className="text-lg font-semibold tabular-nums text-azur-600">{fmtMoney(gastosEmpresa.total)}</p>
-                <p className="mt-0.5 text-[11px] text-muted-foreground">Planilla, impuestos, publicidad…</p>
-              </div>
-              <div className="rounded-lg border-2 border-azur-200 bg-azur-50/40 p-3">
-                <p className="text-xs font-medium text-muted-foreground">(=) Utilidad de empresa · del periodo</p>
-                <p className={utilidadEmpresa >= 0 ? 'text-lg font-semibold tabular-nums text-emerald-600' : 'text-lg font-semibold tabular-nums text-red-600'}>{fmtMoney(utilidadEmpresa)}</p>
-              </div>
+            {/* Estado de resultados con estructura contable: ingresos arriba,
+                gastos de obra por tipo, gastos de empresa por categoría, y la
+                utilidad al final (pedido de David). */}
+            <div className="overflow-x-auto rounded-lg border">
+              <Table>
+                <TableBody>
+                  {/* INGRESOS */}
+                  <TableRow className="bg-secondary/60">
+                    <TableCell className="font-semibold uppercase tracking-wide">Ingresos</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-sky-600">{fmtMoney(kpis.ingresos)}</TableCell>
+                  </TableRow>
+                  <TableRow>
+                    <TableCell className="pl-8 text-sm text-muted-foreground">Cobrado a clientes</TableCell>
+                    <TableCell className="text-right tabular-nums">{fmtMoney(kpis.ingresos)}</TableCell>
+                  </TableRow>
+
+                  {/* GASTOS DE OBRA POR TIPO */}
+                  <TableRow className="bg-secondary/60">
+                    <TableCell className="font-semibold uppercase tracking-wide">(−) Gastos de obra</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-azur-600">{fmtMoney(kpis.egresos)}</TableCell>
+                  </TableRow>
+                  {categorias.filter((c) => c.monto > 0).length === 0 ? (
+                    <TableRow><TableCell colSpan={2} className="pl-8 text-sm text-muted-foreground">Sin gastos de obra en el periodo.</TableCell></TableRow>
+                  ) : categorias.filter((c) => c.monto > 0).map((c) => (
+                    <TableRow key={c.tipo}>
+                      <TableCell className="pl-8 text-sm">{c.label}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtMoney(c.monto)}</TableCell>
+                    </TableRow>
+                  ))}
+
+                  {/* GASTOS DE EMPRESA POR CATEGORÍA */}
+                  <TableRow className="bg-secondary/60">
+                    <TableCell className="font-semibold uppercase tracking-wide">(−) Gastos de empresa</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums text-azur-600">{fmtMoney(gastosEmpresa.total)}</TableCell>
+                  </TableRow>
+                  {gastosEmpresa.porCategoria.length === 0 ? (
+                    <TableRow><TableCell colSpan={2} className="pl-8 text-sm text-muted-foreground">Sin gastos de empresa en el periodo (planilla, impuestos, publicidad…).</TableCell></TableRow>
+                  ) : gastosEmpresa.porCategoria.map((c) => (
+                    <TableRow key={c.nombre}>
+                      <TableCell className="pl-8 text-sm">{c.nombre}</TableCell>
+                      <TableCell className="text-right tabular-nums">{fmtMoney(c.monto)}</TableCell>
+                    </TableRow>
+                  ))}
+
+                  {/* RESULTADO */}
+                  <TableRow className="border-t-2 bg-azur-50/50">
+                    <TableCell className="font-bold uppercase tracking-wide">(=) Utilidad de la empresa</TableCell>
+                    <TableCell className={utilidadEmpresa >= 0 ? 'text-right text-base font-bold tabular-nums text-emerald-600' : 'text-right text-base font-bold tabular-nums text-red-600'}>{fmtMoney(utilidadEmpresa)}</TableCell>
+                  </TableRow>
+                </TableBody>
+              </Table>
             </div>
 
             {(gastosEmpresa.porLinea.length > 0 || gastosEmpresa.sinLinea > 0) && (
