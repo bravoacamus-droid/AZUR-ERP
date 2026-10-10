@@ -24,23 +24,31 @@ type Modo = 'editar' | 'solicitar' | 'lectura';
 
 const TIPO_LBL: Record<string, string> = { contratista: 'Contratista', proveedor: 'Proveedor', ambos: 'Ambos' };
 
-export function ProveedoresClient({ proveedores, modo, pendientes }: { proveedores: Proveedor[]; modo: Modo; pendientes: number }) {
+export function ProveedoresClient({ proveedores, modo, pendientes, embedded = false }: { proveedores: Proveedor[]; modo: Modo; pendientes: number; embedded?: boolean }) {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Proveedor | null>(null);
   const gestiona = modo !== 'lectura';
   const solicita = modo === 'solicitar';
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Proveedores"
-        description={
-          modo === 'editar' ? 'Maestro de proveedores y contratistas.'
-            : solicita ? 'Consulta el maestro y solicita altas o cambios; finanzas/gerencia los aprueban.'
-            : 'Consulta del maestro de proveedores (solo lectura).'
-        }
-        action={gestiona ? <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> {solicita ? 'Solicitar alta' : 'Nuevo proveedor'}</Button> : undefined}
-      />
+    <div className={embedded ? 'space-y-4' : 'space-y-6'}>
+      {embedded ? (
+        gestiona && (
+          <div className="flex justify-end">
+            <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> {solicita ? 'Solicitar alta' : 'Nuevo proveedor'}</Button>
+          </div>
+        )
+      ) : (
+        <PageHeader
+          title="Proveedores"
+          description={
+            modo === 'editar' ? 'Maestro de proveedores y contratistas.'
+              : solicita ? 'Consulta el maestro y solicita altas o cambios; finanzas/gerencia los aprueban.'
+              : 'Consulta del maestro de proveedores (solo lectura).'
+          }
+          action={gestiona ? <Button variant="gradient" onClick={() => { setEditing(null); setOpen(true); }}><Plus className="size-4" /> {solicita ? 'Solicitar alta' : 'Nuevo proveedor'}</Button> : undefined}
+        />
+      )}
 
       {solicita && pendientes > 0 && (
         <div className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">

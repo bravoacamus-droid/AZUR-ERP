@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Pencil, Trash2, Upload, Building2, HardHat, ListTree, Package, FileText, Landmark } from 'lucide-react';
+import { Plus, Pencil, Trash2, HardHat, ListTree, Package, FileText, Landmark } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs } from '@/components/ui/tabs';
@@ -20,8 +20,6 @@ import { CuentasBancarias } from '@/components/finanzas/cuentas-bancarias';
 import { guardarTrabajador, eliminarTrabajador } from '@/app/(pwa)/campo/tareo/actions';
 import { Star } from 'lucide-react';
 import {
-  guardarCliente,
-  importarClientes,
   guardarContraparte, consultarRucDni,
   guardarPartida,
   guardarInsumo,
@@ -64,7 +62,6 @@ export type Medio = {
 
 type Data = {
   lineas: Linea[];
-  clientes: Cliente[];
   contrapartes: Contraparte[];
   trabajadores: Trabajador[];
   partidas: Partida[];
@@ -72,13 +69,6 @@ type Data = {
   plantillas: Plantilla[];
   medios: Medio[];
 };
-
-const ORIGENES = [
-  { v: 'directo', l: 'Directo' },
-  { v: 'recomendacion', l: 'Recomendación' },
-  { v: 'oficina', l: 'Oficina' },
-  { v: 'llamada', l: 'Llamada' },
-];
 
 // ─────────────────────── helpers UI ───────────────────────
 function ErrorMsg({ msg }: { msg: string | null }) {
@@ -126,160 +116,6 @@ function useGuardar() {
 }
 
 // ─────────────────────── Clientes ───────────────────────
-function ClientesTab({ rows }: { rows: Cliente[] }) {
-  const [open, setOpen] = React.useState(false);
-  const [imp, setImp] = React.useState(false);
-  const [editing, setEditing] = React.useState<Cliente | null>(null);
-
-  const abrirNuevo = () => { setEditing(null); setOpen(true); };
-  const abrirEditar = (c: Cliente) => { setEditing(c); setOpen(true); };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap justify-end gap-2">
-        {useCanEdit() && <Button variant="outline" onClick={() => setImp(true)}><Upload className="size-4" /> Importar</Button>}
-        {useCanEdit() && <Button variant="gradient" onClick={abrirNuevo}><Plus className="size-4" /> Nuevo cliente</Button>}
-      </div>
-      {rows.length === 0 ? (
-        <EmptyState icon={<Building2 className="size-8" />} titulo="Sin clientes" descripcion="Crea o importa tu cartera de clientes." />
-      ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Razón social</TableHead>
-                <TableHead>Documento</TableHead>
-                <TableHead>Contacto</TableHead>
-                <TableHead>Ubicación</TableHead>
-                <TableHead>Origen</TableHead>
-                <TableHead className="text-right">Acciones</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((c) => (
-                <TableRow key={c.id}>
-                  <TableCell className="font-medium">{c.razon_social}</TableCell>
-                  <TableCell className="tabular-nums">{c.ruc_dni ? `${c.tipo_doc} ${c.ruc_dni}` : '—'}</TableCell>
-                  <TableCell>
-                    <div className="text-sm">{c.contacto_nombre ?? '—'}</div>
-                    {c.contacto_telefono && <div className="text-xs text-muted-foreground">{c.contacto_telefono}</div>}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">{c.ubicacion ?? '—'}</TableCell>
-                  <TableCell>{c.origen ? <Badge variant="muted">{c.origen}</Badge> : '—'}</TableCell>
-                  <TableCell><RowActions onEdit={() => abrirEditar(c)} onDelete={() => deleteRow('clientes', c.id, c.razon_social)} /></TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
-      )}
-      {open && <ClienteForm cliente={editing} onClose={() => setOpen(false)} />}
-      {imp && <ImportarClientesForm onClose={() => setImp(false)} />}
-    </div>
-  );
-}
-
-function ClienteForm({ cliente, onClose }: { cliente: Cliente | null; onClose: () => void }) {
-  const { saving, error, run } = useGuardar();
-  const [f, setF] = React.useState({
-    razon_social: cliente?.razon_social ?? '',
-    tipo_doc: cliente?.tipo_doc ?? 'RUC',
-    ruc_dni: cliente?.ruc_dni ?? '',
-    contacto_nombre: cliente?.contacto_nombre ?? '',
-    contacto_email: cliente?.contacto_email ?? '',
-    contacto_telefono: cliente?.contacto_telefono ?? '',
-    ubicacion: cliente?.ubicacion ?? '',
-    origen: cliente?.origen ?? '',
-  });
-  const submit = (e: React.FormEvent) => {
-    e.preventDefault();
-    run(() => guardarCliente({ id: cliente?.id, ...f, origen: f.origen as never }), onClose);
-  };
-  return (
-    <Modal open onClose={onClose} title={cliente ? 'Editar cliente' : 'Nuevo cliente'}>
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Razón social" required>
-          <Input value={f.razon_social} onChange={(e) => setF({ ...f, razon_social: e.target.value })} required />
-        </Field>
-        <div className="grid grid-cols-3 gap-3">
-          <Field label="Tipo doc">
-            <Select value={f.tipo_doc} onChange={(e) => setF({ ...f, tipo_doc: e.target.value })}>
-              <option value="RUC">RUC</option>
-              <option value="DNI">DNI</option>
-              <option value="CE">CE</option>
-            </Select>
-          </Field>
-          <Field label="N° documento" className="col-span-2">
-            <Input inputMode="numeric" maxLength={11} value={f.ruc_dni} onChange={(e) => setF({ ...f, ruc_dni: soloDigitos(e.target.value) })} />
-          </Field>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Contacto"><Input value={f.contacto_nombre} onChange={(e) => setF({ ...f, contacto_nombre: e.target.value })} /></Field>
-          <Field label="Teléfono"><Input inputMode="tel" maxLength={15} value={f.contacto_telefono} onChange={(e) => setF({ ...f, contacto_telefono: soloDigitos(e.target.value) })} /></Field>
-        </div>
-        <Field label="Email"><Input type="email" value={f.contacto_email} onChange={(e) => setF({ ...f, contacto_email: e.target.value })} /></Field>
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Ubicación"><Input value={f.ubicacion} onChange={(e) => setF({ ...f, ubicacion: e.target.value })} /></Field>
-          <Field label="Origen">
-            <Select value={f.origen} onChange={(e) => setF({ ...f, origen: e.target.value })}>
-              <option value="">—</option>
-              {ORIGENES.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
-            </Select>
-          </Field>
-        </div>
-        <ErrorMsg msg={error} />
-        <div className="flex justify-end gap-2 pt-1">
-          <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-          <Button type="submit" variant="gradient" disabled={saving}>{saving ? 'Guardando…' : 'Guardar'}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-function ImportarClientesForm({ onClose }: { onClose: () => void }) {
-  const [raw, setRaw] = React.useState('');
-  const [saving, setSaving] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-  const [ok, setOk] = React.useState<string | null>(null);
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true); setError(null); setOk(null);
-    try {
-      const res = await importarClientes(raw);
-      if (!res.ok) { setError(res.error ?? 'No se pudo importar'); return; }
-      setOk(`${res.insertados} insertados · ${res.duplicados} duplicados omitidos`);
-      setRaw('');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error inesperado');
-    } finally {
-      setSaving(false);
-    }
-  };
-  return (
-    <Modal open onClose={onClose} title="Importación masiva de clientes" description="Pega filas TSV/CSV: razón social, RUC/DNI, contacto (una por línea).">
-      <form onSubmit={submit} className="space-y-4">
-        <Field label="Datos" hint="Separadores admitidos: tabulación, coma o punto y coma. Se omiten duplicados por RUC/DNI.">
-          <Textarea
-            rows={10}
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-            placeholder={'Constructora ABC SAC\t20512345678\tJuan Pérez\nServicios XYZ EIRL,20587654321,María Gómez'}
-            className="font-mono text-xs"
-          />
-        </Field>
-        <ErrorMsg msg={error} />
-        {ok && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">{ok}</p>}
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={onClose}>Cerrar</Button>
-          <Button type="submit" variant="gradient" disabled={saving || !raw.trim()}>{saving ? 'Importando…' : 'Importar'}</Button>
-        </div>
-      </form>
-    </Modal>
-  );
-}
-
-// ─────────────────────── Contrapartes ───────────────────────
 function ContrapartesTab({ rows }: { rows: Contraparte[] }) {
   const [open, setOpen] = React.useState(false);
   const [editing, setEditing] = React.useState<Contraparte | null>(null);
@@ -766,9 +602,7 @@ async function deleteRow(tabla: TablaCatalogo, id: string, nombre: string) {
 }
 
 // ─────────────────────── shell con tabs ───────────────────────
-const TABS = [
-  { value: 'clientes', label: 'Clientes' },
-  { value: 'contrapartes', label: 'Contratistas/Proveedores' },
+const TABS_CATALOGO = [
   { value: 'trabajadores', label: 'Trabajadores' },
   { value: 'partidas', label: 'Partidas' },
   { value: 'insumos', label: 'Insumos' },
@@ -898,17 +732,32 @@ function TrabajadorForm({ trabajador, onClose }: { trabajador: Trabajador | null
   );
 }
 
-export function CatalogosClient({ data, canEdit = true, puedeTarifa = false }: { data: Data; canEdit?: boolean; puedeTarifa?: boolean }) {
-  const [tab, setTab] = React.useState('clientes');
+/** Libro único de catálogos: Clientes, Contratistas/Proveedores y los maestros
+ *  técnicos. Cada pestaña aparece según el permiso del módulo que la gobierna
+ *  (clientes / proveedores / catalogos), así nadie ve una pestaña que no puede abrir. */
+export function CatalogosClient({
+  data, canEdit = true, puedeTarifa = false, verCatalogo = true, clientesView, proveedoresView, proveedoresEditor = false, tabInicial,
+}: {
+  data: Data; canEdit?: boolean; puedeTarifa?: boolean; verCatalogo?: boolean;
+  clientesView?: React.ReactNode; proveedoresView?: React.ReactNode; proveedoresEditor?: boolean; tabInicial?: string;
+}) {
+  const tabs = [
+    ...(clientesView ? [{ value: 'clientes', label: 'Clientes' }] : []),
+    ...(proveedoresView || proveedoresEditor ? [{ value: 'contrapartes', label: 'Contratistas/Proveedores' }] : []),
+    ...(verCatalogo ? TABS_CATALOGO : []),
+  ];
+  const [tab, setTab] = React.useState(tabs.some((t) => t.value === tabInicial) ? tabInicial! : tabs[0]?.value ?? 'clientes');
   return (
     <CanEditCtx.Provider value={canEdit}>
     <TarifaCtx.Provider value={puedeTarifa}>
     <div className="space-y-6">
-      <PageHeader title="Catálogos" description="Maestros de datos: clientes, contrapartes, trabajadores, partidas, insumos, plantillas y medios de pago." action={canEdit ? <PreciosMasivos /> : undefined} />
-      <Tabs tabs={TABS} value={tab} onChange={setTab} />
+      <PageHeader title="Catálogos" description="Libro único de maestros: clientes, contratistas/proveedores, trabajadores, partidas, insumos y plantillas." action={canEdit && verCatalogo ? <PreciosMasivos /> : undefined} />
+      <Tabs tabs={tabs} value={tab} onChange={setTab} />
       <div>
-        {tab === 'clientes' && <ClientesTab rows={data.clientes} />}
-        {tab === 'contrapartes' && <ContrapartesTab rows={data.contrapartes} />}
+        {tab === 'clientes' && clientesView}
+        {tab === 'contrapartes' && (proveedoresEditor
+          ? <CanEditCtx.Provider value={true}><ContrapartesTab rows={data.contrapartes} /></CanEditCtx.Provider>
+          : proveedoresView)}
         {tab === 'trabajadores' && <TrabajadoresTab rows={data.trabajadores} />}
         {tab === 'partidas' && <PartidasTab rows={data.partidas} lineas={data.lineas} />}
         {tab === 'insumos' && <InsumosTab rows={data.insumos} />}

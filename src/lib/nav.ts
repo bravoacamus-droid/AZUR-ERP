@@ -8,6 +8,7 @@ export interface NavItem {
   icon: string; // nombre de icono lucide
   roles: Rol[];
   modulo?: Modulo; // si está definido, la visibilidad se resuelve por permiso de módulo
+  modulosAlt?: Modulo[]; // módulos que también dan acceso a la entrada (p. ej. Catálogos)
 }
 
 // Navegación del ERP (web, sidebar)
@@ -37,9 +38,8 @@ export const ERP_NAV: { grupo: string; items: NavItem[] }[] = [
   {
     grupo: 'Maestros',
     items: [
-      { href: '/clientes', label: 'Clientes', icon: 'Contact', roles: ['gerencia', 'presupuestos', 'comercial', 'administrador'], modulo: 'clientes' },
-      { href: '/catalogos', label: 'Catálogos', icon: 'Database', roles: ['gerencia', 'presupuestos', 'comercial', 'administrador'], modulo: 'catalogos' },
-      { href: '/proveedores', label: 'Proveedores', icon: 'HardHat', roles: ['gerencia', 'administrador', 'jefe_proyectos', 'presupuestos', 'comercial', 'logistico', 'prevencionista'], modulo: 'proveedores' },
+      // Libro único: Clientes + Contratistas/Proveedores + maestros técnicos.
+      { href: '/catalogos', label: 'Catálogos', icon: 'Database', roles: ['gerencia', 'presupuestos', 'comercial', 'administrador', 'jefe_proyectos', 'logistico', 'prevencionista'], modulo: 'catalogos', modulosAlt: ['clientes', 'proveedores'] },
       { href: '/configuracion', label: 'Configuración', icon: 'Settings', roles: ['gerencia'], modulo: 'configuracion' },
       { href: '/usuarios', label: 'Usuarios', icon: 'Users', roles: ['gerencia', 'administrador'], modulo: 'usuarios' },
     ],
@@ -69,7 +69,9 @@ export function navForRol(rol: Rol) {
 export function navForPermisos(rol: Rol, permisos: PermisosMap) {
   return ERP_NAV.map((g) => ({
     ...g,
-    items: g.items.filter((i) => (i.modulo ? puedeVer(permisos, i.modulo) : i.roles.includes(rol))),
+    items: g.items.filter((i) => (i.modulo
+      ? [i.modulo, ...(i.modulosAlt ?? [])].some((m) => puedeVer(permisos, m))
+      : i.roles.includes(rol))),
   })).filter((g) => g.items.length > 0);
 }
 
