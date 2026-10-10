@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { VinetasTextarea } from '@/components/ui/vinetas-textarea';
 import { Select } from '@/components/ui/select';
 import { Field } from '@/components/ui/misc';
 import { crearRdo, actualizarRdo, adjuntarFotosRdo, adjuntarEvidenciasRdo, eliminarFotoRdo } from './actions';
@@ -348,16 +349,16 @@ export function RdoForm({
         />
       </Field>
 
-      <Field label="Programación para la siguiente jornada">
-        <Textarea value={programacion} onChange={(e) => setProgramacion(e.target.value)} placeholder="Una línea por punto (aparecen como viñetas en el PDF)" />
+      <Field label="Plan programado (siguiente jornada)">
+        <VinetasTextarea value={programacion} onChange={setProgramacion} placeholder={'Ej.\nACTIVIDADES PARA EL LUNES:\n• Demolición de muros\n• Eliminación de desmonte'} />
       </Field>
 
       <Field label="Observaciones">
-        <Textarea value={observaciones} onChange={(e) => setObservaciones(e.target.value)} />
+        <VinetasTextarea value={observaciones} onChange={setObservaciones} />
       </Field>
 
       <Field label="Incidencias">
-        <Textarea value={incidencias} onChange={(e) => setIncidencias(e.target.value)} />
+        <VinetasTextarea value={incidencias} onChange={setIncidencias} />
       </Field>
 
       <Field label={`Fotos de respaldo (${totalFotos}/${MAX_FOTOS})`}>

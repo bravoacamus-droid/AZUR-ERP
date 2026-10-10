@@ -1,4 +1,8 @@
-import { Document, Page, View, Text, Image, StyleSheet } from '@react-pdf/renderer';
+import { Document, Page, View, Text, Image, StyleSheet, Font } from '@react-pdf/renderer';
+import { parseVinetas } from '@/lib/vinetas';
+
+// Sin guiones de corte de palabra ("prin-cipal", "ex-cavadora").
+Font.registerHyphenationCallback((palabra) => [palabra]);
 import { LOGO_DATA_URI } from '@/lib/brand-logo';
 
 const AZUR = '#C02128';
@@ -32,10 +36,10 @@ const s = StyleSheet.create({
   // Tabla actividades
   thead: { flexDirection: 'row', backgroundColor: AZUR, paddingVertical: 5, paddingHorizontal: 6 },
   th: { color: '#fff', fontFamily: 'Helvetica-Bold', fontSize: 8 },
-  tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingVertical: 5, paddingHorizontal: 6, alignItems: 'center' },
+  tr: { flexDirection: 'row', borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingVertical: 5, paddingHorizontal: 6, alignItems: 'flex-start' },
   trAlt: { backgroundColor: '#fafafa' },
-  cAct: { width: '30%', fontFamily: 'Helvetica-Bold' }, cPart: { width: '42%', color: '#333' },
-  cAv: { width: '14%', textAlign: 'right', color: AZUR, fontFamily: 'Helvetica-Bold' }, cEst: { width: '14%', textAlign: 'center' },
+  cAct: { width: '47%', paddingRight: 8, lineHeight: 1.35 }, cPart: { width: '27%', color: '#333', paddingRight: 6, lineHeight: 1.35 },
+  cAv: { width: '12%', textAlign: 'right', color: AZUR, fontFamily: 'Helvetica-Bold', paddingRight: 6 }, cEst: { width: '14%', alignItems: 'center' },
   cell: { fontSize: 8 },
   estBadge: { fontSize: 6.5, fontFamily: 'Helvetica-Bold', paddingVertical: 1.5, paddingHorizontal: 3, borderRadius: 2, textAlign: 'center' },
 
@@ -47,11 +51,14 @@ const s = StyleSheet.create({
   fotoDesc: { fontSize: 7.5, color: '#555', marginTop: 2 },
 
   // Sección 3 (programación / observaciones)
-  box3: { borderWidth: 1, borderColor: '#dcdcdc', borderLeftWidth: 3, borderLeftColor: AZUR, borderRadius: 3, padding: 8, marginBottom: 4 },
-  box3Tit: { fontSize: 8.5, fontFamily: 'Helvetica-Bold', marginBottom: 4 },
-  bullet: { flexDirection: 'row', marginBottom: 2 },
+  box3: { borderWidth: 1, borderColor: '#dcdcdc', borderLeftWidth: 3, borderLeftColor: AZUR, borderRadius: 3, paddingVertical: 9, paddingHorizontal: 10, marginBottom: 4 },
+  bloque: { marginBottom: 10 },
+  bloqueUltimo: { marginBottom: 0 },
+  box3Tit: { fontSize: 9, fontFamily: 'Helvetica-Bold', marginBottom: 5, letterSpacing: 0.3 },
+  lineaLibre: { fontSize: 8.5, marginBottom: 3, lineHeight: 1.35 },
+  bullet: { flexDirection: 'row', marginBottom: 3, paddingLeft: 6 },
   bulletDot: { width: 10, fontSize: 8.5, color: '#666' },
-  bulletTxt: { flex: 1, fontSize: 8.5 },
+  bulletTxt: { flex: 1, fontSize: 8.5, lineHeight: 1.35 },
 
   obsBox: { borderWidth: 1, borderColor: '#f0c9d1', backgroundColor: '#fbe9ec', borderRadius: 3, padding: 8, marginTop: 6 },
 
@@ -90,10 +97,23 @@ export interface RdoPdfData {
   fotos: { url: string; descripcion?: string }[];
 }
 
+// Línea tipo título: termina en ":" o está toda en mayúsculas (con letras).
+function esTitulo(l: string): boolean {
+  const t = l.trim();
+  if (!t) return false;
+  return t.endsWith(':') || (/[A-ZÁÉÍÓÚÑ]/.test(t) && t === t.toUpperCase() && t.length > 3 && !/^\d/.test(t));
+}
+
 export function RdoPDF({ d }: { d: RdoPdfData }) {
   const chip = CHIP_ESTADO[d.estado] ?? CHIP_ESTADO.borrador;
   const conNombreCip = (n?: string, cip?: string) => `${n ?? ''}${n && cip ? ` (CIP ${cip})` : ''}`;
-  const progLineas = (d.programacion || '').split('\n').map((l) => l.trim()).filter(Boolean);
+  // Plan programado / Observaciones / Incidencias: bloques con título y sus
+  // líneas debajo; solo llevan viñeta las líneas que el usuario marcó con una.
+  const bloques3 = [
+    { titulo: 'PLAN PROGRAMADO', lineas: parseVinetas(d.programacion), color: INK },
+    { titulo: 'OBSERVACIONES', lineas: parseVinetas(d.observaciones), color: INK },
+    { titulo: 'INCIDENCIAS', lineas: parseVinetas(d.incidencias), color: AZUR },
+  ].filter((b) => b.lineas.length > 0);
   // Datos generales: solo se muestran los campos con valor (si no se llena, no aparece).
   const datos: { k: string; v: string }[] = [
     { k: 'PROYECTO', v: d.proyecto },
@@ -108,7 +128,7 @@ export function RdoPDF({ d }: { d: RdoPdfData }) {
   ];
   const filasDatos: { k: string; v: string }[][] = [];
   for (let i = 0; i < datos.length; i += 2) filasDatos.push(datos.slice(i, i + 2));
-  const haySeccion3 = progLineas.length > 0 || !!d.observaciones || !!d.incidencias;
+  const haySeccion3 = bloques3.length > 0;
 
   return (
     <Document title={`Reporte Diario de Obra — ${d.codigo} — ${d.fecha}`}>
@@ -137,8 +157,8 @@ export function RdoPDF({ d }: { d: RdoPdfData }) {
         </View>
 
         {/* 1. Actividades */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>1. AVANCE DIARIO POR ACTIVIDADES / PARTIDAS</Text></View>
-        <View style={s.thead}>
+        <View style={s.secWrap} minPresenceAhead={70}><View style={s.secBar} /><Text style={s.secTitle}>1. AVANCE DIARIO POR ACTIVIDADES / PARTIDAS</Text></View>
+        <View style={s.thead} minPresenceAhead={40}>
           <Text style={[s.cAct, s.th]}>ACTIVIDAD</Text>
           <Text style={[s.cPart, s.th]}>PARTIDA</Text>
           <Text style={[s.cAv, s.th]}>AVANCE DIARIO</Text>
@@ -149,8 +169,12 @@ export function RdoPDF({ d }: { d: RdoPdfData }) {
         ) : d.actividades.map((a, i) => {
           const est = estadoActividad(a.estado, a.avancePct);
           return (
-            <View key={i} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={false}>
-              <Text style={[s.cell, s.cAct]}>{a.actividad}</Text>
+            <View key={i} style={i % 2 === 1 ? [s.tr, s.trAlt] : s.tr} wrap={a.actividad.length + (a.partida ?? '').length > 350}>
+              <Text style={[s.cell, s.cAct]}>
+                {a.actividad.split('\n').map((l, li, arr) => (
+                  <Text key={li} style={esTitulo(l) ? { fontFamily: 'Helvetica-Bold' } : {}}>{l}{li < arr.length - 1 ? '\n' : ''}</Text>
+                ))}
+              </Text>
               <Text style={[s.cell, s.cPart]}>{a.partida ?? '—'}</Text>
               <Text style={[s.cell, s.cAv]}>{a.avancePct == null ? '—' : `+${(a.avancePct * 100).toFixed(1)}%`}</Text>
               <View style={s.cEst}><Text style={[s.estBadge, { backgroundColor: est.bg, color: est.color }]}>{est.label}</Text></View>
@@ -159,7 +183,7 @@ export function RdoPDF({ d }: { d: RdoPdfData }) {
         })}
 
         {/* 2. Reporte fotográfico */}
-        <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>2. REPORTE FOTOGRÁFICO DE CAMPO</Text></View>
+        <View style={s.secWrap} minPresenceAhead={d.fotos.length ? 215 : 20}><View style={s.secBar} /><Text style={s.secTitle}>2. REPORTE FOTOGRÁFICO DE CAMPO</Text></View>
         {d.fotos.length === 0 ? (
           <Text style={{ fontSize: 8, color: '#888', marginBottom: 6 }}>Sin registro fotográfico en este reporte.</Text>
         ) : (
@@ -177,18 +201,18 @@ export function RdoPDF({ d }: { d: RdoPdfData }) {
         {/* 3. Programación y observaciones (solo si hay contenido) */}
         {haySeccion3 && (
           <>
-            <View style={s.secWrap}><View style={s.secBar} /><Text style={s.secTitle}>3. PROGRAMACIÓN PARA LA SIGUIENTE JORNADA Y OBSERVACIONES</Text></View>
-            <View style={s.box3} wrap={false}>
-              {progLineas.length > 0 ? (
-                <>
-                  <Text style={s.box3Tit}>Plan de trabajo programado:</Text>
-                  {progLineas.map((l, i) => (
-                    <View key={i} style={s.bullet}><Text style={s.bulletDot}>•</Text><Text style={s.bulletTxt}>{l}</Text></View>
+            <View style={s.secWrap} minPresenceAhead={80}><View style={s.secBar} /><Text style={s.secTitle}>3. PROGRAMACIÓN PARA LA SIGUIENTE JORNADA Y OBSERVACIONES</Text></View>
+            <View style={s.box3}>
+              {bloques3.map((b, bi) => (
+                <View key={b.titulo} style={bi === bloques3.length - 1 ? s.bloqueUltimo : s.bloque}>
+                  <Text style={[s.box3Tit, { color: b.color }]} minPresenceAhead={20}>{b.titulo}</Text>
+                  {b.lineas.map((l, i) => l.vineta ? (
+                    <View key={i} style={s.bullet} wrap={false}><Text style={[s.bulletDot, { color: b.color }]}>•</Text><Text style={[s.bulletTxt, { color: b.color }]}>{l.texto}</Text></View>
+                  ) : (
+                    <Text key={i} style={[s.lineaLibre, { color: b.color }, ...(esTitulo(l.texto) ? [{ fontFamily: 'Helvetica-Bold' }] : [])]}>{l.texto}</Text>
                   ))}
-                </>
-              ) : null}
-              {d.observaciones ? <Text style={{ fontSize: 8.5, marginTop: progLineas.length ? 6 : 0 }}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Observaciones: </Text>{d.observaciones}</Text> : null}
-              {d.incidencias ? <Text style={{ fontSize: 8.5, color: AZUR, marginTop: 3 }}><Text style={{ fontFamily: 'Helvetica-Bold' }}>Incidencias: </Text>{d.incidencias}</Text> : null}
+                </View>
+              ))}
             </View>
           </>
         )}

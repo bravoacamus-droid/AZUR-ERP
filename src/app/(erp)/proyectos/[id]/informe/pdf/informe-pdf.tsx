@@ -5,8 +5,10 @@ import { LOGO_DATA_URI } from '@/lib/brand-logo';
 const AZUR = '#C02128';
 
 const s = StyleSheet.create({
-  page: { padding: 32, paddingBottom: 48, fontSize: 9, fontFamily: 'Helvetica', color: '#1a1a1a' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 2, borderBottomColor: AZUR, paddingBottom: 10, marginBottom: 14 },
+  page: { paddingHorizontal: 32, paddingTop: 100, paddingBottom: 48, fontSize: 9, fontFamily: 'Helvetica', color: '#1a1a1a' },
+  // Absoluto + fixed: se repite en todas las páginas y el paddingTop de la
+  // página le reserva el espacio (en el flujo normal pisaba la tabla en la pág. 2).
+  header: { position: 'absolute', top: 24, left: 32, right: 32, flexDirection: 'row', justifyContent: 'space-between', borderBottomWidth: 2, borderBottomColor: AZUR, paddingBottom: 10 },
   logoBox: { width: 50, height: 50, backgroundColor: '#fff', borderRadius: 8, padding: 3, borderWidth: 1, borderColor: '#eee' },
   logo: { width: 44, height: 44, objectFit: 'contain' },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -38,8 +40,8 @@ const s = StyleSheet.create({
   bold: { fontFamily: 'Helvetica-Bold' },
 
   galPartida: { fontFamily: 'Helvetica-Bold', fontSize: 9, color: '#1a1a1a', marginTop: 8, marginBottom: 4, borderBottomWidth: 0.5, borderBottomColor: '#e5e5e5', paddingBottom: 2 },
-  galRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  galCell: { width: '31%', marginBottom: 8 },
+  galRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  galCell: { width: '31.5%' },
   galImg: { width: '100%', height: 90, objectFit: 'cover', borderRadius: 4, borderWidth: 1, borderColor: '#eee' },
   galPh: { width: '100%', height: 90, borderRadius: 4, borderWidth: 1, borderColor: '#eee', backgroundColor: '#f5f5f5', justifyContent: 'center', alignItems: 'center' },
   galPhTxt: { fontSize: 7, color: '#999' },
@@ -110,6 +112,12 @@ function SafeImage({ url }: { url: string }) {
   }
 }
 
+function filas<T>(arr: T[], n: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n));
+  return out;
+}
+
 export function InformePDF({ d }: { d: InformePdfData }) {
   const op = d.opciones ?? {};
   const show = (k: keyof NonNullable<InformePdfData['opciones']>) => op[k] !== false;
@@ -157,7 +165,7 @@ export function InformePDF({ d }: { d: InformePdfData }) {
 
         {/* Resumen de avance por partida (incluye valorizado/saldo) */}
         {show('avance') && <>
-        <Text style={s.sectionTitle}>Resumen de avance por partida</Text>
+        <Text style={s.sectionTitle} minPresenceAhead={60}>Resumen de avance por partida</Text>
         <View style={s.thead}>
           <Text style={[s.th, s.cTit]}>PARTIDA</Text>
           <Text style={[s.th, s.cPct]}>% ACUM.</Text>
@@ -167,7 +175,7 @@ export function InformePDF({ d }: { d: InformePdfData }) {
         {d.rows.length === 0 ? (
           <View style={s.tr}><Text style={s.empty}>Sin partidas registradas.</Text></View>
         ) : d.rows.map((r, i) => (
-          <View key={i} style={[s.tr, ...(r.esGeneral ? [s.trGen] : [])]} wrap={false}>
+          <View key={i} style={[s.tr, ...(r.esGeneral ? [s.trGen] : [])]} wrap={false} minPresenceAhead={r.esGeneral ? 20 : 0}>
             <Text style={[s.cTit, ...(r.esGeneral ? [s.bold] : [])]}>{r.codigo ? `${r.codigo}  ` : ''}{r.titulo}</Text>
             <Text style={[s.cPct, ...(r.esGeneral ? [s.bold] : [])]}>{fmtNumber(r.pctAcum * 100, 0)}%</Text>
             <Text style={[s.cMon, ...(r.esGeneral ? [s.bold] : [])]}>{fmtMoney(r.valorizado)}</Text>
@@ -178,21 +186,25 @@ export function InformePDF({ d }: { d: InformePdfData }) {
 
         {/* Galería de evidencias */}
         {show('evidencias') && <>
-        <Text style={[s.sectionTitle, { marginTop: 12 }]}>Registro fotográfico de obra</Text>
+        <Text style={[s.sectionTitle, { marginTop: 12 }]} minPresenceAhead={150}>Registro fotográfico de obra</Text>
         {d.galeria.length === 0 ? (
           <Text style={s.empty}>Sin evidencias registradas.</Text>
         ) : d.galeria.map((g, gi) => (
-          <View key={gi} wrap={false}>
-            <Text style={s.galPartida}>{g.partida}</Text>
-            <View style={s.galRow}>
-              {g.fotos.map((f, fi) => (
-                <View key={fi} style={s.galCell} wrap={false}>
-                  <SafeImage url={f.url} />
-                  <Text style={s.galCap}>{f.fecha}</Text>
-                  {f.descripcion ? <Text style={s.galDesc}>{f.descripcion}</Text> : null}
-                </View>
-              ))}
-            </View>
+          // El grupo puede ocupar varias páginas: solo cada FILA de 3 fotos es
+          // indivisible, y el título de la partida exige espacio para su primera fila.
+          <View key={gi}>
+            <Text style={s.galPartida} minPresenceAhead={130}>{g.partida}</Text>
+            {filas(g.fotos, 3).map((fila, ri) => (
+              <View key={ri} style={s.galRow} wrap={false}>
+                {fila.map((f, fi) => (
+                  <View key={fi} style={s.galCell}>
+                    <SafeImage url={f.url} />
+                    <Text style={s.galCap}>{f.fecha}</Text>
+                    {f.descripcion ? <Text style={s.galDesc}>{f.descripcion}</Text> : null}
+                  </View>
+                ))}
+              </View>
+            ))}
           </View>
         ))}
         </>}
