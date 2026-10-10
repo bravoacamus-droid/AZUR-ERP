@@ -39,8 +39,9 @@ import { FullscreenButton } from '@/components/ui/fullscreen-button';
 type Row = ItemCosto & { es_hoja: boolean; cotizacion_id: string };
 
 export function CotizacionEditor({
-  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false, esGerencia = false, clientes = [], usuariosFirma = [],
+  cot: cotProp, items, formas, versiones, medios, apu, catalogo, historial, perfilesMap, userNombre, userId, canEdit = true, esRevisor = false, esGerencia = false, clientes = [], usuariosFirma = [], canales = [],
 }: {
+  canales?: { id: string; nombre: string; origen_base: string; activo: boolean }[];
   cot: any; items: Row[]; formas: any[]; versiones: any[]; medios: any[]; apu: any[]; catalogo: any[];
   historial: any[]; perfilesMap: Record<string, string>;
   userNombre: string; userId: string; canEdit?: boolean; esRevisor?: boolean; esGerencia?: boolean; clientes?: any[]; usuariosFirma?: UsuarioFirma[];
@@ -328,7 +329,7 @@ export function CotizacionEditor({
               {cot.revision_estado === 'observada' && <Badge variant="danger"><AlertTriangle className="size-3" /> Observada</Badge>}
             </div>
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {cot.codigo} · {cot.cliente?.razon_social} · {cot.linea?.nombre} · v{cot.version}
+              {cot.codigo} · {cot.cliente?.razon_social} · {cot.linea?.nombre} · {cot.tipo_proyecto === 'chico' ? 'Proyecto chico' : 'Proyecto grande'} · v{cot.version}
             </p>
             {cot.revision_estado === 'observada' && cot.revision_nota && (
               <p className="mt-1 inline-block rounded bg-azur-50 px-2 py-1 text-xs text-azur-800"><strong>Observación:</strong> {cot.revision_nota}</p>
@@ -575,7 +576,7 @@ export function CotizacionEditor({
       )}
 
       {tab === 'pago' && (
-        <CondicionesPago cot={cot} formas={formas} medios={medios} clientes={clientes} usuariosFirma={usuariosFirma} onCliente={cambiarCliente} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
+        <CondicionesPago cot={cot} formas={formas} medios={medios} clientes={clientes} canales={canales} usuariosFirma={usuariosFirma} onCliente={cambiarCliente} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
       )}
 
       {tab === 'historial' && <HistorialCambios historial={historial} perfilesMap={perfilesMap} cotizacionId={cot.id} editable={editable} />}
@@ -1194,7 +1195,7 @@ function Row3({ label, value, bold, azur, currency }: { label: string; value: nu
   );
 }
 
-function CondicionesPago({ cot, formas, medios, clientes = [], usuariosFirma = [], onCliente, onSave, onCab, editable }: any) {
+function CondicionesPago({ cot, formas, medios, clientes = [], canales = [], usuariosFirma = [], onCliente, onSave, onCab, editable }: any) {
   const router = useRouter();
   const [items, setItems] = useState<{ concepto: string; porcentaje: number; es_adelanto: boolean }[]>(
     formas.length ? formas.map((f: any) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), es_adelanto: f.es_adelanto })) : [
@@ -1212,6 +1213,23 @@ function CondicionesPago({ cot, formas, medios, clientes = [], usuariosFirma = [
           <Select value={cot.cliente_id ?? ''} disabled={!editable} onChange={(e) => onCliente(e.target.value)}>
             <option value="">— Sin cliente —</option>
             {clientes.map((c: any) => <option key={c.id} value={c.id}>{c.razon_social}{c.ruc_dni ? ` · ${c.ruc_dni}` : ''}</option>)}
+          </Select>
+        </Field>
+        {canales.length > 0 && (
+          <Field label="Origen del lead (canal)" hint="Alimenta el dashboard de CAC.">
+            <Select value={cot.canal_id ?? ''} disabled={!editable}
+              onChange={(e) => { const c = canales.find((x: any) => x.id === e.target.value); onCab({ canal_id: e.target.value || null, ...(c ? { origen: c.origen_base } : {}) }); }}>
+              <option value="">— Sin canal —</option>
+              {canales.filter((c: any) => c.activo || c.id === cot.canal_id).map((c: any) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+            </Select>
+          </Field>
+        )}
+        <Field label="Tamaño de proyecto" hint="Define cómo se valoriza al convertirse en proyecto.">
+          {/* El tipo de cotización (única/programada) se deriva del tamaño, igual que al crearla. */}
+          <Select value={cot.tipo_proyecto ?? 'grande'} disabled={!editable}
+            onChange={(e) => onCab({ tipo_proyecto: e.target.value, tipo_cotizacion: e.target.value === 'grande' ? 'unica' : 'programada' })}>
+            <option value="grande">Grande (obra única)</option>
+            <option value="chico">Chico (mantenimiento / recurrencia)</option>
           </Select>
         </Field>
         <Field label="Asunto">
@@ -1294,13 +1312,13 @@ const CAMPO_LABEL: Record<string, string> = {
   titulo: 'Título', unidad: 'Unidad', cantidad: 'Cantidad', costo_unitario: 'Costo unitario',
   margen_pct: '% Margen', es_hoja: 'Es hoja', descuento_pct: '% Descuento', descuento_activo: 'Descuento activo',
   gg_pct: '% GG', ga_pct: '% GA', utilidad_pct: '% Utilidad', igv_pct: '% IGV', estado: 'Estado',
-  proyecto_nombre: 'Nombre proyecto', condiciones: 'Condiciones', servicios_incluidos: 'Servicios incluidos',
+  proyecto_nombre: 'Nombre proyecto', tipo_proyecto: 'Tamaño de proyecto', condiciones: 'Condiciones', servicios_incluidos: 'Servicios incluidos',
   servicios_omitidos: 'Servicios omitidos', garantia: 'Garantía', garantia_activa: 'Garantía activa', version: 'Versión',
 };
 const IGNORAR = new Set(['updated_at', 'created_at', 'id', 'cotizacion_id', 'parent_id', 'correlativo', 'orden', 'codigo']);
 
 const REVERSIBLES: Record<string, Set<string>> = {
-  cotizaciones: new Set(['proyecto_nombre', 'asunto', 'ubicacion', 'descripcion', 'condiciones', 'servicios_incluidos', 'servicios_omitidos', 'garantia', 'garantia_activa', 'gg_pct', 'ga_pct', 'utilidad_pct', 'igv_pct', 'descuento_pct', 'descuento_activo', 'descuento_tipo', 'descuento_monto', 'mostrar_descuento_pct', 'vigencia_dias', 'plazo_valor', 'plazo_tipo']),
+  cotizaciones: new Set(['proyecto_nombre', 'asunto', 'ubicacion', 'descripcion', 'condiciones', 'servicios_incluidos', 'servicios_omitidos', 'garantia', 'garantia_activa', 'gg_pct', 'ga_pct', 'utilidad_pct', 'igv_pct', 'descuento_pct', 'descuento_activo', 'descuento_tipo', 'descuento_monto', 'mostrar_descuento_pct', 'vigencia_dias', 'plazo_valor', 'plazo_tipo', 'tipo_proyecto']),
   cotizacion_items: new Set(['titulo', 'unidad', 'cantidad', 'costo_unitario', 'margen_pct']),
 };
 

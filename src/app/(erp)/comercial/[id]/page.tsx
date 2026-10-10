@@ -38,6 +38,7 @@ export default async function CotizacionPage({ params }: { params: { id: string 
   const catalogoConApu = (catalogo ?? []).map((c) => ({ ...c, tiene_apu: conApu.has(c.id) }));
 
   // historial de modificaciones (audit log de la cotización y sus ítems)
+  const { data: canales } = await (supabase as any).from('canales_adquisicion').select('id, nombre, origen_base, activo').order('orden');
   const [{ data: aCot }, { data: aItems }, { data: perfiles }] = await Promise.all([
     supabase.from('audit_log').select('*').eq('tabla', 'cotizaciones').eq('registro_id', params.id),
     supabase.from('audit_log').select('*').eq('tabla', 'cotizacion_items').or(`new_data->>cotizacion_id.eq.${params.id},old_data->>cotizacion_id.eq.${params.id}`),
@@ -63,6 +64,7 @@ export default async function CotizacionPage({ params }: { params: { id: string 
         apu={apu ?? []}
         catalogo={catalogoConApu}
         clientes={clientes ?? []}
+        canales={canales ?? []}
         usuariosFirma={usuariosFirma}
         historial={historial}
         perfilesMap={perfilesMap}

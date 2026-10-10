@@ -30,13 +30,72 @@ export interface MapPickerProps {
   onChange: (lat: number, lng: number, direccion?: string) => void;
 }
 
-interface NominatimResult {
+interface Resultado {
   display_name: string;
-  lat: string;
-  lon: string;
+  lat: number;
+  lon: number;
 }
 
 const LIMA: [number, number] = [-12.0464, -77.0428];
+
+// ── Geocodificación ─────────────────────────────────────────────────────
+// 1) Photon (komoot): búsqueda difusa tipo Google — tolera nombres de edificio,
+//    mayúsculas y abreviaturas ("EL DERBY 055, TORRE CRONOS SURCO"); se sesga
+//    a Lima y se filtra a Perú.
+// 2) Respaldo Nominatim: con la consulta completa y, si no hay resultados,
+//    con versiones simplificadas (sin "torre/piso/oficina…" ni tramos sobrantes).
+type PhotonFeature = { geometry: { coordinates: [number, number] }; properties: Record<string, string | undefined> };
+
+function etiquetaPhoton(p: PhotonFeature['properties']): string {
+  const calle = [p.street, p.housenumber].filter(Boolean).join(' ');
+  const partes = [p.name && p.name !== p.street ? p.name : null, calle || null, p.district || p.locality, p.city, p.state];
+  return [...new Set(partes.filter(Boolean) as string[])].join(', ');
+}
+
+async function buscarPhoton(q: string, centro: [number, number]): Promise<Resultado[]> {
+  const url = `https://photon.komoot.io/api/?limit=8&lang=default&lat=${centro[0]}&lon=${centro[1]}&q=${encodeURIComponent(q)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('photon');
+  const data: { features?: PhotonFeature[] } = await res.json();
+  return (data.features ?? [])
+    .filter((f) => (f.properties.countrycode ?? '').toUpperCase() === 'PE')
+    .slice(0, 6)
+    .map((f) => ({ display_name: etiquetaPhoton(f.properties), lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0] }));
+}
+
+async function buscarNominatim(q: string): Promise<Resultado[]> {
+  const url = 'https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=pe&accept-language=es&q=' + encodeURIComponent(q);
+  const res = await fetch(url, { headers: { Accept: 'application/json' } });
+  if (!res.ok) throw new Error('nominatim');
+  const data: { display_name: string; lat: string; lon: string }[] = await res.json();
+  return data.map((r) => ({ display_name: r.display_name, lat: parseFloat(r.lat), lon: parseFloat(r.lon) }));
+}
+
+// Variantes cada vez más simples de la dirección escrita.
+function variantes(q: string): string[] {
+  const limpia = q
+    .replace(/\b(torre|edificio|edif\.?|piso|oficina|of\.?|dpto\.?|departamento|int\.?|interior|mz\.?|lote|lt\.?)\s+[\w-]+/gi, ' ')
+    .replace(/\s{2,}/g, ' ').replace(/\s+,/g, ',').trim();
+  const tramos = limpia.split(',').map((t) => t.trim()).filter(Boolean);
+  const out = [q, limpia];
+  if (tramos.length > 2) out.push([tramos[0], tramos[tramos.length - 1]].join(', '));
+  if (tramos.length > 1) out.push(tramos[0]);
+  return [...new Set(out.filter((x) => x.length >= 3))];
+}
+
+export async function geocodificar(q: string, centro: [number, number] = LIMA): Promise<Resultado[]> {
+  try {
+    const r = await buscarPhoton(q, centro);
+    if (r.length) return r;
+  } catch { /* se intenta con Nominatim */ }
+  for (const v of variantes(q)) {
+    try {
+      const r = await buscarNominatim(v);
+      if (r.length) return r;
+    } catch { /* siguiente variante */ }
+  }
+  return [];
+}
 
 // Recentra el mapa cuando cambian las coordenadas seleccionadas.
 function Recenter({ lat, lng }: { lat: number | null; lng: number | null }) {
@@ -65,39 +124,50 @@ export default function MapPickerClient({ value, onChange }: MapPickerProps) {
   const hasPoint = lat != null && lng != null;
 
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<NominatimResult[]>([]);
+  const [results, setResults] = useState<Resultado[]>([]);
   const [buscando, setBuscando] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const reverseSeq = useRef(0);
+  const searchSeq = useRef(0);
+  const elegido = useRef<string | null>(null);
+  const centro: [number, number] = hasPoint ? [lat!, lng!] : LIMA;
 
-  async function buscar() {
-    const q = query.trim();
+  async function buscar(texto = query, silencioso = false) {
+    const q = texto.trim();
     if (!q) return;
+    const seq = ++searchSeq.current;
     setBuscando(true);
-    setAviso(null);
-    setResults([]);
+    if (!silencioso) setAviso(null);
     try {
-      const url =
-        'https://nominatim.openstreetmap.org/search?format=json&limit=5&countrycodes=pe&accept-language=es&q=' +
-        encodeURIComponent(q);
-      const res = await fetch(url, { headers: { Accept: 'application/json' } });
-      if (!res.ok) throw new Error('geocoder');
-      const data: NominatimResult[] = await res.json();
+      const data = await geocodificar(q, centro);
+      if (seq !== searchSeq.current) return; // llegó una búsqueda más nueva
       setResults(data);
-      if (data.length === 0) setAviso('Sin resultados. Puedes marcar el punto manualmente en el mapa.');
+      if (data.length === 0 && !silencioso) setAviso('Sin resultados. Revisa la dirección o marca el punto manualmente en el mapa.');
+      // Búsqueda explícita con un único resultado: se ubica directo.
+      if (!silencioso && data.length === 1) elegir(data[0]);
     } catch {
-      setAviso('No se pudo buscar la dirección. Puedes marcar el punto manualmente en el mapa.');
+      if (!silencioso) setAviso('No se pudo buscar la dirección. Puedes marcar el punto manualmente en el mapa.');
     } finally {
-      setBuscando(false);
+      if (seq === searchSeq.current) setBuscando(false);
     }
   }
 
-  function elegir(r: NominatimResult) {
-    const la = parseFloat(r.lat);
-    const ln = parseFloat(r.lon);
+  // Sugerencias mientras se escribe (como Google Maps), con espera de 450 ms.
+  useEffect(() => {
+    const q = query.trim();
+    if (q.length < 4 || q === elegido.current) return;
+    const t = setTimeout(() => { void buscar(q, true); }, 450);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  function elegir(r: Resultado) {
+    searchSeq.current++;
+    elegido.current = r.display_name;
     setResults([]);
+    setAviso(null);
     setQuery(r.display_name);
-    onChange(la, ln, r.display_name);
+    onChange(r.lat, r.lon, r.display_name);
   }
 
   // Reverse geocoding al hacer click: sugiere una dirección, pero nunca bloquea.
@@ -125,7 +195,7 @@ export default function MapPickerClient({ value, onChange }: MapPickerProps) {
     <div className="space-y-2">
       <div className="flex gap-2">
         <Input
-          placeholder="Buscar dirección (ej. Av. Javier Prado 123, San Isidro)"
+          placeholder="Buscar dirección o lugar (ej. Av. El Derby 055, Surco)"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => {
@@ -135,7 +205,7 @@ export default function MapPickerClient({ value, onChange }: MapPickerProps) {
             }
           }}
         />
-        <Button type="button" variant="outline" onClick={buscar} disabled={buscando || !query.trim()}>
+        <Button type="button" variant="outline" onClick={() => buscar()} disabled={buscando || !query.trim()}>
           {buscando ? <Loader2 className="animate-spin" /> : <Search />} Buscar
         </Button>
       </div>

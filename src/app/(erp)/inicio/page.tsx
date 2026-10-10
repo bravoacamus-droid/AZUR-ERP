@@ -8,6 +8,11 @@ import { EmptyState } from '@/components/ui/misc';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { fmtMoney, fmtDateTime } from '@/lib/format';
 import type { DashboardProyecto } from '@/lib/salud';
+import { cargarDashboards } from '@/lib/dashboards';
+import { DashboardTabs } from '@/components/dashboard/dashboard-tabs';
+import { DashGerencia } from '@/components/dashboard/dash-gerencia';
+import { DashJefe } from '@/components/dashboard/dash-jefe';
+import { DashFinanzas } from '@/components/dashboard/dash-finanzas';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,13 +39,19 @@ export default async function InicioPage() {
   const egresosMes = (egresos ?? []).reduce((a, r) => a + Number(r.monto), 0);
   const activos = proyectos.filter((p) => p.estado === 'en_ejecucion').length;
 
-  return (
-    <div className="space-y-6">
-      <PageHeader
-        title={`Hola, ${session.nombre.split(' ')[0]} 👋`}
-        description="Resumen ejecutivo de la operación AZUR en tiempo real."
-      />
+  // Dashboards por rol (informe AZ-TDR-SIS-001): Gerencia ve los tres; el Jefe
+  // de Proyectos el suyo; Administración el de Finanzas. Todos conservan el resumen.
+  const rol = session.rol;
+  const tabs = [
+    ...(rol === 'gerencia' ? [{ value: 'gerencia', label: 'Gerente general' }] : []),
+    ...(rol === 'gerencia' || rol === 'jefe_proyectos' ? [{ value: 'proyectos', label: 'Jefe de proyectos' }] : []),
+    ...(rol === 'gerencia' || rol === 'administrador' ? [{ value: 'finanzas', label: 'Finanzas' }] : []),
+    { value: 'resumen', label: 'Resumen operativo' },
+  ];
+  const dd = tabs.length > 1 ? await cargarDashboards() : null;
 
+  const resumen = (
+    <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard label="Ingresos del mes" value={fmtMoney(ingresosMes)} icon={<TrendingUp />} tone="success" />
         <KpiCard label="Egresos del mes" value={fmtMoney(egresosMes)} icon={<TrendingDown />} tone="azur" />
@@ -96,6 +107,23 @@ export default async function InicioPage() {
           </div>
         </div>
       </div>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <PageHeader
+        title={`Hola, ${session.nombre.split(' ')[0]} 👋`}
+        description="Resumen ejecutivo de la operación AZUR en tiempo real."
+      />
+      <DashboardTabs tabs={tabs}>
+        {{
+          gerencia: dd ? <DashGerencia d={dd} /> : null,
+          proyectos: dd ? <DashJefe d={dd} /> : null,
+          finanzas: dd ? <DashFinanzas d={dd} /> : null,
+          resumen,
+        }}
+      </DashboardTabs>
     </div>
   );
 }

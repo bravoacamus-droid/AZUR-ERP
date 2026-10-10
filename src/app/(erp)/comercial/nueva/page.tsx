@@ -14,6 +14,8 @@ export default async function NuevaCotizacionPage() {
     supabase.from('plantillas_cotizacion').select('id, nombre'),
     (supabase as any).from('tipos_servicio').select('id, nombre').eq('activo', true).order('orden'),
   ]);
+  // Canal de adquisición del lead (maestro de Configuración; alimenta el CAC).
+  const { data: canales } = await (supabase as any).from('canales_adquisicion').select('id, nombre, origen_base').eq('activo', true).order('orden');
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -23,6 +25,7 @@ export default async function NuevaCotizacionPage() {
         clientes={clientes ?? []}
         plantillas={plantillas ?? []}
         servicios={servicios ?? []}
+        canales={canales ?? []}
       />
     </div>
   );

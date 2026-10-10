@@ -108,3 +108,44 @@ export async function eliminarTipoServicio(id: string): Promise<Res> {
   revalidar();
   return { ok: true, id };
 }
+
+// ─────────────────── Canales de adquisición + inversión (CAC) ───────────────────
+const canalSchema = z.object({
+  id: z.string().uuid().optional(),
+  nombre: z.string().min(2, 'Nombre requerido'),
+  orden: z.coerce.number().int().default(0),
+  activo: z.coerce.boolean().default(true),
+});
+
+export async function guardarCanal(input: z.input<typeof canalSchema>): Promise<Res> {
+  await guard();
+  const parsed = canalSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' };
+  const { id, ...d } = parsed.data;
+  const supabase = createClient() as any;
+  const q = id ? supabase.from('canales_adquisicion').update(d).eq('id', id) : supabase.from('canales_adquisicion').insert(d);
+  const { error } = await q;
+  if (error) return { ok: false, error: error.message };
+  revalidar();
+  revalidatePath('/inicio');
+  return { ok: true, id };
+}
+
+// Inversión de un canal en un mes (mes = 'AAAA-MM'). Monto 0 o vacío la borra.
+export async function guardarInversion(canalId: string, mes: string, monto: number): Promise<Res> {
+  const session = await guard();
+  if (!z.string().uuid().safeParse(canalId).success || !/^\d{4}-\d{2}$/.test(mes)) return { ok: false, error: 'Datos inválidos' };
+  const supabase = createClient() as any;
+  const fecha = `${mes}-01`;
+  if (!monto || monto <= 0) {
+    const { error } = await supabase.from('inversion_marketing').delete().eq('canal_id', canalId).eq('mes', fecha);
+    if (error) return { ok: false, error: error.message };
+  } else {
+    const { error } = await supabase.from('inversion_marketing')
+      .upsert({ canal_id: canalId, mes: fecha, monto, created_by: session.id }, { onConflict: 'canal_id,mes' });
+    if (error) return { ok: false, error: error.message };
+  }
+  revalidatePath('/configuracion');
+  revalidatePath('/inicio');
+  return { ok: true };
+}

@@ -26,6 +26,7 @@ const crearSchema = z.object({
   // tipo_cotizacion se conserva por compatibilidad; hoy se deriva del tamaño.
   tipo_cotizacion: z.enum(['unica', 'programada', 'recurrencia']).optional(),
   tipo_servicio_id: z.string().uuid().optional(),
+  canal_id: z.string().uuid().optional(),
   tipo_proyecto: z.enum(['grande', 'chico']),
   origen: z.enum(['directo', 'recomendacion', 'oficina', 'llamada']).optional(),
   vigencia_dias: z.coerce.number().optional(),
@@ -69,6 +70,7 @@ export async function crearCotizacion(input: z.input<typeof crearSchema>): Promi
       // Deriva el tipo_cotizacion (legado) del tamaño si el form ya no lo envía.
       tipo_cotizacion: d.tipo_cotizacion ?? (d.tipo_proyecto === 'grande' ? 'unica' : 'programada'),
       tipo_servicio_id: d.tipo_servicio_id ?? null,
+      canal_id: d.canal_id ?? null,
       tipo_proyecto: d.tipo_proyecto,
       origen: d.origen,
       vigencia_dias: d.vigencia_dias ?? 7,
@@ -630,7 +632,7 @@ export async function duplicarCotizacion(id: string, opts?: { comoPlantilla?: bo
   const { data: nueva, error } = await admin.from('cotizaciones').insert({
     linea_id: cot.linea_id, cliente_id: cot.cliente_id, proyecto_nombre: nombre,
     asunto: cot.asunto, ubicacion: cot.ubicacion, tipo_cotizacion: cot.tipo_cotizacion, tipo_proyecto: cot.tipo_proyecto,
-    origen: cot.origen, vigencia_dias: cot.vigencia_dias, plazo_valor: cot.plazo_valor, plazo_tipo: cot.plazo_tipo,
+    origen: cot.origen, canal_id: (cot as { canal_id?: string | null }).canal_id ?? null, tipo_servicio_id: (cot as { tipo_servicio_id?: string | null }).tipo_servicio_id ?? null, vigencia_dias: cot.vigencia_dias, plazo_valor: cot.plazo_valor, plazo_tipo: cot.plazo_tipo,
     moneda: cot.moneda, tipo_cambio: cot.tipo_cambio, mostrar_equiv_pen: cot.mostrar_equiv_pen,
     gg_pct: cot.gg_pct, ga_pct: cot.ga_pct, utilidad_pct: cot.utilidad_pct, igv_pct: cot.igv_pct,
     descuento_pct: cot.descuento_pct, descuento_activo: cot.descuento_activo, margen_min_pct: cot.margen_min_pct,

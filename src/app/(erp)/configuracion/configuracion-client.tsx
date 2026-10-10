@@ -15,6 +15,7 @@ import { PageHeader } from '@/components/ui/page';
 import { digitosGuiones } from '@/lib/utils';
 import { guardarLinea, toggleLinea, guardarTipoServicio, toggleTipoServicio, eliminarTipoServicio, type Res } from './actions';
 import { guardarMedioPago, eliminarRegistro } from '../catalogos/actions';
+import { CanalesTab, type Canal, type Inversion } from './canales-tab';
 
 type Linea = { id: string; nombre: string; codigo: string; color: string | null; activo: boolean };
 type Servicio = { id: string; nombre: string; activo: boolean; orden: number };
@@ -291,23 +292,26 @@ const TABS = [
   { value: 'lineas', label: 'Líneas de negocio' },
   { value: 'servicios', label: 'Tipos de servicio' },
   { value: 'medios', label: 'Medios de pago' },
+  { value: 'canales', label: 'Canales e inversión (CAC)' },
 ];
 
 export function ConfiguracionClient({
-  lineas, servicios, medios, usoLinea, usoServicio,
+  lineas, servicios, medios, usoLinea, usoServicio, canales = [], inversiones = [], usoCanal = {},
 }: {
   lineas: Linea[]; servicios: Servicio[]; medios: Medio[];
   usoLinea: Record<string, number>; usoServicio: Record<string, number>;
+  canales?: Canal[]; inversiones?: Inversion[]; usoCanal?: Record<string, number>;
 }) {
   const [tab, setTab] = React.useState('lineas');
   return (
     <div className="space-y-6">
-      <PageHeader title="Configuración" description="Maestros del negocio (solo gerencia): líneas, tipos de servicio y medios de pago." />
+      <PageHeader title="Configuración" description="Maestros del negocio (solo gerencia): líneas, tipos de servicio, medios de pago y canales de adquisición." />
       <Tabs tabs={TABS} value={tab} onChange={setTab} />
       <div>
         {tab === 'lineas' && <LineasTab rows={lineas} uso={usoLinea} />}
         {tab === 'servicios' && <ServiciosTab rows={servicios} uso={usoServicio} />}
         {tab === 'medios' && <MediosTab rows={medios} />}
+        {tab === 'canales' && <CanalesTab canales={canales} inversiones={inversiones} uso={usoCanal} />}
       </div>
     </div>
   );

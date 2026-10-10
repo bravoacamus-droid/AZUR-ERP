@@ -26,11 +26,13 @@ export function NuevaCotizacionForm({
   clientes,
   plantillas,
   servicios,
+  canales = [],
 }: {
   lineas: Opt[];
   clientes: Opt[];
   plantillas: Opt[];
   servicios: Opt[];
+  canales?: { id: string; nombre: string; origen_base: string }[];
 }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -39,7 +41,8 @@ export function NuevaCotizacionForm({
   const [nuevoCli, setNuevoCli] = useState<null | { razon_social: string; ruc_dni: string; contacto_nombre: string; origen: string }>(null);
   const [cliBusy, setCliBusy] = useState(false);
   const [form, setForm] = useState({
-    origen: 'directo',
+    origen: canales[0]?.origen_base ?? 'directo',
+    canal_id: canales[0]?.id ?? '',
     cliente_id: clientes[0]?.id ?? '',
     linea_id: lineas[0]?.id ?? '',
     tipo_servicio_id: servicios[0]?.id ?? '',
@@ -67,6 +70,7 @@ export function NuevaCotizacionForm({
     const res = await crearCotizacion({
       ...form,
       tipo_servicio_id: form.tipo_servicio_id || undefined,
+      canal_id: form.canal_id || undefined,
       tipo_proyecto: form.tipo_proyecto as 'grande' | 'chico',
       origen: form.origen as 'directo' | 'recomendacion' | 'oficina' | 'llamada',
       moneda: form.moneda as 'PEN' | 'USD',
@@ -100,13 +104,19 @@ export function NuevaCotizacionForm({
     <Card>
       <CardContent className="space-y-4 p-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Origen del lead" required>
-            <Select value={form.origen} onChange={(e) => set('origen', e.target.value)}>
-              <option value="directo">Contacto directo</option>
-              <option value="recomendacion">Recomendación de tercero</option>
-              <option value="oficina">Visita a oficina</option>
-              <option value="llamada">Llamada o reunión</option>
-            </Select>
+          <Field label="Origen del lead (canal)" required hint="Canal de adquisición: alimenta el dashboard de CAC.">
+            {canales.length > 0 ? (
+              <Select value={form.canal_id} onChange={(e) => { const c = canales.find((x) => x.id === e.target.value); setForm((f) => ({ ...f, canal_id: e.target.value, origen: c?.origen_base ?? 'directo' })); }}>
+                {canales.map((c) => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </Select>
+            ) : (
+              <Select value={form.origen} onChange={(e) => set('origen', e.target.value)}>
+                <option value="directo">Contacto directo</option>
+                <option value="recomendacion">Recomendación de tercero</option>
+                <option value="oficina">Visita a oficina</option>
+                <option value="llamada">Llamada o reunión</option>
+              </Select>
+            )}
           </Field>
           <Field label="Cliente" required>
             <div className="flex gap-2">

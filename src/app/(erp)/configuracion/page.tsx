@@ -13,8 +13,14 @@ export default async function ConfiguracionPage() {
     supabase.from('tipos_servicio').select('id, nombre, activo, orden').order('orden'),
     supabase.from('medios_pago_empresa').select('id, banco, titular, cuenta_soles, cci_soles, cuenta_dolares, cci_dolares, es_detraccion, mostrar_cotizacion, mostrar_valorizacion, mostrar_liquidacion').order('orden'),
     // Conteo de uso por línea/servicio, para avisar antes de desactivar/eliminar.
-    supabase.from('cotizaciones').select('linea_id, tipo_servicio_id').eq('es_plantilla', false),
+    supabase.from('cotizaciones').select('linea_id, tipo_servicio_id, canal_id').eq('es_plantilla', false),
   ]);
+  const [{ data: canales }, { data: inversiones }] = await Promise.all([
+    supabase.from('canales_adquisicion').select('id, nombre, activo, orden').order('orden'),
+    supabase.from('inversion_marketing').select('canal_id, mes, monto').order('mes'),
+  ]);
+  const usoCanal: Record<string, number> = {};
+  for (const c of (cots ?? []) as { canal_id: string | null }[]) if (c.canal_id) usoCanal[c.canal_id] = (usoCanal[c.canal_id] ?? 0) + 1;
 
   const usoLinea: Record<string, number> = {};
   const usoServicio: Record<string, number> = {};
@@ -30,6 +36,9 @@ export default async function ConfiguracionPage() {
       medios={medios ?? []}
       usoLinea={usoLinea}
       usoServicio={usoServicio}
+      canales={canales ?? []}
+      inversiones={inversiones ?? []}
+      usoCanal={usoCanal}
     />
   );
 }

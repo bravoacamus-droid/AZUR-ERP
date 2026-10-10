@@ -11,6 +11,12 @@ import { EmptyState } from '@/components/ui/misc';
 import { ESTADO_COTIZACION } from '@/lib/estados';
 import { fmtDate } from '@/lib/format';
 import { CotizacionRowActions } from './row-actions';
+
+const REVISION: Record<string, { label: string; variant: 'warning' | 'success' | 'danger' }> = {
+  pendiente: { label: 'En revisión', variant: 'warning' },
+  aprobada: { label: 'Revisión aprobada', variant: 'success' },
+  observada: { label: 'Observada', variant: 'danger' },
+};
 import { SearchBox, Pagination } from '@/components/ui/list-tools';
 import { ComercialDashboard } from '@/components/comercial/comercial-dashboard';
 
@@ -29,7 +35,7 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
 
   let query = supabase
     .from('cotizaciones')
-    .select('id, codigo, proyecto_nombre, estado, fecha, tipo_proyecto, cliente:clientes(razon_social), linea:lineas_negocio(codigo, nombre)', { count: 'exact' })
+    .select('id, codigo, proyecto_nombre, estado, revision_estado, fecha, tipo_proyecto, cliente:clientes(razon_social), linea:lineas_negocio(codigo, nombre)', { count: 'exact' })
     .eq('es_plantilla', false);
   if (q) {
     // Busca por proyecto, código y asunto (columnas propias) y también por
@@ -188,7 +194,15 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
                         <Badge variant="outline">{(c.linea as { codigo?: string } | null)?.codigo ?? '—'}</Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge variant={est.variant}>{est.label}</Badge>
+                        <div className="flex flex-wrap items-center gap-1">
+                          <Badge variant={est.variant}>{est.label}</Badge>
+                          {/* Estado de la revisión de Costos y Presupuestos (mientras la cotización sigue abierta). */}
+                          {['borrador', 'enviada', 'en_negociacion'].includes(c.estado) && REVISION[(c as { revision_estado?: string | null }).revision_estado ?? ''] && (
+                            <Badge variant={REVISION[(c as { revision_estado?: string | null }).revision_estado ?? ''].variant}>
+                              {REVISION[(c as { revision_estado?: string | null }).revision_estado ?? ''].label}
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{fmtDate(c.fecha)}</TableCell>
                       <TableCell><CotizacionRowActions id={c.id} estado={c.estado} puedeEliminarDirecto={esGerencia} /></TableCell>
