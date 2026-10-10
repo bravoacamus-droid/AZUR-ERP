@@ -66,7 +66,7 @@ export function DashboardProyVsReal({
         </CardHeader>
         <CardContent>
           {sinPlan ? (
-            <p className="text-sm text-muted-foreground">Aún no hay fechas planificadas en la línea base. Cárgalas en Last Planner → Proyectado.</p>
+            <p className="text-sm text-muted-foreground">Aún no hay fechas planificadas en la línea base. Cárgalas en la pestaña Cronograma.</p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">

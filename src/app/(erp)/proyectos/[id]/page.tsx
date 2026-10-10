@@ -96,11 +96,16 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
   ];
   const [{ data: ptg }, { data: solsGasto }] = await Promise.all([
     supabase.from('presupuesto_tipo_gasto').select('tipo, monto_proyectado').eq('proyecto_id', params.id),
-    supabase.from('solicitudes_pago').select('tipo, monto, status').eq('proyecto_id', params.id).in('status', ['pagada', 'conciliada']),
+    (supabase as unknown as { from: (t: string) => any }).from('solicitudes_pago').select('tipo, monto, status, pagado_at, fecha_gasto, partida_ppto, proyecto_item_id').eq('proyecto_id', params.id).in('status', ['pagada', 'conciliada']),
   ]);
+  // Costo real (AC) para la Curva S de costos: lo pagado, sin la reposición de
+  // caja chica (misma regla que v_dashboard_proyecto).
+  const gastosAC = ((solsGasto ?? []) as any[])
+    .filter((s) => s.tipo !== 'caja_chica')
+    .map((s) => ({ monto: Number(s.monto), fecha: (s as { pagado_at?: string | null; fecha_gasto?: string | null }).pagado_at ?? (s as { fecha_gasto?: string | null }).fecha_gasto ?? null, tipo: s.tipo as string, partida_ppto: (s as { partida_ppto?: string | null }).partida_ppto ?? null, proyecto_item_id: (s as { proyecto_item_id?: string | null }).proyecto_item_id ?? null }));
   const proyMap = new Map((ptg ?? []).map((r) => [r.tipo as string, Number(r.monto_proyectado)]));
   const realMap = new Map<string, number>();
-  (solsGasto ?? []).forEach((s) => realMap.set(s.tipo as string, (realMap.get(s.tipo as string) ?? 0) + Number(s.monto)));
+  ((solsGasto ?? []) as { tipo: string; monto: number }[]).forEach((s) => realMap.set(s.tipo as string, (realMap.get(s.tipo as string) ?? 0) + Number(s.monto)));
   const presupuestoGasto = {
     costo: costoProyecto,
     tipos: TIPOS_GASTO.map((t) => ({ ...t, proyectado: proyMap.get(t.tipo) ?? 0, real: realMap.get(t.tipo) ?? 0 })),
@@ -147,6 +152,7 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         comparativo={comparativo}
         presupuestoGasto={presupuestoGasto}
         adelantos={adelantos ?? []}
+        gastosAC={gastosAC}
         userId={session.id}
         userNombre={session.nombre}
         userRol={session.rol}

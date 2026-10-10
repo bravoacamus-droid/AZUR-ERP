@@ -17,10 +17,12 @@ import { Field, EmptyState, Avatar, InfoTip } from '@/components/ui/misc';
 import { KpiCard } from '@/components/ui/page';
 import { BarraTresTramos } from '@/components/dashboard/barra-tres-tramos';
 import { CurvaSComparativa } from '@/components/proyectos/curva-s-comparativa';
+import { CurvaCostos } from '@/components/proyectos/curva-costos';
+import { Cronograma } from '@/components/proyectos/cronograma';
 import { DashboardProyVsReal } from '@/components/proyectos/dashboard-proy-real';
 import { ReporteConsolidado } from '@/components/proyectos/reporte-consolidado';
 import { TareoRevision } from '@/components/proyectos/tareo-revision';
-import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct } from '@/lib/format';
+import { fmtMoney, fmtNumber, fmtDate, fmtDateInput, fmtDateTime, fmtPct, todayLimaISO } from '@/lib/format';
 import { ESTADO_PROYECTO, ESTADO_TAREA, PRIORIDAD } from '@/lib/estados';
 import { armarArbol, renumerar, calcularValorizacion, dilucionAdelanto, type NodoArbol } from '@/lib/calc';
 import { FirmasEditor } from '@/components/firmas/firmas-editor';
@@ -45,7 +47,10 @@ import { revisarRdo } from '@/app/(pwa)/campo/rdo/actions';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, usuariosFirma = [], hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, adelantos, campo, userId, userNombre, userRol, canManage } = props;
+  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, usuariosFirma = [], hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, adelantos, gastosAC = [], campo, userId, userNombre, userRol, canManage } = props;
+  // Cronograma de cobros, Adicionales y Expediente se retiran del área de
+  // Proyectos (informe AZ-TDR-SIS-001); quedan solo para Gerencia y Administración.
+  const veTabsAdmin = userRol === 'gerencia' || userRol === 'administrador';
   const esMantenimiento = proy.tipo_proyecto === 'chico';
   const router = useRouter();
   const [presentes, setPresentes] = useState<string[]>([]);
@@ -104,25 +109,26 @@ export function ProyectoDetalle(props: any) {
         tabs={[
           { value: 'resumen', label: 'Resumen' },
           { value: 'lastplanner', label: 'Last Planner' },
-          { value: 'cobros', label: 'Cronograma de cobros' },
-          { value: 'adicionales', label: 'Adicionales' },
+          { value: 'cronograma', label: 'Cronograma' },
+          ...(veTabsAdmin ? [{ value: 'cobros', label: 'Cronograma de cobros' }, { value: 'adicionales', label: 'Adicionales' }] : []),
           { value: 'equipo', label: 'Equipo' },
           ...(esMantenimiento ? [{ value: 'mantenimiento', label: 'Mantenimiento' }] : []),
           { value: 'campo', label: (() => { const n = (campo?.partes ?? []).filter((p: any) => p.estado === 'enviado').length + (campo?.tareo ?? []).filter((t: any) => t.estado === 'enviado').length; return `Campo${n ? ` · ${n} por revisar` : ''}`; })() },
           { value: 'liquidacion', label: 'Liquidación' },
-          { value: 'expediente', label: 'Expediente' },
+          ...(veTabsAdmin ? [{ value: 'expediente', label: 'Expediente' }] : []),
         ]}
       />
 
       {tab === 'resumen' && <Resumen proy={proy} items={items} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} adelantos={adelantos} usuariosFirma={usuariosFirma} />}
-      {tab === 'lastplanner' && <LastPlanner proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} adelantos={adelantos} />}
-      {tab === 'cobros' && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
-      {tab === 'adicionales' && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
+      {tab === 'lastplanner' && <LastPlanner vista="lp" proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} adelantos={adelantos} gastosAC={gastosAC} />}
+      {tab === 'cronograma' && <LastPlanner vista="cronograma" proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} adelantos={adelantos} gastosAC={gastosAC} />}
+      {tab === 'cobros' && veTabsAdmin && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
+      {tab === 'adicionales' && veTabsAdmin && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
       {tab === 'campo' && <CampoTab campo={campo} proyectoId={proy.id} userRol={userRol} />}
       {tab === 'mantenimiento' && <Mantenimiento proy={proy} servicios={servicios} canManage={canManage} />}
       {tab === 'liquidacion' && <Liquidacion proy={proy} items={items} valorizaciones={valorizaciones} adicionales={adicionales} dash={dash} canManage={canManage} />}
-      {tab === 'expediente' && <Expediente proy={proy} documentos={documentos} canManage={canManage} />}
+      {tab === 'expediente' && veTabsAdmin && <Expediente proy={proy} documentos={documentos} canManage={canManage} />}
     </div>
   );
 }
@@ -484,7 +490,7 @@ function Dato({ k, v }: { k: string; v: any }) {
 }
 
 // ───────────────────────── LAST PLANNER ───────────────────────────────
-function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuProyecto, canManage, userRol, adelantos = [] }: any) {
+function LastPlanner({ vista = 'lp', proy, items, valorizaciones, contrapartes, catalogo, apuProyecto, canManage, userRol, adelantos = [], gastosAC = [] }: any) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [rows, setRows] = useState<any[]>(items);
@@ -860,7 +866,30 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
   const itemsPlan = leavesLP.map((r) => ({ fi: fmtDateInput(r.fi_proy) || null, fe: fmtDateInput(r.fe_proy) || null, monto: Number(r.total_costo ?? 0) * factorVal }));
   const valsCurva = valsSorted.map((v, i) => ({ numero: v.numero, monto: (totPorValLP[i] ?? 0) * factorVal }));
   const inicioBaseCurva = leavesLP.map((r) => fmtDateInput(r.fi_proy)).filter(Boolean).sort()[0] || fmtDateInput(proy.fecha_inicio) || null;
-  const semPlan = (r: any) => { const fi = fmtDateInput(r.fi_proy), fe = fmtDateInput(r.fe_proy); if (!fi || !fe) return ''; const d = Math.round((new Date(fe + 'T00:00:00').getTime() - new Date(fi + 'T00:00:00').getTime()) / 86400000) + 1; return Math.max(1, Math.ceil(d / 7)); };
+  const depModal = depTarget && (
+    <DependenciaModal
+      row={depTarget}
+      opciones={flat.filter((f) => f.row.id !== depTarget.id).map((f) => ({ id: f.row.id, label: `${f.codigo} — ${f.row.titulo}` }))}
+      actual={depTarget.depende_de ?? null}
+      onClose={() => setDepTarget(null)}
+      onSave={(predId) => { setDepende(depTarget.id, predId); setDepTarget(null); }}
+    />
+  );
+
+  // ── Pestaña CRONOGRAMA: fuente única de fechas (proyectado + real) ──
+  if (vista === 'cronograma') {
+    return (
+      <>
+        <Cronograma
+          flat={flat} rows={rows} calcVal={calcVal as any} canManage={canManage} busy={busy}
+          aviso={aviso} setAviso={setAviso} patronSel={patronSel} setPatronSel={setPatronSel}
+          recalcular={recalcularFechas} saveFechas={saveFechas} saveFechasProy={saveFechasProy}
+          setDepTarget={setDepTarget} codigoDe={codigoDe}
+        />
+        {depModal}
+      </>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -872,13 +901,6 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
           <FullscreenButton />
           {canManage && (
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-lg border bg-white px-1.5 py-0.5">
-              <Calendar className="size-3.5 text-muted-foreground" />
-              <select className="bg-transparent py-1 text-xs" value={patronSel} onChange={(e) => setPatronSel(e.target.value as PatronDias)}>
-                {Object.entries(PATRON_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-              </select>
-              <Button size="sm" variant="outline" onClick={() => recalcularFechas(lpTab === 'proyectado' ? 'proy' : 'real')} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Recalcular fechas</Button>
-            </div>
             <Button size="sm" variant="outline" onClick={() => add(null)} disabled={busy}><Plus /> Partida</Button>
             {lpTab === 'real' && <Button size="sm" variant="outline" onClick={nuevaVal} disabled={busy}><Calendar /> Nueva valorización</Button>}
             {lpTab === 'real' && activeVal && <Button size="sm" variant="gradient" onClick={guardar} disabled={busy}>{busy ? <Loader2 className="animate-spin" /> : <Save />} Guardar avances</Button>}
@@ -888,7 +910,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       </div>
 
       <div className="flex w-fit items-center gap-1 rounded-lg border bg-muted/40 p-0.5 text-sm">
-        <button onClick={() => setLpTab('proyectado')} className={`rounded-md px-3 py-1.5 font-medium transition ${lpTab === 'proyectado' ? 'bg-white text-azur-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Proyectado <span className="text-[10px] font-normal text-muted-foreground">(línea base)</span></button>
+        <button onClick={() => setLpTab('proyectado')} className={`rounded-md px-3 py-1.5 font-medium transition ${lpTab === 'proyectado' ? 'bg-white text-azur-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Proyectado <span className="text-[10px] font-normal text-muted-foreground">(curvas S)</span></button>
         <button onClick={() => setLpTab('real')} className={`rounded-md px-3 py-1.5 font-medium transition ${lpTab === 'real' ? 'bg-white text-azur-700 shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}>Real <span className="text-[10px] font-normal text-muted-foreground">(avance)</span></button>
       </div>
 
@@ -904,96 +926,11 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       )}
       {lpTab === 'proyectado' && (
         <>
+          <p className="rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+            La línea base (inicio, fin y duración proyectados) se programa en la pestaña <strong>Cronograma</strong>; estas curvas se arman solas con esas fechas, el costo de cada partida, las valorizaciones y los pagos registrados en Finanzas.
+          </p>
+          <CurvaCostos items={rows} valorizaciones={valsSorted} gastos={gastosAC} hoy={todayLimaISO()} />
           <CurvaSComparativa items={itemsPlan} inicioBase={inicioBaseCurva} valorizaciones={valsCurva} moneda="S/" />
-          <Card>
-            <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <p className="px-3 pt-3 text-xs text-muted-foreground">Línea base del cronograma: fechas planificadas por partida. La curva S de arriba se arma sola con estas fechas y el costo. No incluye estado/prioridad/contratista (eso vive en la pestaña Real).</p>
-                <table className="w-full whitespace-nowrap text-xs">
-                  <thead className="bg-muted/50 uppercase tracking-wide text-muted-foreground">
-                    <tr>
-                      <th className="px-2 py-2 text-left">Ítem</th>
-                      <th className="min-w-[180px] px-2 py-2 text-left">Título</th>
-                      <th className="px-2 py-2">Und</th>
-                      <th className="px-2 py-2 text-right">Cant</th>
-                      <th className="px-2 py-2 text-right">C.Unit</th>
-                      <th className="px-2 py-2 text-right">Total (costo)</th>
-                      <th className="px-2 py-2">Inicio plan</th>
-                      <th className="px-2 py-2">Entrega plan</th>
-                      <th className="px-2 py-2">Dur</th>
-                      <th className="px-2 py-2 text-center">Sem</th>
-                      {canManage && <th className="px-2 py-2" />}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {flat.length === 0 && <tr><td colSpan={11} className="py-10 text-center text-muted-foreground">Sin itemizado. Agrega la primera partida.</td></tr>}
-                    {flat.map(({ row, depth, codigo }) => {
-                      const cv = calcVal.get(row.id);
-                      const hoja = row.es_hoja;
-                      const esHito = row.es_hito;
-                      const depCod = row.depende_de ? codigoDe.get(row.depende_de) : null;
-                      const depCtrl = canManage ? (
-                        <div className="mt-0.5 flex items-center gap-1">
-                          <button type="button" title={depCod ? `Depende de ${depCod}` : 'Vincular dependencia'} onClick={() => setDepTarget(row)} className={`rounded p-0.5 hover:bg-secondary ${row.depende_de ? 'text-azur-600' : 'text-muted-foreground'}`}><Link2 className="size-3" /></button>
-                          {depCod && <span className="text-[10px] font-medium text-azur-600">← {depCod}</span>}
-                        </div>
-                      ) : (depCod ? <div className="mt-0.5 text-[10px] font-medium text-azur-600">← {depCod}</div> : null);
-                      const iniCell = canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`pini-${row.id}-${fmtDateInput(row.fi_proy)}`} defaultValue={fmtDateInput(row.fi_proy)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fi_proy)) saveFechasProy(row, { fi_proy: e.target.value || null }); }} /> : fmtDate(row.fi_proy);
-                      const entCell = <>{canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`pent-${row.id}-${fmtDateInput(row.fe_proy)}`} defaultValue={fmtDateInput(row.fe_proy)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fe_proy)) saveFechasProy(row, { fe_proy: e.target.value || null }); }} /> : fmtDate(row.fe_proy)}{depCtrl}</>;
-                      const durCell = canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" key={`pdur-${row.id}-${row.dur_proy ?? ''}`} defaultValue={row.dur_proy ?? ''} onBlur={(e) => { const nv = e.target.value === '' ? null : Number(e.target.value); if (nv !== (row.dur_proy ?? null)) saveFechasProy(row, { dur_proy: nv }); }} /> : (row.dur_proy ?? '');
-                      if (esHito) {
-                        return (
-                          <tr key={row.id} className="border-b bg-amber-50/40">
-                            <td className="whitespace-nowrap px-2 py-1.5 font-medium text-amber-700">{codigo}</td>
-                            <td className="px-2 py-1.5"><span className="flex items-center gap-1" style={{ paddingLeft: depth * 14 }}><Flag className="size-3 shrink-0 text-amber-600" />{row.titulo}</span></td>
-                            <td colSpan={4} className="px-2 py-1.5 text-center text-[11px] italic text-muted-foreground">Hito (sin costo)</td>
-                            <td className="px-1 py-1.5 align-top">{iniCell}</td>
-                            <td className="px-1 py-1.5 align-top">{entCell}</td>
-                            <td className="px-1 py-1.5 text-center align-top">{durCell}</td>
-                            <td className="px-2 py-1.5 text-center align-top">{semPlan(row)}</td>
-                            {canManage && <td className="px-1 py-1.5 align-top"><button onClick={() => del(row.id)} title="Eliminar hito" className="rounded p-1 hover:bg-azur-50"><Trash2 className="size-3.5 text-azur-600" /></button></td>}
-                          </tr>
-                        );
-                      }
-                      const nivelBg = ['bg-slate-200/80', 'bg-slate-100/80', 'bg-slate-50/80', 'bg-slate-50/40'][Math.min(3, (row.nivel ?? 1) - 1)];
-                      return (
-                        <tr key={row.id} className={`border-b ${nivelBg} ${!hoja ? 'font-medium' : ''}`}>
-                          <td className="whitespace-nowrap px-2 py-1.5 font-medium text-muted-foreground">{codigo}</td>
-                          <td className="px-2 py-1.5"><span style={{ paddingLeft: depth * 14 }}>{row.titulo}</span></td>
-                          <td className="px-1 py-1.5 text-center">{hoja ? row.unidad ?? '' : ''}</td>
-                          <td className="px-1 py-1.5 text-right tabular-nums">{hoja && row.cantidad != null ? fmtNumber(Number(row.cantidad), 0) : ''}</td>
-                          <td className="px-1 py-1.5 text-right tabular-nums">{hoja ? fmtNumber(Number(row.costo_unitario ?? 0)) : ''}</td>
-                          <td className="px-2 py-1.5 text-right font-medium tabular-nums">{fmtNumber(cv?.total_partida ?? 0)}</td>
-                          <td className="px-1 py-1.5 align-top">{hoja ? iniCell : ''}</td>
-                          <td className="px-1 py-1.5 align-top">{hoja ? entCell : ''}</td>
-                          <td className="px-1 py-1.5 text-center align-top">{hoja ? durCell : ''}</td>
-                          <td className="px-2 py-1.5 text-center align-top">{hoja ? semPlan(row) : ''}</td>
-                          {canManage && (
-                            <td className="px-1 py-1.5 align-top">
-                              <div className="flex gap-0.5">
-                                <button title="Agregar hito (sin costo)" onClick={() => addHito(row)} className="rounded p-1 hover:bg-amber-50"><Flag className="size-3.5 text-amber-600" /></button>
-                                {row.nivel < 4 && <button onClick={() => add(row)} className="rounded p-1 hover:bg-secondary"><Plus className="size-3.5 text-muted-foreground" /></button>}
-                                <button onClick={() => del(row.id)} className="rounded p-1 hover:bg-azur-50"><Trash2 className="size-3.5 text-azur-600" /></button>
-                              </div>
-                            </td>
-                          )}
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                  {flat.length > 0 && (
-                    <tfoot className="border-t-2 border-azur-200 bg-muted/40 font-semibold">
-                      <tr>
-                        <td colSpan={5} className="px-2 py-2 text-right">TOTAL LÍNEA BASE (costo)</td>
-                        <td className="px-2 py-2 text-right tabular-nums">{fmtNumber(totContratoLP)}</td>
-                        <td colSpan={canManage ? 5 : 4} />
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
-            </CardContent>
-          </Card>
         </>
       )}
 
@@ -1031,9 +968,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                   <th className="px-2 py-2 text-right">Subtotal</th>
                   <th className="px-2 py-2 text-right">Total</th>
                   <th className="px-2 py-2 text-left">Contratista</th>
-                  <th className="px-2 py-2">Inicio</th>
-                  <th className="px-2 py-2">Entrega</th>
-                  <th className="px-2 py-2">Dur</th>
+                  <th className="px-2 py-2" title="Se programa en la pestaña Cronograma">Inicio <span className="font-normal normal-case">(cronograma)</span></th>
+                  <th className="px-2 py-2" title="Se programa en la pestaña Cronograma">Entrega</th>
+                  <th className="px-2 py-2" title="Se programa en la pestaña Cronograma">Dur</th>
                   <th className="px-2 py-2">Estado</th>
                   <th className="px-2 py-2">Prioridad</th>
                   <th className="px-2 py-2">% Acum</th>
@@ -1074,9 +1011,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                           </span>
                         </td>
                         <td colSpan={6} className="px-2 py-1.5 text-center text-[11px] italic text-muted-foreground">Hito (sin costo)</td>
-                        <td className="px-1 py-1.5 align-top">{canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ini-${row.id}-${fmtDateInput(row.fecha_inicio)}`} defaultValue={fmtDateInput(row.fecha_inicio)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_inicio)) saveFechas(row, { fecha_inicio: e.target.value || null }); }} /> : fmtDate(row.fecha_inicio)}</td>
-                        <td className="px-1 py-1.5 align-top">{canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ent-${row.id}-${fmtDateInput(row.fecha_entrega)}`} defaultValue={fmtDateInput(row.fecha_entrega)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_entrega)) saveFechas(row, { fecha_entrega: e.target.value || null }); }} /> : fmtDate(row.fecha_entrega)}{depCtrl}</td>
-                        <td className="px-1 py-1.5 text-center align-top">{canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" key={`dur-${row.id}-${row.duracion_dias ?? ''}`} defaultValue={row.duracion_dias ?? ''} onBlur={(e) => { const nv = e.target.value === '' ? null : Number(e.target.value); if (nv !== (row.duracion_dias ?? null)) saveFechas(row, { duracion_dias: nv }); }} /> : (row.duracion_dias ?? '')}</td>
+                        <td className="px-2 py-1.5 align-top text-muted-foreground">{fmtDate(row.fecha_inicio)}</td>
+                        <td className="px-2 py-1.5 align-top text-muted-foreground">{fmtDate(row.fecha_entrega)}{depCod ? <div className="mt-0.5 text-[10px] font-medium text-azur-600">← {depCod}</div> : null}</td>
+                        <td className="px-2 py-1.5 text-center align-top text-muted-foreground">{row.duracion_dias ?? ''}</td>
                         <td className="px-2 py-1.5 text-center align-top"><Badge variant="warning">Hito</Badge></td>
                         <td colSpan={4} />
                         {valsDesc.flatMap(({ v }) => [<td key={`${v.id}-p`} />, <td key={`${v.id}-t`} />])}
@@ -1108,9 +1045,9 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
                           </select>
                         ) : ''}
                       </td>
-                      <td className="px-1 py-1.5">{hoja && canManage ? <input type="date" className="rounded border bg-white px-1 py-0.5" key={`ini-${row.id}-${fmtDateInput(row.fecha_inicio)}`} defaultValue={fmtDateInput(row.fecha_inicio)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_inicio)) saveFechas(row, { fecha_inicio: e.target.value || null }); }} /> : (hoja ? fmtDate(row.fecha_inicio) : '')}</td>
-                      <td className="px-1 py-1.5 align-top">{hoja && canManage ? <><input type="date" className="rounded border bg-white px-1 py-0.5" key={`ent-${row.id}-${fmtDateInput(row.fecha_entrega)}`} defaultValue={fmtDateInput(row.fecha_entrega)} onBlur={(e) => { if ((e.target.value || '') !== fmtDateInput(row.fecha_entrega)) saveFechas(row, { fecha_entrega: e.target.value || null }); }} />{depCtrl}</> : (hoja ? <>{fmtDate(row.fecha_entrega)}{depCtrl}</> : '')}</td>
-                      <td className="px-1 py-1.5 text-center align-top">{hoja && canManage ? <input type="number" className="w-12 rounded border bg-white px-1 text-center" key={`dur-${row.id}-${row.duracion_dias ?? ''}`} defaultValue={row.duracion_dias ?? ''} onBlur={(e) => { const nv = e.target.value === '' ? null : Number(e.target.value); if (nv !== (row.duracion_dias ?? null)) saveFechas(row, { duracion_dias: nv }); }} /> : (hoja && row.duracion_dias != null ? row.duracion_dias : '')}</td>
+                      <td className="px-2 py-1.5 text-muted-foreground">{hoja ? fmtDate(row.fecha_inicio) : ''}</td>
+                      <td className="px-2 py-1.5 text-muted-foreground">{hoja ? <>{fmtDate(row.fecha_entrega)}{depCod ? <div className="mt-0.5 text-[10px] font-medium text-azur-600">← {depCod}</div> : null}</> : ''}</td>
+                      <td className="px-2 py-1.5 text-center text-muted-foreground">{hoja && row.duracion_dias != null ? row.duracion_dias : ''}</td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={et.variant}>{et.label}</Badge></td>
                       <td className="px-2 py-1.5 text-center"><Badge variant={pr.variant}>{pr.label}</Badge></td>
                       <td className="px-2 py-1.5"><PctBar pct={cv?.pct_acumulado ?? 0} /></td>
@@ -1227,15 +1164,7 @@ function LastPlanner({ proy, items, valorizaciones, contrapartes, catalogo, apuP
       {apuItem && (
         <ApuModalProy proyectoId={proy.id} item={apuItem} componentes={apuProyecto.filter((c: any) => c.proyecto_item_id === apuItem.id)} editable={canManage} onClose={() => setApuItem(null)} onChanged={() => router.refresh()} />
       )}
-      {depTarget && (
-        <DependenciaModal
-          row={depTarget}
-          opciones={flat.filter((f) => f.row.id !== depTarget.id).map((f) => ({ id: f.row.id, label: `${f.codigo} — ${f.row.titulo}` }))}
-          actual={depTarget.depende_de ?? null}
-          onClose={() => setDepTarget(null)}
-          onSave={(predId) => { setDepende(depTarget.id, predId); setDepTarget(null); }}
-        />
-      )}
+      {depModal}
     </div>
   );
 }
