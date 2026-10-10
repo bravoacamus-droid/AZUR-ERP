@@ -166,3 +166,41 @@ export async function crearSolicitud(input: SolicitudInput): Promise<Res> {
   revalidatePath('/campo/solicitudes');
   return { ok: true };
 }
+
+// "Enviar a modificar": el Jefe de Proyectos devuelve la solicitud y el
+// solicitante la corrige aquí; al reenviarla vuelve a quedar "Solicitada".
+export async function reenviarSolicitud(id: string, patch: {
+  monto: number; descripcion?: string | null; beneficiario_nombre?: string | null;
+  num_comprobante?: string | null; sustento_urls?: string[];
+}): Promise<Res> {
+  const session = await requireSession();
+  const admin = createAdminClient();
+  const { data: sol } = await admin.from('solicitudes_pago').select('status, solicitado_por, codigo').eq('id', id).single();
+  if (!sol) return { ok: false, error: 'Solicitud no encontrada' };
+  if (sol.solicitado_por !== session.id) return { ok: false, error: 'Solo quien registró la solicitud puede corregirla.' };
+  if (sol.status !== 'devuelta') return { ok: false, error: 'Solo se corrigen solicitudes devueltas para modificar.' };
+  if (!(patch.monto > 0)) return { ok: false, error: 'El monto debe ser mayor a 0' };
+  const upd: Record<string, unknown> = {
+    monto: patch.monto,
+    descripcion: patch.descripcion ?? null,
+    beneficiario_nombre: patch.beneficiario_nombre ?? null,
+    num_comprobante: patch.num_comprobante ?? null,
+    status: 'solicitada',
+    motivo_rechazo: null,
+  };
+  if (patch.sustento_urls) {
+    upd.sustento_urls = patch.sustento_urls.length ? patch.sustento_urls : null;
+    upd.sustento_url = patch.sustento_urls[0] ?? null;
+  }
+  const { error } = await admin.from('solicitudes_pago').update(upd as never).eq('id', id);
+  if (error) return { ok: false, error: error.message };
+  await notifyRoles(['jefe_proyectos', 'gerencia'], {
+    title: 'Solicitud corregida',
+    body: `${sol.codigo ?? 'Solicitud'} fue corregida por ${session.nombre} y espera aprobación.`,
+    url: '/finanzas',
+    tag: `sp-${id}`,
+  }, 'campo');
+  revalidatePath('/campo/solicitudes');
+  revalidatePath('/finanzas');
+  return { ok: true };
+}

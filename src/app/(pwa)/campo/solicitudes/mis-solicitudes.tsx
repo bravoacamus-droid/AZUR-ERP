@@ -2,7 +2,12 @@
 
 import * as React from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
-import { Receipt, Eye, ExternalLink } from 'lucide-react';
+import { Receipt, Eye, ExternalLink, Loader2, Send } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { VoucherUploadMulti } from '@/components/finanzas/voucher-upload-multi';
+import { reenviarSolicitud } from './actions';
 import { Badge } from '@/components/ui/badge';
 import { Modal } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/misc';
@@ -18,6 +23,7 @@ type Solicitud = {
   motivo_rechazo: string | null; fecha_programada: string | null;
   aprobado_at: string | null; programado_at: string | null; pagado_at: string | null;
   num_operacion: string | null; created_at: string; proyecto?: { nombre?: string } | null;
+  num_comprobante?: string | null;
 };
 
 const ESTADOS = ['solicitada', 'aprobada', 'programada', 'pagada', 'conciliada', 'rechazada', 'devuelta'];
@@ -73,6 +79,7 @@ export function MisSolicitudes({ solicitudes, total, page, pageSize, estado }: {
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <Badge variant={st.variant}>{st.label}</Badge>
+                  {s.status === 'devuelta' && <span className="text-[10px] font-semibold text-amber-700">Corregir</span>}
                   <button type="button" onClick={() => setDetalle(s)} className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-azur-600" aria-label="Ver detalle">
                     <Eye className="size-4" />
                   </button>
@@ -100,6 +107,37 @@ function Fila({ label, children }: { label: string; children: React.ReactNode })
     <div className="flex justify-between gap-3 border-b py-1.5 last:border-0">
       <span className="shrink-0 text-xs text-muted-foreground">{label}</span>
       <span className="text-right text-sm">{children}</span>
+    </div>
+  );
+}
+
+// Corrección de una solicitud devuelta ("enviar a modificar") y reenvío.
+function CorregirForm({ s, onDone }: { s: Solicitud; onDone: () => void }) {
+  const router = useRouter();
+  const [monto, setMonto] = React.useState(String(s.monto ?? ''));
+  const [desc, setDesc] = React.useState(s.descripcion ?? '');
+  const [benef, setBenef] = React.useState(s.beneficiario_nombre ?? '');
+  const [comp, setComp] = React.useState(s.num_comprobante ?? '');
+  const [fotos, setFotos] = React.useState<string[]>(s.sustento_urls?.length ? s.sustento_urls : (s.sustento_url ? [s.sustento_url] : []));
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState<string | null>(null);
+  async function enviar() {
+    setBusy(true); setErr(null);
+    const r = await reenviarSolicitud(s.id, { monto: Number(monto), descripcion: desc || null, beneficiario_nombre: benef || null, num_comprobante: comp || null, sustento_urls: fotos });
+    setBusy(false);
+    if (!r.ok) { setErr(r.error ?? 'No se pudo reenviar'); return; }
+    onDone(); router.refresh();
+  }
+  return (
+    <div className="space-y-2 rounded-xl border border-amber-300 bg-amber-50/60 p-3">
+      <p className="text-xs font-semibold text-amber-800">Corrige lo observado y vuelve a enviarla a aprobación</p>
+      <label className="block text-xs"><span className="text-muted-foreground">Monto</span><Input type="number" inputMode="decimal" value={monto} onChange={(e) => setMonto(e.target.value)} /></label>
+      <label className="block text-xs"><span className="text-muted-foreground">Beneficiario</span><Input value={benef} onChange={(e) => setBenef(e.target.value)} /></label>
+      <label className="block text-xs"><span className="text-muted-foreground">N° de comprobante</span><Input value={comp} onChange={(e) => setComp(e.target.value)} /></label>
+      <label className="block text-xs"><span className="text-muted-foreground">Descripción</span><Textarea rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} /></label>
+      <div className="text-xs"><span className="text-muted-foreground">Sustento</span><VoucherUploadMulti value={fotos} onChange={setFotos} /></div>
+      {err && <p className="text-xs text-red-600">{err}</p>}
+      <Button className="w-full" variant="gradient" disabled={busy} onClick={enviar}>{busy ? <Loader2 className="animate-spin" /> : <Send />} Reenviar a aprobación</Button>
     </div>
   );
 }
@@ -139,6 +177,8 @@ function DetalleModal({ s, onClose }: { s: Solicitud | null; onClose: () => void
             </div>
           ) : null}
         </div>
+
+        {s.status === 'devuelta' && <CorregirForm s={s} onDone={onClose} />}
 
         {(s.sustento_url || s.voucher_url || (s.sustento_urls?.length ?? 0) > 0) && (
           <div className="flex flex-wrap gap-2">

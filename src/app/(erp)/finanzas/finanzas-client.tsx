@@ -1,12 +1,13 @@
 'use client';
 
-import { Fragment, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   CheckCircle2, XCircle, CalendarClock, Banknote, MessageCircle, FilePlus,
-  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye, Loader2, Pencil, Trash2, Undo2,
+  HandCoins, Wallet, Plus, ShieldCheck, ArrowLeftRight, Eye, Loader2, Pencil, Trash2, Undo2, Clock, AlertCircle,
 } from 'lucide-react';
+import { KpiCard } from '@/components/ui/page';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,22 +44,75 @@ export function FinanzasClient({ rol, canEdit = true, solicitudes, facturas, arm
   // Gastos de empresa (EEFF): solo Administración (carga) y Gerencia (ve).
   const veGastosEmpresa = rol === 'administrador' || rol === 'gerencia';
   const [tab, setTab] = useState('solicitudes');
+  // Filtro por proyecto: acota KPIs y TODAS las pestañas al mismo proyecto.
+  const [proyId, setProyId] = useState('');
+  const f = useMemo(() => {
+    const delProy = (r: any) => !proyId || r.proyecto_id === proyId;
+    // Jornales: se conserva la fila por persona, pero solo con el desglose y el
+    // monto del proyecto elegido.
+    const jors = !proyId ? jornales : (jornales as any[]).map((j) => {
+      const prs = (j.proyectos ?? []).filter((p: any) => p.proyecto_id === proyId);
+      if (!prs.length) return null;
+      const sum = (k: string) => prs.reduce((a: number, p: any) => a + Number(p[k] ?? 0), 0);
+      return { ...j, proyectos: prs, dias: sum('dias'), horas: sum('horas'), extra: sum('extra'), monto: sum('monto'), ids: prs.flatMap((p: any) => p.ids ?? []) };
+    }).filter(Boolean);
+    return {
+      sols: (solicitudes as any[]).filter(delProy),
+      facturas: (facturas as any[]).filter(delProy),
+      armadas: (armadas as any[]).filter(delProy),
+      cajas: (cajas as any[]).filter(delProy),
+      dashboards: (dashboards as any[]).filter(delProy),
+      gastos: (gastosEmpresa as any[]).filter(delProy),
+      jornales: jors as any[],
+      jornalesTotal: proyId ? (jors as any[]).reduce((a, j) => a + j.monto, 0) : jornalesTotal,
+    };
+  }, [proyId, solicitudes, facturas, armadas, cajas, dashboards, gastosEmpresa, jornales, jornalesTotal]);
+
+  const pendientes = f.sols.filter((s: any) => ['solicitada', 'aprobada', 'programada'].includes(s.status));
+  const porPagar = pendientes.reduce((a: number, s: any) => a + Number(s.monto), 0);
+  const cobranzaPend = f.facturas.filter((x: any) => x.estado !== 'cobrada' && x.estado !== 'anulada').reduce((a: number, x: any) => a + (Number(x.monto) - Number(x.monto_cobrado)), 0);
+  const cajaTotal = f.cajas.reduce((a: number, c: any) => a + Number(c.saldo_actual ?? 0), 0);
+  const proySel = (proyectos as any[]).find((p) => p.id === proyId);
+
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3 rounded-xl border bg-white p-3">
+        <label className="min-w-[240px] flex-1 text-xs sm:max-w-md">
+          <span className="mb-0.5 block font-medium text-muted-foreground">Filtrar por proyecto</span>
+          <Select value={proyId} onChange={(e) => setProyId(e.target.value)}>
+            <option value="">Todos los proyectos</option>
+            {(proyectos as any[]).map((p) => <option key={p.id} value={p.id}>{p.nombre}</option>)}
+          </Select>
+        </label>
+        {proySel && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            Mostrando solo <strong className="text-foreground">{proySel.nombre}</strong>
+            <Button size="sm" variant="ghost" onClick={() => setProyId('')}><XCircle className="size-3.5" /> Quitar filtro</Button>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <KpiCard label="Por pagar (CxP)" value={fmtMoney(porPagar)} icon={<Clock />} tone="azur" />
+        <KpiCard label="Por cobrar (CxC)" value={fmtMoney(cobranzaPend)} icon={<AlertCircle />} tone="warning" />
+        <KpiCard label="Saldo en cajas" value={fmtMoney(cajaTotal)} icon={<Wallet />} />
+        <KpiCard label="Solicitudes pendientes" value={pendientes.length} icon={<CheckCircle2 />} />
+      </div>
+
       <Tabs value={tab} onChange={setTab} tabs={[
         { value: 'solicitudes', label: 'Solicitudes de pago' },
         { value: 'cxp', label: 'Cuentas por pagar' },
-        { value: 'jornales', label: `Jornales${jornales.length ? ` (${jornales.length})` : ''}` },
+        { value: 'jornales', label: `Jornales${f.jornales.length ? ` (${f.jornales.length})` : ''}` },
         { value: 'cxc', label: 'Cuentas por cobrar' },
         { value: 'cajas', label: 'Cajas' },
         ...(veGastosEmpresa ? [{ value: 'gastos', label: 'Gastos de empresa' }] : []),
       ]} />
-      {tab === 'solicitudes' && <Solicitudes perfiles={perfiles} rol={rol} canEdit={canEdit} solicitudes={solicitudes} proyectos={proyectos} medios={medios} contrapartes={contrapartes} proveedoresPend={proveedoresPend} cambiosProv={cambiosProv} categorias={categorias} />}
-      {tab === 'cxp' && <CxP solicitudes={solicitudes} />}
-      {tab === 'jornales' && <Jornales rol={rol} jornales={jornales} total={jornalesTotal} />}
-      {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={facturas} armadas={armadas} clientes={clientes} proyectos={proyectos} />}
-      {tab === 'cajas' && <Cajas rol={rol} canEdit={canEdit} cajas={cajas} proyectos={proyectos} perfiles={perfiles} dashboards={dashboards} />}
-      {tab === 'gastos' && veGastosEmpresa && <GastosEmpresa rol={rol} gastos={gastosEmpresa} categorias={catsEmpresa} proyectos={proyectos} perfiles={perfiles} />}
+      {tab === 'solicitudes' && <Solicitudes perfiles={perfiles} rol={rol} canEdit={canEdit} solicitudes={f.sols} proyectos={proyectos} medios={medios} contrapartes={contrapartes} proveedoresPend={proveedoresPend} cambiosProv={cambiosProv} categorias={categorias} />}
+      {tab === 'cxp' && <CxP solicitudes={f.sols} />}
+      {tab === 'jornales' && <Jornales rol={rol} jornales={f.jornales} total={f.jornalesTotal} />}
+      {tab === 'cxc' && <CxC rol={rol} canEdit={canEdit} facturas={f.facturas} armadas={f.armadas} clientes={clientes} proyectos={proyectos} />}
+      {tab === 'cajas' && <Cajas rol={rol} canEdit={canEdit} cajas={f.cajas} proyectos={proyectos} perfiles={perfiles} dashboards={f.dashboards} />}
+      {tab === 'gastos' && veGastosEmpresa && <GastosEmpresa rol={rol} gastos={f.gastos} categorias={catsEmpresa} proyectos={proyectos} perfiles={perfiles} />}
     </div>
   );
 }
@@ -220,7 +274,8 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
   const [detalle, setDetalle] = useState<any>(null);
   const [busy, setBusy] = useState(false);
 
-  const puedeAprobar = canEdit && (rol === 'jefe_proyectos' || rol === 'gerencia');
+  // El Jefe de Proyectos aprueba aunque su rol tenga Finanzas en "solo ver": es su paso del flujo.
+  const puedeAprobar = rol === 'jefe_proyectos' || rol === 'gerencia';
   const puedeProgramar = canEdit && (rol === 'administrador' || rol === 'gerencia'); // Administración programa
   const puedePagar = canEdit && rol === 'gerencia'; // Gerencia ejecuta el pago
   const esGerencia = canEdit && rol === 'gerencia';
@@ -374,7 +429,7 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
                         {s.status === 'solicitada' && puedeAprobar && (
                           <>
                             <Button size="sm" variant="outline" onClick={async () => { setBusy(true); await aprobarSolicitud(s.id); router.refresh(); setBusy(false); }}><CheckCircle2 /> Aprobar</Button>
-                            <Button size="sm" variant="ghost" onClick={() => setRech(s)}><XCircle className="text-azur-600" /></Button>
+                            <Button size="sm" variant="ghost" title="Rechazar o enviar a modificar" onClick={() => { setRech(s); setMotivo(''); }}><XCircle className="text-azur-600" /></Button>
                           </>
                         )}
                         {s.status === 'aprobada' && !s.pagado_caja_chica && puedeProgramar && (
@@ -394,10 +449,10 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
                             <Button size="sm" variant="ghost"><MessageCircle className="text-emerald-600" /></Button>
                           </a>
                         )}
-                        <Button size="sm" variant="ghost" onClick={() => setDetalle(s)}><Eye /></Button>
-                        {canEdit && s.status === 'solicitada' && (
+                        <Button size="sm" variant="ghost" title="Ver detalle y acciones" onClick={() => { setDetalle(s); setMotivo(''); }}><Eye /></Button>
+                        {canEdit && (s.status === 'solicitada' || s.status === 'devuelta') && (
                           <>
-                            <Button size="sm" variant="ghost" title="Editar" onClick={() => abrirEditar(s)}><Pencil className="size-4" /></Button>
+                            <Button size="sm" variant="ghost" title={s.status === 'devuelta' ? 'Corregir y reenviar' : 'Editar'} onClick={() => abrirEditar(s)}><Pencil className="size-4" /></Button>
                             <Button size="sm" variant="ghost" title="Eliminar" onClick={() => borrarSolicitud(s)}><Trash2 className="size-4 text-azur-600" /></Button>
                           </>
                         )}
@@ -457,13 +512,34 @@ function Solicitudes({ rol, canEdit = true, solicitudes, proyectos = [], medios 
       </Modal>
 
       {/* Detalle completo de la solicitud */}
-      <Modal open={!!detalle} onClose={() => setDetalle(null)} title={`Solicitud ${detalle?.codigo ?? ''}`}>
+      <Modal open={!!detalle} onClose={() => setDetalle(null)} title={`Solicitud ${detalle?.codigo ?? ''}`}
+        footer={detalle?.status === 'solicitada' && puedeAprobar ? (
+          <>
+            <Button variant="ghost" disabled={busy} title="Rechazar definitivamente"
+              onClick={async () => { setBusy(true); const r = await rechazarSolicitud(detalle.id, motivo, false); setBusy(false); if (!r.ok) { alert(r.error); return; } setDetalle(null); router.refresh(); }}>
+              <XCircle className="text-azur-600" /> Rechazar
+            </Button>
+            <Button variant="outline" disabled={busy} title="Devolver al solicitante para que la corrija y la reenvíe"
+              onClick={async () => { if (!motivo.trim()) { alert('Indica qué debe modificar el solicitante.'); return; } setBusy(true); const r = await rechazarSolicitud(detalle.id, motivo, true); setBusy(false); if (!r.ok) { alert(r.error); return; } setDetalle(null); router.refresh(); }}>
+              <Undo2 /> Enviar a modificar
+            </Button>
+            <Button variant="gradient" disabled={busy}
+              onClick={async () => { setBusy(true); const r = await aprobarSolicitud(detalle.id); setBusy(false); if (!r.ok) { alert(r.error); return; } setDetalle(null); router.refresh(); }}>
+              {busy ? <Loader2 className="animate-spin" /> : <CheckCircle2 />} Aprobar
+            </Button>
+          </>
+        ) : undefined}>
         {detalle && <DetalleSolicitud s={detalle} full />}
+        {detalle?.status === 'solicitada' && puedeAprobar && (
+          <Field label="Observación (obligatoria para enviar a modificar)" className="mt-3">
+            <Input value={motivo} onChange={(e) => setMotivo(e.target.value)} placeholder="Ej. Adjuntar la factura legible / corregir el monto" />
+          </Field>
+        )}
       </Modal>
 
       {/* Rechazar */}
-      <Modal open={!!rech} onClose={() => setRech(null)} title={`Rechazar/Devolver · ${rech?.codigo ?? ''}`}
-        footer={<><Button variant="ghost" disabled={busy} onClick={async () => { setBusy(true); await rechazarSolicitud(rech.id, motivo, true); setRech(null); router.refresh(); setBusy(false); }}>Devolver</Button>
+      <Modal open={!!rech} onClose={() => setRech(null)} title={`Rechazar / enviar a modificar · ${rech?.codigo ?? ''}`}
+        footer={<><Button variant="outline" disabled={busy} onClick={async () => { setBusy(true); await rechazarSolicitud(rech.id, motivo, true); setRech(null); router.refresh(); setBusy(false); }}><Undo2 /> Enviar a modificar</Button>
           <Button variant="destructive" disabled={busy} onClick={async () => { setBusy(true); await rechazarSolicitud(rech.id, motivo, false); setRech(null); router.refresh(); setBusy(false); }}>Rechazar</Button></>}>
         <Field label="Motivo"><Input value={motivo} onChange={(e) => setMotivo(e.target.value)} /></Field>
       </Modal>

@@ -1,10 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
 import { puedeEditar } from '@/lib/permisos';
-import { PageHeader, KpiCard } from '@/components/ui/page';
-import { Wallet, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { PageHeader } from '@/components/ui/page';
 import { FinanzasClient } from './finanzas-client';
-import { fmtMoney } from '@/lib/format';
 import { montoDia } from '@/lib/tareo';
 
 export const dynamic = 'force-dynamic';
@@ -62,7 +60,8 @@ export default async function FinanzasPage() {
     if (r.es_correccion) p.correcciones += 1;
     p.dias += dia; p.horas += Number(r.horas ?? 0); p.extra += Number(r.horas_extra ?? 0);
     p.monto += monto; p.jornal = jornal || p.jornal; p.ids.push(r.id);
-    const pr = p.proyectos.get(r.proyecto_id) ?? { nombre: r.proyecto?.nombre ?? 'Proyecto', dias: 0, horas: 0, extra: 0, monto: 0 };
+    const pr = p.proyectos.get(r.proyecto_id) ?? { proyecto_id: r.proyecto_id, nombre: r.proyecto?.nombre ?? 'Proyecto', dias: 0, horas: 0, extra: 0, monto: 0, ids: [] as string[] };
+    pr.ids.push(r.id);
     pr.dias += dia; pr.horas += Number(r.horas ?? 0); pr.extra += Number(r.horas_extra ?? 0); pr.monto += monto;
     p.proyectos.set(r.proyecto_id, pr);
     consMap.set(key, p);
@@ -71,21 +70,10 @@ export default async function FinanzasPage() {
   const jornalesTotal = jornales.reduce((a, j) => a + j.monto, 0);
 
   const solicitudes = sols.data ?? [];
-  const pendientes = solicitudes.filter((s) => ['solicitada', 'aprobada', 'programada'].includes(s.status));
-  const porPagar = pendientes.reduce((a, s) => a + Number(s.monto), 0);
-  const cobranzaPend = (facturas.data ?? []).filter((f) => f.estado !== 'cobrada' && f.estado !== 'anulada').reduce((a, f) => a + (Number(f.monto) - Number(f.monto_cobrado)), 0);
-  const cajaTotal = (cajas.data ?? []).reduce((a, c) => a + Number(c.saldo_actual ?? 0), 0);
 
   return (
     <div className="space-y-6">
       <PageHeader title="Finanzas y Administración" description="Solicitud → aprobación → pago → comprobante. CxC, CxP y cajas." />
-
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <KpiCard label="Por pagar (CxP)" value={fmtMoney(porPagar)} icon={<Clock />} tone="azur" />
-        <KpiCard label="Por cobrar (CxC)" value={fmtMoney(cobranzaPend)} icon={<AlertCircle />} tone="warning" />
-        <KpiCard label="Saldo en cajas" value={fmtMoney(cajaTotal)} icon={<Wallet />} />
-        <KpiCard label="Solicitudes pendientes" value={pendientes.length} icon={<CheckCircle2 />} />
-      </div>
 
       <FinanzasClient
         gastosEmpresa={gastosEmpRes.data ?? []}

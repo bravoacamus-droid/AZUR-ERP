@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireRol, requireSession, requireModulo } from '@/lib/auth';
+import { puedeEditar } from '@/lib/permisos';
 import { notifyUser, notifyRoles } from '@/lib/push/notify';
 import { fmtMoney } from '@/lib/format';
 
@@ -12,6 +13,15 @@ type Res = { ok: boolean; error?: string; id?: string };
 
 // Umbral configurable que obliga aprobación final de Gerencia (Sección 5.2 / 12).
 const UMBRAL_GERENCIA = 20000;
+
+// Aprobar / rechazar / devolver una solicitud es tarea del Jefe de Proyectos (y
+// de Gerencia) según el flujo, aunque su rol personalizado tenga Finanzas en
+// "solo ver". Por eso esta guarda no exige editar el módulo a esos roles.
+const ROLES_APRUEBAN = ['jefe_proyectos', 'gerencia'];
+async function requireAprobador() {
+  const session = await requireModulo('finanzas', 'ver');
+  return ROLES_APRUEBAN.includes(session.rol) || puedeEditar(session.permisos, 'finanzas') ? session : null;
+}
 
 // ── Categorías de gasto configurables (admin/gerencia) ──────────────────
 export async function guardarCategoria(input: { id?: string; nombre: string; tipo_base: string }): Promise<Res> {
@@ -81,7 +91,8 @@ export async function revisarCambioProveedor(cambioId: string, aprobado: boolean
 
 // ── N1: Jefe de Proyectos aprueba ───────────────────────────────────────
 export async function aprobarSolicitud(id: string): Promise<Res> {
-  const session = await requireModulo('finanzas', 'editar');
+  const session = await requireAprobador();
+  if (!session) return { ok: false, error: 'No tienes permiso para aprobar solicitudes de pago.' };
   const supabase = createClient();
   const admin = createAdminClient();
 
@@ -181,7 +192,7 @@ export async function validarGastoCaja(id: string): Promise<Res> {
 }
 
 export async function rechazarSolicitud(id: string, motivo: string, devolver = false): Promise<Res> {
-  const session = await requireModulo('finanzas', 'editar');
+  if (!(await requireAprobador())) return { ok: false, error: 'No tienes permiso para rechazar o devolver solicitudes.' };
   const supabase = createClient();
   const admin = createAdminClient();
   const { error } = await supabase
@@ -192,8 +203,8 @@ export async function rechazarSolicitud(id: string, motivo: string, devolver = f
   const { data: sol } = await admin.from('solicitudes_pago').select('solicitado_por, codigo').eq('id', id).single();
   if (sol?.solicitado_por) {
     await notifyUser(sol.solicitado_por, {
-      title: devolver ? 'Solicitud devuelta' : 'Solicitud rechazada',
-      body: `${sol.codigo}: ${motivo}`,
+      title: devolver ? 'Solicitud devuelta para modificar' : 'Solicitud rechazada',
+      body: devolver ? `${sol.codigo}: corrígela y vuelve a enviarla. ${motivo}` : `${sol.codigo}: ${motivo}`,
       url: '/campo/solicitudes',
     }, 'finanzas');
   }
@@ -396,8 +407,10 @@ export async function editarSolicitud(id: string, patch: Record<string, unknown>
   const admin = createAdminClient();
   const { data: s } = await admin.from('solicitudes_pago').select('status').eq('id', id).single();
   if (!s) return { ok: false, error: 'Solicitud no encontrada' };
-  if (s.status !== 'solicitada' && session.rol !== 'gerencia') return { ok: false, error: 'Solo se puede editar mientras está Solicitada.' };
-  const { error } = await admin.from('solicitudes_pago').update(patch as never).eq('id', id);
+  if (s.status !== 'solicitada' && s.status !== 'devuelta' && session.rol !== 'gerencia') return { ok: false, error: 'Solo se puede editar mientras está Solicitada o Devuelta.' };
+  // Una solicitud devuelta ("enviar a modificar") vuelve a revisión al corregirse.
+  const reenvio = s.status === 'devuelta';
+  const { error } = await admin.from('solicitudes_pago').update((reenvio ? { ...patch, status: 'solicitada', motivo_rechazo: null } : patch) as never).eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/finanzas');
   return { ok: true };
