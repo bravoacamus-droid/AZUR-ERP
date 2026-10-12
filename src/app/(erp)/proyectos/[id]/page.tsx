@@ -19,18 +19,16 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
     .single();
   if (!proy) notFound();
 
-  const [items, vals, contrapartes, equipo, armadas, adicionales, dash, caja, perfiles, hitos, documentos] = await Promise.all([
+  const [items, vals, contrapartes, equipo, adicionales, dash, caja, perfiles, hitos] = await Promise.all([
     supabase.from('proyecto_items').select('*').eq('proyecto_id', params.id).order('orden'),
     supabase.from('valorizaciones').select('*, valorizacion_items(*)').eq('proyecto_id', params.id).order('numero'),
     supabase.from('contrapartes').select('id, razon_social, tipo').order('razon_social'),
     supabase.from('proyecto_equipo').select('id, rol_obra, profile:profiles(id, nombre, rol)').eq('proyecto_id', params.id),
-    supabase.from('cronograma_cobros').select('*').eq('proyecto_id', params.id).order('orden'),
     supabase.from('adicionales_deductivos').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }),
     supabase.from('v_dashboard_proyecto').select('*').eq('proyecto_id', params.id).single(),
     supabase.from('v_cajas_saldos').select('*').eq('proyecto_id', params.id),
     supabase.from('profiles').select('id, nombre, rol, firma_data').eq('activo', true).order('nombre'),
     supabase.from('hitos').select('*').eq('proyecto_id', params.id).order('fecha_comprometida'),
-    supabase.from('documentos').select('*').eq('proyecto_id', params.id).order('created_at', { ascending: false }),
   ]);
 
   const [{ data: catalogo }, { data: apuTpl }, { data: apuProy }] = await Promise.all([
@@ -137,14 +135,12 @@ export default async function ProyectoPage({ params }: { params: { id: string } 
         valorizaciones={vals.data ?? []}
         contrapartes={contrapartes.data ?? []}
         equipo={equipo.data ?? []}
-        armadas={armadas.data ?? []}
         adicionales={adicionales.data ?? []}
         dash={dash.data}
         cajas={caja.data ?? []}
         perfiles={perfiles.data ?? []}
         usuariosFirma={(perfiles.data ?? []).map((u) => ({ id: u.id, nombre: u.nombre, rol: u.rol as string, tiene_firma: !!(u as { firma_data?: string | null }).firma_data }))}
         hitos={hitos.data ?? []}
-        documentos={documentos.data ?? []}
         catalogo={catalogoConApu}
         apuProyecto={apuProy ?? []}
         servicios={servicios ?? []}

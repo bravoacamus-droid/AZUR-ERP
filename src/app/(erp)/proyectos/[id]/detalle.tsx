@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Plus, Trash2, Save, Loader2, CheckCircle2, Calendar, Users, Layers,
-  TrendingUp, FileBarChart, Banknote, ListChecks, X, ChevronRight, Link2, Flag,
+  TrendingUp, FileBarChart, Banknote, ListChecks, X, Link2, Flag,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,8 +33,8 @@ import { calcularLiquidacion } from '@/lib/liquidacion';
 import type { DashboardProyecto } from '@/lib/salud';
 import {
   agregarItemProyecto, actualizarItemProyecto, eliminarItemProyecto, crearValorizacion,
-  guardarAvances, registrarCobroValorizacion, asignarEquipo, quitarEquipo, guardarArmadas,
-  registrarAdicional, resolverAdicional, actualizarProyecto, guardarHito, subirDocumento,
+  guardarAvances, registrarCobroValorizacion, asignarEquipo, quitarEquipo,
+  actualizarProyecto, guardarHito,
   guardarComponenteApuProyecto, eliminarComponenteApuProyecto, liquidarProyecto,
   generarServiciosMantenimiento, actualizarServicio, eliminarServicio,
   solicitarCambioMonto, solicitarReaperturaValorizacion, cerrarReaperturaValorizacion, reabrirValorizacion,
@@ -47,10 +47,7 @@ import { revisarRdo } from '@/app/(pwa)/campo/rdo/actions';
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 export function ProyectoDetalle(props: any) {
-  const { proy, items, valorizaciones, contrapartes, equipo, armadas, adicionales, dash, cajas, perfiles, usuariosFirma = [], hitos, documentos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, adelantos, gastosAC = [], campo, userId, userNombre, userRol, canManage } = props;
-  // Cronograma de cobros, Adicionales y Expediente se retiran del área de
-  // Proyectos (informe AZ-TDR-SIS-001); quedan solo para Gerencia y Administración.
-  const veTabsAdmin = userRol === 'gerencia' || userRol === 'administrador';
+  const { proy, items, valorizaciones, contrapartes, equipo, adicionales, dash, cajas, perfiles, usuariosFirma = [], hitos, catalogo, apuProyecto, servicios, solicitudes, comparativo, presupuestoGasto, adelantos, gastosAC = [], campo, userId, userNombre, userRol, canManage } = props;
   const esMantenimiento = proy.tipo_proyecto === 'chico';
   const router = useRouter();
   const [presentes, setPresentes] = useState<string[]>([]);
@@ -110,25 +107,20 @@ export function ProyectoDetalle(props: any) {
           { value: 'resumen', label: 'Resumen' },
           { value: 'lastplanner', label: 'Last Planner' },
           { value: 'cronograma', label: 'Cronograma' },
-          ...(veTabsAdmin ? [{ value: 'cobros', label: 'Cronograma de cobros' }, { value: 'adicionales', label: 'Adicionales' }] : []),
           { value: 'equipo', label: 'Equipo' },
           ...(esMantenimiento ? [{ value: 'mantenimiento', label: 'Mantenimiento' }] : []),
           { value: 'campo', label: (() => { const n = (campo?.partes ?? []).filter((p: any) => p.estado === 'enviado').length + (campo?.tareo ?? []).filter((t: any) => t.estado === 'enviado').length; return `Campo${n ? ` · ${n} por revisar` : ''}`; })() },
           { value: 'liquidacion', label: 'Liquidación' },
-          ...(veTabsAdmin ? [{ value: 'expediente', label: 'Expediente' }] : []),
         ]}
       />
 
       {tab === 'resumen' && <Resumen proy={proy} items={items} dash={dash} cajaSaldo={cajaSaldo} valorizaciones={valorizaciones} hitos={hitos} canManage={canManage} solicitudes={solicitudes} userRol={userRol} comparativo={comparativo} presupuestoGasto={presupuestoGasto} adelantos={adelantos} usuariosFirma={usuariosFirma} />}
       {tab === 'lastplanner' && <LastPlanner vista="lp" proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} adelantos={adelantos} gastosAC={gastosAC} />}
       {tab === 'cronograma' && <LastPlanner vista="cronograma" proy={proy} items={items} valorizaciones={valorizaciones} contrapartes={contrapartes} catalogo={catalogo} apuProyecto={apuProyecto} canManage={canManage} userRol={userRol} adelantos={adelantos} gastosAC={gastosAC} />}
-      {tab === 'cobros' && veTabsAdmin && <Cobros proy={proy} armadas={armadas} canManage={canManage} />}
-      {tab === 'adicionales' && veTabsAdmin && <Adicionales proy={proy} items={items} adicionales={adicionales} canManage={canManage} />}
       {tab === 'equipo' && <Equipo proy={proy} equipo={equipo} perfiles={perfiles} canManage={canManage} />}
       {tab === 'campo' && <CampoTab campo={campo} proyectoId={proy.id} userRol={userRol} />}
       {tab === 'mantenimiento' && <Mantenimiento proy={proy} servicios={servicios} canManage={canManage} />}
       {tab === 'liquidacion' && <Liquidacion proy={proy} items={items} valorizaciones={valorizaciones} adicionales={adicionales} dash={dash} canManage={canManage} />}
-      {tab === 'expediente' && veTabsAdmin && <Expediente proy={proy} documentos={documentos} canManage={canManage} />}
     </div>
   );
 }
@@ -1690,163 +1682,6 @@ function FormulaCell({ value, formula, onSave }: { value: any; formula?: string 
 
 function Num({ v, onSave }: { v: any; onSave: (n: number) => void }) {
   return <input type="number" step="any" className="w-16 rounded border bg-white px-1 text-right" defaultValue={v ?? ''} onBlur={(e) => onSave(e.target.value === '' ? 0 : Number(e.target.value))} />;
-}
-
-// ───────────────────────── EXPEDIENTE ─────────────────────────────────
-const CARPETAS = ['Información', 'Contractuales', 'Material utilizado', 'Evidencias', 'SST', 'General'];
-function Expediente({ proy, documentos, canManage }: any) {
-  const router = useRouter();
-  const [carpeta, setCarpeta] = useState('Contractuales');
-  const [subiendo, setSubiendo] = useState(false);
-
-  async function onFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setSubiendo(true);
-    try {
-      const supabase = createClient();
-      const path = `${proy.id}/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage.from('documentos').upload(path, file);
-      if (!error) {
-        const { data } = supabase.storage.from('documentos').getPublicUrl(path);
-        await subirDocumento(proy.id, { nombre: file.name, url: data.publicUrl, carpeta });
-        router.refresh();
-      }
-    } finally {
-      setSubiendo(false);
-    }
-  }
-
-  const porCarpeta = (c: string) => (documentos ?? []).filter((d: any) => d.carpeta === c);
-
-  return (
-    <div className="space-y-3">
-      {canManage && (
-        <Card>
-          <CardContent className="flex flex-wrap items-end gap-2 p-4">
-            <Field label="Carpeta" className="flex-1"><Select value={carpeta} onChange={(e) => setCarpeta(e.target.value)}>{CARPETAS.map((c) => <option key={c} value={c}>{c}</option>)}</Select></Field>
-            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg bg-azur-gradient px-4 text-sm font-medium text-white">
-              {subiendo ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Subir documento
-              <input type="file" className="hidden" onChange={onFile} disabled={subiendo} />
-            </label>
-          </CardContent>
-        </Card>
-      )}
-      {CARPETAS.map((c) => {
-        const docs = porCarpeta(c);
-        if (docs.length === 0) return null;
-        return (
-          <Card key={c}>
-            <CardHeader className="pb-2"><CardTitle className="text-base">{c}</CardTitle></CardHeader>
-            <CardContent className="space-y-1">
-              {docs.map((d: any) => (
-                <a key={d.id} href={d.url} target="_blank" rel="noreferrer" className="flex items-center justify-between rounded-lg border p-2.5 text-sm hover:bg-secondary">
-                  <span>{d.nombre}</span><span className="text-xs text-muted-foreground">{fmtDate(d.created_at)}</span>
-                </a>
-              ))}
-            </CardContent>
-          </Card>
-        );
-      })}
-      {(!documentos || documentos.length === 0) && <EmptyState titulo="Expediente vacío" descripcion="Sube contratos, planos, fichas técnicas y más." />}
-    </div>
-  );
-}
-
-// ───────────────────────── CRONOGRAMA COBROS ──────────────────────────
-function Cobros({ proy, armadas, canManage }: any) {
-  const router = useRouter();
-  const [rows, setRows] = useState<any[]>(armadas.length ? armadas.map((a: any) => ({ concepto: a.concepto, porcentaje: Number(a.porcentaje), monto: Number(a.monto ?? 0), condicion_tipo: a.condicion_tipo, condicion_valor: a.condicion_valor, fecha_esperada: a.fecha_esperada, estado: a.estado })) : []);
-  const [busy, setBusy] = useState(false);
-  const suma = rows.reduce((a, r) => a + r.porcentaje, 0);
-  const contrato = Number(proy.contrato_total);
-
-  async function guardar() {
-    setBusy(true);
-    await guardarArmadas(proy.id, rows.map((r) => ({ concepto: r.concepto, porcentaje: r.porcentaje, monto: Math.round(contrato * r.porcentaje * 100) / 100, condicion_tipo: r.condicion_tipo, condicion_valor: r.condicion_valor ? Number(r.condicion_valor) : undefined, fecha_esperada: r.fecha_esperada || undefined })));
-    router.refresh(); setBusy(false);
-  }
-
-  return (
-    <Card>
-      <CardHeader className="flex-row items-center justify-between pb-2">
-        <CardTitle className="text-base">Cronograma de cobros (armadas)</CardTitle>
-        {canManage && <Button size="sm" variant="outline" onClick={() => setRows((r) => [...r, { concepto: 'Armada', porcentaje: 0, condicion_tipo: 'avance', condicion_valor: 0, fecha_esperada: '', estado: 'pendiente' }])}><Plus /> Agregar</Button>}
-      </CardHeader>
-      <CardContent className="space-y-2">
-        {rows.length === 0 && <EmptyState titulo="Sin armadas" descripcion="Define cómo se cobrará al cliente." />}
-        {rows.map((r, i) => (
-          <div key={i} className="grid grid-cols-2 items-end gap-2 rounded-lg border p-2 sm:grid-cols-6">
-            <Field label="Concepto" className="col-span-2"><Input value={r.concepto} disabled={!canManage} onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, concepto: e.target.value } : x))} /></Field>
-            {/* % con decimales; o escribir el monto y el % se calcula */}
-            <Field label="%"><Input type="number" step="any" min="0" inputMode="decimal" disabled={!canManage} key={`ap-${i}-${Math.round(r.porcentaje * 1e6)}`} defaultValue={Math.round(r.porcentaje * 1e6) / 1e4} onBlur={(e) => { const v = Number(e.target.value || 0); if (Number.isFinite(v)) setRows((rs) => rs.map((x, j) => j === i ? { ...x, porcentaje: v / 100 } : x)); }} /></Field>
-            <Field label="Condición"><Select disabled={!canManage} value={r.condicion_tipo} onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, condicion_tipo: e.target.value } : x))}><option value="avance">% avance</option><option value="fecha">Fecha fija</option></Select></Field>
-            <Field label="Monto (S/)"><Input type="number" step="0.01" min="0" inputMode="decimal" disabled={!canManage} key={`am-${i}-${Math.round(contrato * r.porcentaje * 100)}`} defaultValue={Math.round(contrato * r.porcentaje * 100) / 100} onBlur={(e) => { const v = Number(e.target.value || 0); if (Number.isFinite(v) && contrato > 0 && Math.abs(v - contrato * r.porcentaje) >= 0.005) setRows((rs) => rs.map((x, j) => j === i ? { ...x, porcentaje: v / contrato } : x)); }} /></Field>
-            {canManage && <Button size="icon" variant="ghost" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}><Trash2 className="text-azur-600" /></Button>}
-          </div>
-        ))}
-        <div className={`text-sm ${suma > 1.0001 ? 'text-azur-600' : 'text-muted-foreground'}`}>Suma: {fmtNumber(suma * 100, 2)}% · {fmtMoney(contrato * suma)} de {fmtMoney(contrato)}</div>
-        {canManage && rows.length > 0 && <Button variant="gradient" onClick={guardar} disabled={busy || suma > 1.0001}><Save /> Guardar cronograma</Button>}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ───────────────────────── ADICIONALES ────────────────────────────────
-function Adicionales({ proy, items, adicionales, canManage }: any) {
-  const router = useRouter();
-  const [form, setForm] = useState({ tipo: 'adicional', descripcion: '', monto: 0, proyecto_item_id: '' });
-  const [busy, setBusy] = useState(false);
-  const hojas = items.filter((i: any) => i.es_hoja);
-
-  async function add() {
-    if (!form.descripcion) return;
-    setBusy(true);
-    await registrarAdicional(proy.id, { tipo: form.tipo as any, descripcion: form.descripcion, monto: Number(form.monto), proyecto_item_id: form.proyecto_item_id || undefined });
-    setForm({ tipo: 'adicional', descripcion: '', monto: 0, proyecto_item_id: '' });
-    router.refresh(); setBusy(false);
-  }
-
-  return (
-    <div className="grid gap-4 lg:grid-cols-3">
-      {canManage && (
-        <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-base">Registrar adicional / deductivo</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            <Field label="Tipo"><Select value={form.tipo} onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}><option value="adicional">Adicional</option><option value="deductivo">Deductivo</option></Select></Field>
-            <Field label="Descripción"><Input value={form.descripcion} onChange={(e) => setForm((f) => ({ ...f, descripcion: e.target.value }))} /></Field>
-            <Field label="Monto"><Input type="number" value={form.monto} onChange={(e) => setForm((f) => ({ ...f, monto: Number(e.target.value) }))} /></Field>
-            <Field label="Partida afectada"><Select value={form.proyecto_item_id} onChange={(e) => setForm((f) => ({ ...f, proyecto_item_id: e.target.value }))}><option value="">—</option>{hojas.map((h: any) => <option key={h.id} value={h.id}>{h.titulo}</option>)}</Select></Field>
-            <Button variant="gradient" onClick={add} disabled={busy}><Plus /> Registrar</Button>
-          </CardContent>
-        </Card>
-      )}
-      <Card className="lg:col-span-2">
-        <CardHeader className="pb-2"><CardTitle className="text-base">Historial</CardTitle></CardHeader>
-        <CardContent className="space-y-2">
-          {adicionales.length === 0 && <EmptyState titulo="Sin adicionales/deductivos" />}
-          {adicionales.map((a: any) => (
-            <div key={a.id} className="flex items-center justify-between rounded-lg border p-3">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Badge variant={a.tipo === 'adicional' ? 'info' : 'warning'}>{a.tipo}</Badge>
-                  <span className="font-medium">{fmtMoney(Number(a.monto))}</span>
-                  <Badge variant={a.estado === 'aprobado' ? 'success' : a.estado === 'rechazado' ? 'danger' : 'muted'}>{a.estado}</Badge>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground">{a.descripcion}</p>
-              </div>
-              {canManage && a.estado === 'solicitado' && (
-                <div className="flex gap-1">
-                  <Button size="sm" variant="outline" onClick={async () => { await resolverAdicional(proy.id, a.id, true); router.refresh(); }}>Aprobar</Button>
-                  <Button size="sm" variant="ghost" onClick={async () => { await resolverAdicional(proy.id, a.id, false); router.refresh(); }}>Rechazar</Button>
-                </div>
-              )}
-            </div>
-          ))}
-        </CardContent>
-      </Card>
-    </div>
-  );
 }
 
 // ───────────────────────────── EQUIPO ─────────────────────────────────
