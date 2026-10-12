@@ -557,7 +557,7 @@ export async function quitarEquipo(proyectoId: string, id: string): Promise<Res>
 // ── Cronograma de cobros (armadas) ──────────────────────────────────────
 export async function guardarArmadas(
   proyectoId: string,
-  armadas: { concepto: string; porcentaje: number; condicion_tipo: string; condicion_valor?: number; fecha_esperada?: string }[],
+  armadas: { concepto: string; porcentaje: number; monto?: number; condicion_tipo: string; condicion_valor?: number; fecha_esperada?: string }[],
 ): Promise<Res> {
   await guard();
   const supabase = createClient();
@@ -566,8 +566,8 @@ export async function guardarArmadas(
   await supabase.from('cronograma_cobros').delete().eq('proyecto_id', proyectoId);
   if (armadas.length) {
     await supabase.from('cronograma_cobros').insert(armadas.map((a, i) => ({
-      proyecto_id: proyectoId, orden: i + 1, concepto: a.concepto, porcentaje: a.porcentaje,
-      monto: contrato * a.porcentaje, condicion_tipo: a.condicion_tipo as never,
+      proyecto_id: proyectoId, orden: i + 1, concepto: a.concepto, porcentaje: Math.round(a.porcentaje * 1e8) / 1e8,
+      monto: a.monto != null ? Math.round(a.monto * 100) / 100 : Math.round(contrato * a.porcentaje * 100) / 100, condicion_tipo: a.condicion_tipo as never,
       condicion_valor: a.condicion_valor ?? null, fecha_esperada: a.fecha_esperada ?? null, estado: 'pendiente',
     })));
   }

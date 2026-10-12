@@ -205,7 +205,7 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
                         </div>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{fmtDate(c.fecha)}</TableCell>
-                      <TableCell><CotizacionRowActions id={c.id} estado={c.estado} puedeEliminarDirecto={esGerencia} /></TableCell>
+                      <TableCell><CotizacionRowActions id={c.id} estado={c.estado} codigo={c.codigo} puedeEliminarDirecto={esGerencia} /></TableCell>
                     </TableRow>
                   );
                 })}

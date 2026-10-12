@@ -29,9 +29,10 @@ import {
   agregarItem, actualizarItem, eliminarItem, guardarFormasPago,
   cambiarEstado, guardarVersion, restaurarVersion, aprobarCotizacion, guardarCabecera,
   guardarComponenteApu, eliminarComponenteApu, guardarApuComoPlantilla, revertirCambio,
-  eliminarCotizacion, duplicarCotizacion, importarItemizado, parsearXlsx, type FilaImport,
-  solicitarRevision, resolverRevision, moverItem, aprobarEliminacion, cancelarEliminacion, guardarFirmantesCotizacion,
+  duplicarCotizacion, importarItemizado, parsearXlsx, type FilaImport,
+  solicitarRevision, resolverRevision, moverItem, cancelarEliminacion, guardarFirmantesCotizacion, solicitarEliminacion,
 } from '../actions';
+import { EliminarCotizacionDialog } from '@/components/comercial/eliminar-cotizacion-dialog';
 import { FirmasEditor, type UsuarioFirma } from '@/components/firmas/firmas-editor';
 import { FullscreenButton } from '@/components/ui/fullscreen-button';
 
@@ -93,11 +94,14 @@ export function CotizacionEditor({
       setCopiado(true); setTimeout(() => setCopiado(false), 1800);
     }
   }
-  async function aprobarElim() {
-    if (!confirm('¿Aprobar y ELIMINAR esta cotización? No se puede deshacer.')) return;
-    setBusy(true); const r = await aprobarEliminacion(cot.id); setBusy(false);
+  // Diálogo de eliminación (también para cotizaciones aprobadas, solo Gerencia).
+  const [dlgElim, setDlgElim] = useState<null | 'eliminar' | 'aprobar'>(null);
+  function aprobarElim() { setDlgElim('aprobar'); }
+  async function pedirElim() {
+    if (!confirm('¿Solicitar la eliminación de esta cotización? Gerencia debe aprobarla.')) return;
+    setBusy(true); const r = await solicitarEliminacion(cot.id); setBusy(false);
     if (!r.ok) { alert(r.error); return; }
-    router.push('/comercial');
+    setCot((c: any) => ({ ...c, eliminacion_solicitada: true }));
   }
   async function cancelarElim() {
     setBusy(true); const r = await cancelarEliminacion(cot.id); setBusy(false);
@@ -409,20 +413,18 @@ export function CotizacionEditor({
                   </DropdownItem>
                 </>
               )}
-              {cot.estado !== 'aceptada' && (
-                <DropdownItem
-                  onClick={async () => {
-                    if (!confirm('¿Eliminar esta cotización? Esta acción no se puede deshacer.')) return;
-                    const res = await eliminarCotizacion(cot.id);
-                    if (res.ok) router.push('/comercial');
-                    else alert(res.error);
-                  }}
-                  className="text-azur-700 hover:bg-azur-50"
-                >
+              {(esGerencia || cot.estado !== 'aceptada') ? (
+                <DropdownItem onClick={() => setDlgElim('eliminar')} className="text-azur-700 hover:bg-azur-50">
                   <Trash2 /> Eliminar cotización
+                </DropdownItem>
+              ) : !cot.eliminacion_solicitada && (
+                <DropdownItem onClick={pedirElim} className="text-azur-700 hover:bg-azur-50">
+                  <Trash2 /> Solicitar eliminación
                 </DropdownItem>
               )}
             </Dropdown>
+            <EliminarCotizacionDialog id={cot.id} codigo={cot.codigo} open={!!dlgElim} aprobando={dlgElim === 'aprobar'}
+              onClose={() => setDlgElim(null)} onDone={() => router.push('/comercial')} />
           </div>
         </CardContent>
       </Card>
@@ -576,7 +578,7 @@ export function CotizacionEditor({
       )}
 
       {tab === 'pago' && (
-        <CondicionesPago cot={cot} formas={formas} medios={medios} clientes={clientes} canales={canales} usuariosFirma={usuariosFirma} onCliente={cambiarCliente} onSave={async (f: any) => { await guardarFormasPago(cot.id, f); router.refresh(); }} onCab={toggleParam} editable={editable} />
+        <CondicionesPago cot={cot} total={totales.total_con_descuento} formas={formas} medios={medios} clientes={clientes} canales={canales} usuariosFirma={usuariosFirma} onCliente={cambiarCliente} onSave={async (f: any) => { const r = await guardarFormasPago(cot.id, f); if (!r.ok) alert(r.error ?? "No se pudo guardar la forma de pago"); router.refresh(); }} onCab={toggleParam} editable={editable} />
       )}
 
       {tab === 'historial' && <HistorialCambios historial={historial} perfilesMap={perfilesMap} cotizacionId={cot.id} editable={editable} />}
@@ -1195,15 +1197,24 @@ function Row3({ label, value, bold, azur, currency }: { label: string; value: nu
   );
 }
 
-function CondicionesPago({ cot, formas, medios, clientes = [], canales = [], usuariosFirma = [], onCliente, onSave, onCab, editable }: any) {
+function CondicionesPago({ cot, total = 0, formas, medios, clientes = [], canales = [], usuariosFirma = [], onCliente, onSave, onCab, editable }: any) {
   const router = useRouter();
-  const [items, setItems] = useState<{ concepto: string; porcentaje: number; es_adelanto: boolean }[]>(
-    formas.length ? formas.map((f: any) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), es_adelanto: f.es_adelanto })) : [
-      { concepto: 'Pago de adelanto', porcentaje: 0.2, es_adelanto: true },
-      { concepto: 'Valorizaciones semanales', porcentaje: 0.8, es_adelanto: false },
+  // Cada pago es un % (con decimales) o un MONTO FIJO pactado (monto != null);
+  // el monto fijo no cambia aunque cambie el total y su % se deriva.
+  type FormaPago = { concepto: string; porcentaje: number; es_adelanto: boolean; monto: number | null };
+  const [items, setItems] = useState<FormaPago[]>(
+    formas.length ? formas.map((f: any) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), es_adelanto: f.es_adelanto, monto: f.monto != null ? Number(f.monto) : null })) : [
+      { concepto: 'Pago de adelanto', porcentaje: 0.2, es_adelanto: true, monto: null },
+      { concepto: 'Valorizaciones semanales', porcentaje: 0.8, es_adelanto: false, monto: null },
     ],
   );
-  const suma = items.reduce((a, f) => a + f.porcentaje, 0);
+  const cur = cot.moneda === 'USD' ? 'USD' : 'PEN';
+  const pctDe = (f: FormaPago) => (f.monto != null ? (total > 0 ? f.monto / total : 0) : f.porcentaje);
+  const montoDe = (f: FormaPago) => (f.monto != null ? f.monto : total * f.porcentaje);
+  const suma = items.reduce((a, f) => a + pctDe(f), 0);
+  const sumaMonto = items.reduce((a, f) => a + montoDe(f), 0);
+  const r4 = (x: number) => Math.round(x * 10000) / 10000;
+  const setFila = (i: number, patch: Partial<FormaPago>) => setItems((it) => it.map((x, j) => (j === i ? { ...x, ...patch } : x)));
   return (
    <div className="space-y-4">
     <Card>
@@ -1244,20 +1255,40 @@ function CondicionesPago({ cot, formas, medios, clientes = [], canales = [], usu
       <Card>
         <CardHeader className="pb-2"><CardTitle className="text-base">Forma de pago y adelanto</CardTitle></CardHeader>
         <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">Escribe el <strong>%</strong> (acepta decimales) o el <strong>monto</strong> pactado: el otro se calcula solo. Un monto escrito queda <strong>fijo</strong> aunque cambie el total.</p>
+          <div className="hidden grid-cols-[1fr_7rem_9rem_2rem] gap-2 px-0.5 text-[11px] font-medium uppercase text-muted-foreground sm:grid">
+            <span>Concepto</span><span className="text-right">%</span><span className="text-right">Monto ({cur === 'USD' ? 'US$' : 'S/'})</span><span />
+          </div>
           {items.map((f, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <Input value={f.concepto} disabled={!editable} onChange={(e) => setItems((it) => it.map((x, j) => j === i ? { ...x, concepto: e.target.value } : x))} />
-              <Input type="number" className="w-24" disabled={!editable} value={Math.round(f.porcentaje * 100)}
-                onChange={(e) => setItems((it) => it.map((x, j) => j === i ? { ...x, porcentaje: Number(e.target.value) / 100 } : x))} />
-              <span className="text-sm text-muted-foreground">%</span>
-              {editable && <Button size="icon" variant="ghost" onClick={() => setItems((it) => it.filter((_, j) => j !== i))}><Trash2 className="text-azur-600" /></Button>}
+            <div key={i} className="grid grid-cols-[1fr_7rem_9rem_2rem] items-center gap-2">
+              <Input value={f.concepto} disabled={!editable} onChange={(e) => setFila(i, { concepto: e.target.value })} />
+              <div className="relative">
+                <Input type="number" step="any" min="0" inputMode="decimal" className="pr-6 text-right tabular-nums" disabled={!editable}
+                  key={`p-${i}-${r4(pctDe(f) * 100)}`} defaultValue={r4(pctDe(f) * 100)}
+                  onBlur={(e) => { const v = e.target.value === '' ? 0 : Number(e.target.value); if (!Number.isFinite(v) || v === r4(pctDe(f) * 100)) return; setFila(i, { porcentaje: v / 100, monto: null }); }} />
+                <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">%</span>
+              </div>
+              <div>
+                <Input type="number" step="0.01" min="0" inputMode="decimal" className={`text-right tabular-nums ${f.monto != null ? 'border-azur-300 bg-azur-50/40' : ''}`} disabled={!editable}
+                  key={`m-${i}-${Math.round(montoDe(f) * 100)}-${f.monto != null}`} defaultValue={Math.round(montoDe(f) * 100) / 100}
+                  title={f.monto != null ? 'Monto fijo pactado' : 'Calculado desde el %'}
+                  onBlur={(e) => { const v = e.target.value === '' ? 0 : Number(e.target.value); if (!Number.isFinite(v) || Math.abs(v - montoDe(f)) < 0.005) return; setFila(i, { monto: v, porcentaje: total > 0 ? v / total : 0 }); }} />
+                {f.monto != null && (
+                  <button type="button" disabled={!editable} onClick={() => setFila(i, { porcentaje: pctDe(f), monto: null })}
+                    className="mt-0.5 text-[10px] font-medium text-azur-600 hover:underline" title="Pasar a porcentaje">Monto fijo · usar %</button>
+                )}
+              </div>
+              {editable ? <Button size="icon" variant="ghost" onClick={() => setItems((it) => it.filter((_, j) => j !== i))}><Trash2 className="text-azur-600" /></Button> : <span />}
             </div>
           ))}
-          <div className={`text-sm ${suma > 1.0001 ? 'text-azur-600' : 'text-muted-foreground'}`}>Suma: {fmtNumber(suma * 100, 0)}% {suma > 1.0001 && '(supera 100%)'}</div>
+          <div className={`text-sm ${suma > 1.0001 ? 'text-azur-600' : 'text-muted-foreground'}`}>
+            Suma: {fmtNumber(suma * 100, 2)}% · {fmtMoney(sumaMonto, cur)} de {fmtMoney(total, cur)}
+            {suma > 1.0001 ? ' (supera el total)' : total - sumaMonto > 0.009 ? ` · falta asignar ${fmtMoney(total - sumaMonto, cur)}` : ''}
+          </div>
           {editable && (
             <div className="flex gap-2">
-              <Button size="sm" variant="outline" onClick={() => setItems((it) => [...it, { concepto: 'Pago', porcentaje: 0, es_adelanto: false }])}><Plus /> Agregar pago</Button>
-              <Button size="sm" variant="gradient" disabled={suma > 1.0001} onClick={() => onSave(items)}><Save /> Guardar</Button>
+              <Button size="sm" variant="outline" onClick={() => setItems((it) => [...it, { concepto: 'Pago', porcentaje: 0, es_adelanto: false, monto: null }])}><Plus /> Agregar pago</Button>
+              <Button size="sm" variant="gradient" disabled={suma > 1.0001} onClick={() => onSave(items.map((f) => ({ concepto: f.concepto, es_adelanto: f.es_adelanto, monto: f.monto, porcentaje: pctDe(f) })))}><Save /> Guardar</Button>
             </div>
           )}
         </CardContent>

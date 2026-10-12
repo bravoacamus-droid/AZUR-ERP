@@ -109,7 +109,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
       cuentaDolares: m.cuenta_dolares ?? undefined, cciDolares: m.cci_dolares ?? undefined,
       detraccion: m.es_detraccion,
     })),
-    formaPago: (formasPago ?? []).map((f) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), esAdelanto: f.es_adelanto })),
+    formaPago: (formasPago ?? []).map((f) => ({ concepto: f.concepto, porcentaje: Number(f.porcentaje), esAdelanto: f.es_adelanto, monto: (f as { monto?: number | null }).monto != null ? Number((f as { monto?: number | null }).monto) : null })),
     responsable: (responsable as { nombre?: string; rol?: string } | null)?.nombre ?? undefined,
     responsableRol: (responsable as { nombre?: string; rol?: string } | null)?.rol ?? undefined,
     firmaData: (responsable as { firma_data?: string | null } | null)?.firma_data ?? undefined,

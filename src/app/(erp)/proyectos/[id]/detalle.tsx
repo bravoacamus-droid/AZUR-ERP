@@ -1756,14 +1756,14 @@ function Expediente({ proy, documentos, canManage }: any) {
 // ───────────────────────── CRONOGRAMA COBROS ──────────────────────────
 function Cobros({ proy, armadas, canManage }: any) {
   const router = useRouter();
-  const [rows, setRows] = useState<any[]>(armadas.length ? armadas.map((a: any) => ({ concepto: a.concepto, porcentaje: Number(a.porcentaje), condicion_tipo: a.condicion_tipo, condicion_valor: a.condicion_valor, fecha_esperada: a.fecha_esperada, estado: a.estado })) : []);
+  const [rows, setRows] = useState<any[]>(armadas.length ? armadas.map((a: any) => ({ concepto: a.concepto, porcentaje: Number(a.porcentaje), monto: Number(a.monto ?? 0), condicion_tipo: a.condicion_tipo, condicion_valor: a.condicion_valor, fecha_esperada: a.fecha_esperada, estado: a.estado })) : []);
   const [busy, setBusy] = useState(false);
   const suma = rows.reduce((a, r) => a + r.porcentaje, 0);
   const contrato = Number(proy.contrato_total);
 
   async function guardar() {
     setBusy(true);
-    await guardarArmadas(proy.id, rows.map((r) => ({ concepto: r.concepto, porcentaje: r.porcentaje, condicion_tipo: r.condicion_tipo, condicion_valor: r.condicion_valor ? Number(r.condicion_valor) : undefined, fecha_esperada: r.fecha_esperada || undefined })));
+    await guardarArmadas(proy.id, rows.map((r) => ({ concepto: r.concepto, porcentaje: r.porcentaje, monto: Math.round(contrato * r.porcentaje * 100) / 100, condicion_tipo: r.condicion_tipo, condicion_valor: r.condicion_valor ? Number(r.condicion_valor) : undefined, fecha_esperada: r.fecha_esperada || undefined })));
     router.refresh(); setBusy(false);
   }
 
@@ -1778,13 +1778,14 @@ function Cobros({ proy, armadas, canManage }: any) {
         {rows.map((r, i) => (
           <div key={i} className="grid grid-cols-2 items-end gap-2 rounded-lg border p-2 sm:grid-cols-6">
             <Field label="Concepto" className="col-span-2"><Input value={r.concepto} disabled={!canManage} onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, concepto: e.target.value } : x))} /></Field>
-            <Field label="%"><Input type="number" disabled={!canManage} value={Math.round(r.porcentaje * 100)} onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, porcentaje: Number(e.target.value) / 100 } : x))} /></Field>
+            {/* % con decimales; o escribir el monto y el % se calcula */}
+            <Field label="%"><Input type="number" step="any" min="0" inputMode="decimal" disabled={!canManage} key={`ap-${i}-${Math.round(r.porcentaje * 1e6)}`} defaultValue={Math.round(r.porcentaje * 1e6) / 1e4} onBlur={(e) => { const v = Number(e.target.value || 0); if (Number.isFinite(v)) setRows((rs) => rs.map((x, j) => j === i ? { ...x, porcentaje: v / 100 } : x)); }} /></Field>
             <Field label="Condición"><Select disabled={!canManage} value={r.condicion_tipo} onChange={(e) => setRows((rs) => rs.map((x, j) => j === i ? { ...x, condicion_tipo: e.target.value } : x))}><option value="avance">% avance</option><option value="fecha">Fecha fija</option></Select></Field>
-            <Field label="Monto"><Input disabled value={fmtNumber(contrato * r.porcentaje)} /></Field>
+            <Field label="Monto (S/)"><Input type="number" step="0.01" min="0" inputMode="decimal" disabled={!canManage} key={`am-${i}-${Math.round(contrato * r.porcentaje * 100)}`} defaultValue={Math.round(contrato * r.porcentaje * 100) / 100} onBlur={(e) => { const v = Number(e.target.value || 0); if (Number.isFinite(v) && contrato > 0 && Math.abs(v - contrato * r.porcentaje) >= 0.005) setRows((rs) => rs.map((x, j) => j === i ? { ...x, porcentaje: v / contrato } : x)); }} /></Field>
             {canManage && <Button size="icon" variant="ghost" onClick={() => setRows((rs) => rs.filter((_, j) => j !== i))}><Trash2 className="text-azur-600" /></Button>}
           </div>
         ))}
-        <div className={`text-sm ${suma > 1.0001 ? 'text-azur-600' : 'text-muted-foreground'}`}>Suma: {fmtNumber(suma * 100, 0)}%</div>
+        <div className={`text-sm ${suma > 1.0001 ? 'text-azur-600' : 'text-muted-foreground'}`}>Suma: {fmtNumber(suma * 100, 2)}% · {fmtMoney(contrato * suma)} de {fmtMoney(contrato)}</div>
         {canManage && rows.length > 0 && <Button variant="gradient" onClick={guardar} disabled={busy || suma > 1.0001}><Save /> Guardar cronograma</Button>}
       </CardContent>
     </Card>

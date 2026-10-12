@@ -433,19 +433,27 @@ export async function guardarApuComoPlantilla(
 }
 
 // ── Formas de pago ──────────────────────────────────────────────────────
+// Cada pago es un % (con decimales) o un MONTO FIJO pactado con el cliente
+// (monto != null). Para el monto fijo el % se guarda derivado del total.
 export async function guardarFormasPago(
   cotizacionId: string,
-  formas: { concepto: string; porcentaje: number; es_adelanto: boolean }[],
+  formas: { concepto: string; porcentaje: number; es_adelanto: boolean; monto?: number | null }[],
 ): Promise<Res> {
   await guard();
   const supabase = createClient();
+  if (formas.some((f) => !(f.porcentaje >= 0) || (f.monto != null && !(f.monto >= 0)))) return { ok: false, error: 'Hay un porcentaje o monto inválido.' };
   const suma = formas.reduce((a, f) => a + f.porcentaje, 0);
-  if (suma > 1.0001) return { ok: false, error: 'La suma de pagos supera el 100%' };
+  if (suma > 1.0001) return { ok: false, error: 'La suma de pagos supera el 100% del total.' };
   await supabase.from('cotizacion_formas_pago').delete().eq('cotizacion_id', cotizacionId);
   if (formas.length) {
-    await supabase.from('cotizacion_formas_pago').insert(
-      formas.map((f, i) => ({ cotizacion_id: cotizacionId, orden: i + 1, ...f })),
+    const { error } = await (supabase as any).from('cotizacion_formas_pago').insert(
+      formas.map((f, i) => ({
+        cotizacion_id: cotizacionId, orden: i + 1, concepto: f.concepto, es_adelanto: f.es_adelanto,
+        porcentaje: Math.round(f.porcentaje * 1e8) / 1e8,
+        monto: f.monto != null ? Math.round(f.monto * 100) / 100 : null,
+      })),
     );
+    if (error) return { ok: false, error: error.message };
   }
   revalidatePath(`/comercial/${cotizacionId}`);
   return { ok: true };
@@ -492,17 +500,73 @@ export async function cambiarEstado(
   return { ok: true };
 }
 
-// ── Eliminar cotización (solo si NO fue aceptada) ───────────────────────
-export async function eliminarCotizacion(id: string): Promise<Res> {
+// ── Eliminar cotización ─────────────────────────────────────────────────
+// Una cotización aprobada (que ya generó proyecto) solo la elimina Gerencia.
+// Por defecto el proyecto SE CONSERVA y queda desvinculado; si el proyecto no
+// tiene ningún movimiento, Gerencia puede pedir que se elimine también.
+
+// Movimientos que impiden borrar un proyecto (registros de dinero o de campo).
+async function movimientosProyecto(proyectoId: string): Promise<string[]> {
+  const admin = createAdminClient() as any;
+  const cuenta = async (tabla: string) => {
+    const { count } = await admin.from(tabla).select('id', { count: 'exact', head: true }).eq('proyecto_id', proyectoId);
+    return count ?? 0;
+  };
+  const tablas: [string, string][] = [
+    ['solicitudes_pago', 'solicitudes de pago'], ['abonos_cliente', 'cobros del cliente'], ['facturas', 'facturas'],
+    ['movimientos_caja', 'movimientos de caja'], ['gastos_empresa', 'gastos de empresa'], ['partes_diarios', 'reportes diarios'],
+    ['tareo', 'registros de tareo'], ['asistencias', 'asistencias'], ['movimientos_almacen', 'movimientos de almacén'],
+    ['evidencias', 'evidencias'], ['sst_charlas', 'registros SST'], ['sst_observaciones', 'registros SST'], ['sst_incidentes', 'registros SST'],
+  ];
+  const out = new Set<string>();
+  const [conteos, { data: vals }] = await Promise.all([
+    Promise.all(tablas.map(([t]) => cuenta(t))),
+    admin.from('valorizaciones').select('id, valorizacion_items(total)').eq('proyecto_id', proyectoId),
+  ]);
+  tablas.forEach(([, label], i) => { if (conteos[i] > 0) out.add(label); });
+  // valorizaciones con avance registrado
+  if ((vals ?? []).some((v: any) => (v.valorizacion_items ?? []).some((vi: any) => Number(vi.total ?? 0) > 0))) out.add('valorizaciones con avance');
+  return [...out];
+}
+
+/** Datos para el diálogo de eliminación: proyecto vinculado y si se puede borrar. */
+export async function infoEliminacionCotizacion(id: string): Promise<{ ok: boolean; error?: string; proyecto?: { id: string; codigo: string | null; nombre: string } | null; movimientos?: string[] }> {
   await guard();
-  const supabase = createClient();
-  const { data: cot } = await supabase.from('cotizaciones').select('estado, proyecto_id').eq('id', id).single();
+  const admin = createAdminClient();
+  const { data: cot } = await admin.from('cotizaciones').select('proyecto_id').eq('id', id).single();
   if (!cot) return { ok: false, error: 'No encontrada' };
-  if (cot.estado === 'aceptada' || cot.proyecto_id)
-    return { ok: false, error: 'No se puede eliminar: la cotización ya fue aceptada y generó un proyecto.' };
-  const { error } = await supabase.from('cotizaciones').delete().eq('id', id);
+  const { data: proy } = await admin.from('proyectos').select('id, codigo, nombre').or(`cotizacion_id.eq.${id}${cot.proyecto_id ? `,id.eq.${cot.proyecto_id}` : ''}`).limit(1).maybeSingle();
+  if (!proy) return { ok: true, proyecto: null, movimientos: [] };
+  return { ok: true, proyecto: proy, movimientos: await movimientosProyecto(proy.id) };
+}
+
+export async function eliminarCotizacion(id: string, opts?: { borrarProyecto?: boolean }): Promise<Res> {
+  const session = await guard();
+  const admin = createAdminClient();
+  const { data: cot } = await admin.from('cotizaciones').select('estado, proyecto_id').eq('id', id).single();
+  if (!cot) return { ok: false, error: 'No encontrada' };
+  const { data: proyectos } = await admin.from('proyectos').select('id').eq('cotizacion_id', id);
+  const proyIds = [...new Set([...(proyectos ?? []).map((p) => p.id), ...(cot.proyecto_id ? [cot.proyecto_id] : [])])];
+  const aprobada = cot.estado === 'aceptada' || proyIds.length > 0;
+  if (aprobada && session.rol !== 'gerencia') {
+    return { ok: false, error: 'Solo Gerencia puede eliminar una cotización aprobada. Usa "Solicitar eliminación".' };
+  }
+  for (const pid of proyIds) {
+    if (opts?.borrarProyecto) {
+      const mov = await movimientosProyecto(pid);
+      if (mov.length) return { ok: false, error: `El proyecto tiene ${mov.join(', ')}; no se puede eliminar. Elimina solo la cotización (el proyecto se conserva).` };
+      const { error } = await admin.from('proyectos').delete().eq('id', pid);
+      if (error) return { ok: false, error: `No se pudo eliminar el proyecto: ${error.message}` };
+    } else {
+      // El proyecto se conserva, sin vínculo con la cotización eliminada.
+      const { error } = await admin.from('proyectos').update({ cotizacion_id: null }).eq('id', pid);
+      if (error) return { ok: false, error: error.message };
+    }
+  }
+  const { error } = await admin.from('cotizaciones').delete().eq('id', id);
   if (error) return { ok: false, error: error.message };
   revalidatePath('/comercial');
+  revalidatePath('/proyectos');
   return { ok: true };
 }
 
@@ -512,7 +576,6 @@ export async function solicitarEliminacion(id: string): Promise<Res> {
   const admin = createAdminClient();
   const { data: cot } = await admin.from('cotizaciones').select('estado, proyecto_id, codigo, proyecto_nombre').eq('id', id).single();
   if (!cot) return { ok: false, error: 'No encontrada' };
-  if (cot.estado === 'aceptada' || cot.proyecto_id) return { ok: false, error: 'No se puede eliminar: la cotización ya generó un proyecto.' };
   await admin.from('cotizaciones').update({
     eliminacion_solicitada: true, eliminacion_por: session.id, eliminacion_at: new Date().toISOString(),
   } as never).eq('id', id);
@@ -525,10 +588,10 @@ export async function solicitarEliminacion(id: string): Promise<Res> {
   return { ok: true };
 }
 
-export async function aprobarEliminacion(id: string): Promise<Res> {
+export async function aprobarEliminacion(id: string, opts?: { borrarProyecto?: boolean }): Promise<Res> {
   const session = await guard();
   if (session.rol !== 'gerencia') return { ok: false, error: 'Solo Gerencia puede aprobar la eliminación.' };
-  return eliminarCotizacion(id);
+  return eliminarCotizacion(id, opts);
 }
 
 export async function cancelarEliminacion(id: string): Promise<Res> {
@@ -658,6 +721,7 @@ export async function duplicarCotizacion(id: string, opts?: { comoPlantilla?: bo
   if (formas?.length) {
     await admin.from('cotizacion_formas_pago').insert(formas.map((f) => ({
       cotizacion_id: nueva!.id, orden: f.orden, concepto: f.concepto, porcentaje: f.porcentaje, es_adelanto: f.es_adelanto,
+      monto: (f as { monto?: number | null }).monto ?? null,
     })) as never);
   }
   revalidatePath('/comercial');
@@ -766,16 +830,21 @@ export async function aprobarCotizacion(cotizacionId: string): Promise<Res> {
 
   // cronograma de cobros (armadas) desde las formas de pago
   if (cot.tipo_proyecto && c4 && c4.length) {
+    const contratoSoles = totales.total_con_descuento * tc;
     await admin.from('cronograma_cobros').insert(
-      c4.map((f, i) => ({
+      c4.map((f, i) => {
+        const fijo = (f as { monto?: number | null }).monto;
+        const monto = fijo != null ? Number(fijo) * tc : contratoSoles * Number(f.porcentaje);
+        return {
         proyecto_id: proy!.id,
         orden: i + 1,
         concepto: f.concepto,
-        porcentaje: f.porcentaje,
-        monto: totales.total_con_descuento * tc * Number(f.porcentaje),
+        porcentaje: contratoSoles > 0 ? Math.round((monto / contratoSoles) * 1e8) / 1e8 : Number(f.porcentaje),
+        monto: Math.round(monto * 100) / 100,
         condicion_tipo: f.es_adelanto ? 'fecha' : 'avance',
         estado: 'pendiente',
-      })),
+      };
+      }),
     );
   }
 

@@ -6,11 +6,14 @@ import Link from 'next/link';
 import { MoreVertical, Eye, Trash2, Loader2, Copy, BookmarkPlus, FilePlus2, FileDown, Link2, ClipboardCheck } from 'lucide-react';
 import { Dropdown, DropdownItem } from '@/components/ui/dropdown';
 import { eliminarCotizacion, duplicarCotizacion, solicitarRevision, solicitarEliminacion } from './actions';
+import { EliminarCotizacionDialog } from '@/components/comercial/eliminar-cotizacion-dialog';
 
-export function CotizacionRowActions({ id, estado, esPlantilla, puedeEliminarDirecto = false }: { id: string; estado: string; esPlantilla?: boolean; puedeEliminarDirecto?: boolean }) {
+export function CotizacionRowActions({ id, estado, esPlantilla, puedeEliminarDirecto = false, codigo }: { id: string; estado: string; esPlantilla?: boolean; puedeEliminarDirecto?: boolean; codigo?: string | null }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
-  const puedeEliminar = estado !== 'aceptada';
+  const [dlg, setDlg] = useState(false);
+  // Gerencia elimina cualquier cotización (también aprobadas); el resto solicita.
+  const puedeEliminar = true;
 
   function copiarLink() {
     if (typeof navigator !== 'undefined' && navigator.clipboard) {
@@ -51,6 +54,7 @@ export function CotizacionRowActions({ id, estado, esPlantilla, puedeEliminarDir
   }
 
   return (
+    <>
     <Dropdown
       trigger={
         <button type="button" className="rounded-md p-1.5 hover:bg-secondary">
@@ -82,7 +86,7 @@ export function CotizacionRowActions({ id, estado, esPlantilla, puedeEliminarDir
       )}
       {puedeEliminar && !esPlantilla && (
         puedeEliminarDirecto ? (
-          <DropdownItem onClick={borrar} className="text-azur-700 hover:bg-azur-50">
+          <DropdownItem onClick={() => setDlg(true)} className="text-azur-700 hover:bg-azur-50">
             <Trash2 /> Eliminar
           </DropdownItem>
         ) : (
@@ -97,5 +101,7 @@ export function CotizacionRowActions({ id, estado, esPlantilla, puedeEliminarDir
         </DropdownItem>
       )}
     </Dropdown>
+    {dlg && <EliminarCotizacionDialog id={id} codigo={codigo} open={dlg} onClose={() => setDlg(false)} onDone={() => { setDlg(false); router.refresh(); }} />}
+    </>
   );
 }

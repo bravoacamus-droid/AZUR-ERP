@@ -50,7 +50,7 @@ export interface PdfData {
   descuentoPct?: number; // fracción 0–1, se muestra solo si se pidió (B7)
   condiciones?: string; serviciosIncluidos?: string; serviciosOmitidos?: string; garantia?: string;
   medios: { banco: string; titular: string; cuentaSoles?: string; cciSoles?: string; cuentaDolares?: string; cciDolares?: string; detraccion: boolean }[];
-  formaPago?: { concepto: string; porcentaje: number; esAdelanto: boolean }[];
+  formaPago?: { concepto: string; porcentaje: number; esAdelanto: boolean; monto?: number | null }[];
   responsable?: string; responsableRol?: string; firmaData?: string;
   firmantes?: { nombre: string; rol?: string; firma?: string }[];
 }
@@ -58,6 +58,11 @@ export interface PdfData {
 const ROL_LABEL: Record<string, string> = {
   gerencia: 'Gerencia General', comercial: 'Área Comercial', presupuestos: 'Presupuestos',
   jefe_proyectos: 'Jefatura de Proyectos', administrador: 'Administración',
+};
+
+const pctTxt = (fr: number) => {
+  const v = Math.round(fr * 10000) / 100; // 2 decimales de %
+  return `${fmtNumber(v, Number.isInteger(v) ? 0 : 2)}%`;
 };
 
 export function CotizacionPDF({ d }: { d: PdfData }) {
@@ -142,8 +147,9 @@ export function CotizacionPDF({ d }: { d: PdfData }) {
               <Text style={[s.totLabel, { textAlign: 'left', width: 'auto', flex: 1 }]}>
                 {f.esAdelanto ? 'Adelanto — ' : ''}{f.concepto}
               </Text>
-              <Text style={[s.totVal, { width: 70 }]}>{fmtNumber(f.porcentaje * 100, 0)}%</Text>
-              <Text style={[s.totVal, { width: 90 }]}>{m(d.totales.totalConDescuento * f.porcentaje)}</Text>
+              {/* % con decimales solo si los tiene; el monto fijo pactado se respeta tal cual */}
+              <Text style={[s.totVal, { width: 70 }]}>{pctTxt(f.monto != null && d.totales.totalConDescuento > 0 ? f.monto / d.totales.totalConDescuento : f.porcentaje)}</Text>
+              <Text style={[s.totVal, { width: 90 }]}>{m(f.monto != null ? f.monto : d.totales.totalConDescuento * f.porcentaje)}</Text>
             </View>
           ))}
         </> : null}
