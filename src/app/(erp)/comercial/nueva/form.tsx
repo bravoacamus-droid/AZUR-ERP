@@ -46,7 +46,7 @@ export function NuevaCotizacionForm({
     cliente_id: clientes[0]?.id ?? '',
     linea_id: lineas[0]?.id ?? '',
     tipo_servicio_id: servicios[0]?.id ?? '',
-    tipo_proyecto: 'grande',
+    tipo_proyecto: 'grande', // el tamaño ya no se pide al crear; se define en la edición (Datos generales)
     proyecto_nombre: '',
     asunto: '',
     ubicacion: '',
@@ -148,12 +148,6 @@ export function NuevaCotizacionForm({
               {servicios.map((s) => (
                 <option key={s.id} value={s.id}>{s.nombre}</option>
               ))}
-            </Select>
-          </Field>
-          <Field label="Tamaño de proyecto" required hint="Grande = obra única; Chico = mantenimiento/recurrencia. Afecta la valorización.">
-            <Select value={form.tipo_proyecto} onChange={(e) => set('tipo_proyecto', e.target.value)}>
-              <option value="grande">Grande (obra única)</option>
-              <option value="chico">Chico (mantenimiento / recurrencia)</option>
             </Select>
           </Field>
         </div>

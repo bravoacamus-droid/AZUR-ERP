@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { Plus, FileText, Search } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { requireModulo } from '@/lib/auth';
@@ -8,27 +9,24 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { EmptyState } from '@/components/ui/misc';
-import { ESTADO_COTIZACION } from '@/lib/estados';
 import { fmtDate } from '@/lib/format';
 import { CotizacionRowActions } from './row-actions';
 
-const REVISION: Record<string, { label: string; variant: 'warning' | 'success' | 'danger' }> = {
-  pendiente: { label: 'En revisión', variant: 'warning' },
-  aprobada: { label: 'Revisión aprobada', variant: 'success' },
-  observada: { label: 'Observada', variant: 'danger' },
-};
 import { SearchBox, Pagination } from '@/components/ui/list-tools';
-import { ComercialDashboard } from '@/components/comercial/comercial-dashboard';
+import { ESTADOS_COMERCIALES, ESTADO_COMERCIAL_META, esEstadoComercial, estadoComercial, filtrarEstadoComercial } from '@/lib/estado-comercial';
 
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 20;
 
-export default async function ComercialPage({ searchParams }: { searchParams: { q?: string; page?: string; tab?: string } }) {
+export default async function ComercialPage({ searchParams }: { searchParams: { q?: string; page?: string; tab?: string; estado?: string } }) {
   const session = await requireModulo('comercial', 'ver');
   const esGerencia = session.rol === 'gerencia';
   const supabase = createClient();
 
-  const tab = searchParams.tab === 'plantillas' || searchParams.tab === 'dashboard' ? searchParams.tab : 'cotizaciones';
+  // El dashboard comercial se movió al Dashboard general (Inicio).
+  if (searchParams.tab === 'dashboard') redirect('/inicio?vista=comercial');
+  const tab = searchParams.tab === 'plantillas' ? 'plantillas' : 'cotizaciones';
+  const estadoF = esEstadoComercial(searchParams.estado) ? searchParams.estado : null;
   const q = (searchParams.q ?? '').trim();
   const page = Math.max(1, Number(searchParams.page) || 1);
   const desde = (page - 1) * PAGE_SIZE;
@@ -46,9 +44,16 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
     if (ids.length) partes.push(`cliente_id.in.(${ids.join(',')})`);
     query = query.or(partes.join(','));
   }
+  if (estadoF) query = filtrarEstadoComercial(query, estadoF);
   const { data: cots, count } = await query.order('created_at', { ascending: false }).range(desde, desde + PAGE_SIZE - 1);
 
   const cotizaciones = cots ?? [];
+  // "Enviada" (y "Vencida") solo se ofrecen como filtro si hay cotizaciones en ese estado.
+  const [{ count: nEnviada }, { count: nVencida }] = await Promise.all([
+    supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('es_plantilla', false).eq('estado', 'enviada'),
+    supabase.from('cotizaciones').select('id', { count: 'exact', head: true }).eq('es_plantilla', false).eq('estado', 'vencida'),
+  ]);
+  const estadosFiltro = ESTADOS_COMERCIALES.filter((e) => !e.extra || e.k === estadoF || (e.k === 'enviada' ? (nEnviada ?? 0) > 0 : (nVencida ?? 0) > 0));
   const total = count ?? 0;
 
   // Plantillas reutilizables (cotizaciones marcadas como plantilla)
@@ -57,35 +62,6 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
     .select('id, codigo, proyecto_nombre, estado, fecha, cliente:clientes(razon_social), linea:lineas_negocio(codigo)')
     .eq('es_plantilla', true)
     .order('created_at', { ascending: false });
-
-  // Agregados para el dashboard comercial (solo cuando se ve esa pestaña).
-  let dash: null | { porEstado: Record<string, number>; porLinea: { nombre: string; n: number }[]; porMes: { mes: string; creadas: number; aceptadas: number }[]; montoGanado: number; total: number } = null;
-  if (tab === 'dashboard') {
-    const [{ data: allCots }, { data: proys }] = await Promise.all([
-      supabase.from('cotizaciones').select('id, estado, created_at, linea:lineas_negocio(nombre)').eq('es_plantilla', false),
-      supabase.from('proyectos').select('cotizacion_id, contrato_total').not('cotizacion_id', 'is', null),
-    ]);
-    const cots2 = allCots ?? [];
-    const porEstado: Record<string, number> = {};
-    const lineaMap = new Map<string, number>();
-    const mesMap = new Map<string, { creadas: number; aceptadas: number }>();
-    cots2.forEach((c) => {
-      porEstado[c.estado] = (porEstado[c.estado] ?? 0) + 1;
-      const ln = (c.linea as { nombre?: string } | null)?.nombre ?? 'Sin línea';
-      lineaMap.set(ln, (lineaMap.get(ln) ?? 0) + 1);
-      const mes = String(c.created_at).slice(0, 7);
-      const m = mesMap.get(mes) ?? { creadas: 0, aceptadas: 0 };
-      m.creadas += 1; if (c.estado === 'aceptada') m.aceptadas += 1; mesMap.set(mes, m);
-    });
-    const montoGanado = (proys ?? []).reduce((a, p) => a + Number(p.contrato_total ?? 0), 0);
-    dash = {
-      porEstado,
-      porLinea: [...lineaMap.entries()].map(([nombre, n]) => ({ nombre, n })).sort((a, b) => b.n - a.n),
-      porMes: [...mesMap.entries()].sort(([a], [b]) => a.localeCompare(b)).slice(-8).map(([mes, v]) => ({ mes, ...v })),
-      montoGanado,
-      total: cots2.length,
-    };
-  }
 
   return (
     <div className="space-y-6">
@@ -109,14 +85,9 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
         <Link href="/comercial?tab=plantillas" className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === 'plantillas' ? 'border-azur-600 text-azur-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
           Plantillas ({(plantillas ?? []).length})
         </Link>
-        <Link href="/comercial?tab=dashboard" className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === 'dashboard' ? 'border-azur-600 text-azur-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
-          Dashboard
-        </Link>
       </div>
 
-      {tab === 'dashboard' && <ComercialDashboard dash={dash} />}
-
-      {tab !== 'dashboard' && (tab === 'plantillas' ? (
+      {tab === 'plantillas' ? (
         <Card>
           <CardContent className="p-0">
             {(plantillas ?? []).length === 0 ? (
@@ -143,6 +114,23 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
       ) : (
       <>
       <SearchBox placeholder="Buscar por proyecto, código, asunto o cliente…" />
+
+      {/* Filtro por estado (también es el destino del clic en el pipeline del dashboard). */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 text-xs font-medium text-muted-foreground">Estado:</span>
+        {[{ k: null as string | null, label: 'Todos' }, ...estadosFiltro.map((e) => ({ k: e.k as string | null, label: e.label }))].map((e) => {
+          const params = new URLSearchParams();
+          if (q) params.set('q', q);
+          if (e.k) params.set('estado', e.k);
+          const activo = (estadoF ?? null) === e.k;
+          return (
+            <Link key={e.label} href={`/comercial${params.toString() ? `?${params.toString()}` : ''}`}
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${activo ? 'border-foreground bg-foreground text-white' : 'bg-white hover:bg-secondary'}`}>
+              {e.label}
+            </Link>
+          );
+        })}
+      </div>
 
       <Card>
         <CardContent className="p-0">
@@ -176,7 +164,6 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
               </TableHeader>
               <TableBody>
                 {cotizaciones.map((c) => {
-                  const est = ESTADO_COTIZACION[c.estado] ?? { label: c.estado, variant: 'muted' as const };
                   return (
                     <TableRow key={c.id} className="cursor-pointer">
                       <TableCell className="font-medium">
@@ -194,15 +181,10 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
                         <Badge variant="outline">{(c.linea as { codigo?: string } | null)?.codigo ?? '—'}</Badge>
                       </TableCell>
                       <TableCell>
-                        <div className="flex flex-wrap items-center gap-1">
-                          <Badge variant={est.variant}>{est.label}</Badge>
-                          {/* Estado de la revisión de Costos y Presupuestos (mientras la cotización sigue abierta). */}
-                          {['borrador', 'enviada', 'en_negociacion'].includes(c.estado) && REVISION[(c as { revision_estado?: string | null }).revision_estado ?? ''] && (
-                            <Badge variant={REVISION[(c as { revision_estado?: string | null }).revision_estado ?? ''].variant}>
-                              {REVISION[(c as { revision_estado?: string | null }).revision_estado ?? ''].label}
-                            </Badge>
-                          )}
-                        </div>
+                        {/* Estado comercial unificado (estado + revisión de Costos y Presupuestos). */}
+                        <Badge variant={ESTADO_COMERCIAL_META[estadoComercial(c as { estado: string; revision_estado?: string | null })].variant}>
+                          {ESTADO_COMERCIAL_META[estadoComercial(c as { estado: string; revision_estado?: string | null })].label}
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-muted-foreground">{fmtDate(c.fecha)}</TableCell>
                       <TableCell><CotizacionRowActions id={c.id} estado={c.estado} codigo={c.codigo} puedeEliminarDirecto={esGerencia} /></TableCell>
@@ -216,7 +198,7 @@ export default async function ComercialPage({ searchParams }: { searchParams: { 
         </CardContent>
       </Card>
       </>
-      ))}
+      )}
     </div>
   );
 }

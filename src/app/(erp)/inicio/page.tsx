@@ -13,6 +13,9 @@ import { DashboardTabs } from '@/components/dashboard/dashboard-tabs';
 import { DashGerencia } from '@/components/dashboard/dash-gerencia';
 import { DashJefe } from '@/components/dashboard/dash-jefe';
 import { DashFinanzas } from '@/components/dashboard/dash-finanzas';
+import { DashComercialView } from '@/components/comercial/dash-comercial';
+import { cargarDashboardComercial } from '@/lib/dashboard-comercial';
+import { puedeVer } from '@/lib/permisos';
 
 export const dynamic = 'force-dynamic';
 
@@ -42,13 +45,20 @@ export default async function InicioPage() {
   // Dashboards por rol (informe AZ-TDR-SIS-001): Gerencia ve los tres; el Jefe
   // de Proyectos el suyo; Administración el de Finanzas. Todos conservan el resumen.
   const rol = session.rol;
+  // El dashboard Comercial vive aquí (antes era una pestaña del módulo Comercial).
+  const veComercial = puedeVer(session.permisos, 'comercial');
   const tabs = [
     ...(rol === 'gerencia' ? [{ value: 'gerencia', label: 'Gerente general' }] : []),
     ...(rol === 'gerencia' || rol === 'jefe_proyectos' ? [{ value: 'proyectos', label: 'Jefe de proyectos' }] : []),
     ...(rol === 'gerencia' || rol === 'administrador' ? [{ value: 'finanzas', label: 'Finanzas' }] : []),
+    ...(veComercial ? [{ value: 'comercial', label: 'Comercial' }] : []),
     { value: 'resumen', label: 'Resumen operativo' },
   ];
-  const dd = tabs.length > 1 ? await cargarDashboards() : null;
+  const necesitaDd = ['gerencia', 'proyectos', 'finanzas'].some((v) => tabs.some((t) => t.value === v));
+  const [dd, dc] = await Promise.all([
+    necesitaDd ? cargarDashboards() : Promise.resolve(null),
+    veComercial ? cargarDashboardComercial() : Promise.resolve(null),
+  ]);
 
   const resumen = (
     <div className="space-y-6">
@@ -119,6 +129,7 @@ export default async function InicioPage() {
       <DashboardTabs tabs={tabs}>
         {{
           gerencia: dd ? <DashGerencia d={dd} /> : null,
+          comercial: dc ? <DashComercialView d={dc} /> : null,
           proyectos: dd ? <DashJefe d={dd} /> : null,
           finanzas: dd ? <DashFinanzas d={dd} /> : null,
           resumen,

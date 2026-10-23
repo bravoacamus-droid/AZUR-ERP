@@ -379,6 +379,17 @@ export function CotizacionEditor({
                   <Handshake /> Pasar a negociación
                 </DropdownItem>
               )}
+              {/* Aprobar / Rechazar justo después de "Pasar a negociación" (informe AZ-TDR-SIS-002). */}
+              {cot.estado !== 'aceptada' && cot.estado !== 'rechazada' && (
+                <>
+                  <DropdownItem onClick={() => setShowAprobar(true)} className="text-emerald-700 hover:bg-emerald-50">
+                    <CheckCircle2 /> Aprobar → crear proyecto
+                  </DropdownItem>
+                  <DropdownItem onClick={() => setShowRechazo(true)} className="text-azur-700 hover:bg-azur-50">
+                    <Trash2 /> Rechazar
+                  </DropdownItem>
+                </>
+              )}
               <DropdownItem onClick={() => setShowVersion(true)}>
                 <History /> Guardar versión
               </DropdownItem>
@@ -403,16 +414,6 @@ export function CotizacionEditor({
                   <MessageCircle /> Enviar por WhatsApp
                 </DropdownItem>
               </a>
-              {cot.estado !== 'aceptada' && cot.estado !== 'rechazada' && (
-                <>
-                  <DropdownItem onClick={() => setShowAprobar(true)} className="text-emerald-700 hover:bg-emerald-50">
-                    <CheckCircle2 /> Aprobar → crear proyecto
-                  </DropdownItem>
-                  <DropdownItem onClick={() => setShowRechazo(true)} className="text-azur-700 hover:bg-azur-50">
-                    <Trash2 /> Rechazar
-                  </DropdownItem>
-                </>
-              )}
               {(esGerencia || cot.estado !== 'aceptada') ? (
                 <DropdownItem onClick={() => setDlgElim('eliminar')} className="text-azur-700 hover:bg-azur-50">
                   <Trash2 /> Eliminar cotización

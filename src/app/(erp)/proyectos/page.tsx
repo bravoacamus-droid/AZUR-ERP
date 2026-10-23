@@ -18,10 +18,12 @@ import { NuevoProyecto } from './nuevo-proyecto';
 export const dynamic = 'force-dynamic';
 const PAGE_SIZE = 20;
 
-export default async function ProyectosPage({ searchParams }: { searchParams: { q?: string; page?: string } }) {
+export default async function ProyectosPage({ searchParams }: { searchParams: { q?: string; page?: string; tab?: string } }) {
   const session = await requireModulo('proyectos', 'ver');
   const canEdit = puedeEditar(session.permisos, 'proyectos');
   const supabase = createClient();
+  // Pestañas (informe AZ-TDR-SIS-002): primero la lista; la salud del portafolio aparte.
+  const tab = searchParams.tab === 'salud' ? 'salud' : 'lista';
 
   // Overview de portafolio (gerencia): salud, avance físico vs tiempo, margen.
   const [{ data: dashRows }, { data: fechas }, { data: clientesRaw }, { data: lineasRaw }] = await Promise.all([
@@ -71,8 +73,16 @@ export default async function ProyectosPage({ searchParams }: { searchParams: { 
     <div className="space-y-6">
       <PageHeader title="Proyectos" description="Gestión de obra — Last Planner, valorizaciones y control." action={canEdit ? <NuevoProyecto clientes={clientesOpt} lineas={lineasOpt} /> : undefined} />
 
-      <PortafolioOverview items={portafolio} />
+      <div className="flex gap-1 border-b">
+        <Link href="/proyectos" className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === 'lista' ? 'border-azur-600 text-azur-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+          Lista de proyectos ({total})
+        </Link>
+        <Link href="/proyectos?tab=salud" className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === 'salud' ? 'border-azur-600 text-azur-600' : 'border-transparent text-muted-foreground hover:text-foreground'}`}>
+          Salud de proyectos
+        </Link>
+      </div>
 
+      {tab === 'salud' ? <PortafolioOverview items={portafolio} /> : (<>
       <SearchBox placeholder="Buscar por nombre o código…" />
 
       <Card>
@@ -119,6 +129,7 @@ export default async function ProyectosPage({ searchParams }: { searchParams: { 
           <Pagination page={page} total={total} pageSize={PAGE_SIZE} />
         </CardContent>
       </Card>
+      </>)}
     </div>
   );
 }
