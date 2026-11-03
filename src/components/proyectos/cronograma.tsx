@@ -188,7 +188,7 @@ export function Cronograma({
               <thead className="bg-muted/50 uppercase tracking-wide text-muted-foreground">
                 <tr>
                   <th rowSpan={2} className="px-2 py-2 text-left align-bottom">Ítem</th>
-                  <th rowSpan={2} className="min-w-[200px] px-2 py-2 text-left align-bottom">Partida</th>
+                  <th rowSpan={2} className="w-[230px] min-w-[200px] px-2 py-2 text-left align-bottom">Partida</th>
                   <th colSpan={3} className="border-b border-sky-200 bg-sky-50 px-2 py-1 text-center" style={{ color: C_PLAN }}>Proyectado (línea base)</th>
                   <th colSpan={3} className="border-b px-2 py-1 text-center">Real</th>
                   <th rowSpan={2} className="px-2 py-2 text-right align-bottom">Desfase</th>
@@ -220,11 +220,11 @@ export function Cronograma({
                   return (
                     <tr key={row.id} className={`border-b ${nivelBg} ${!hoja ? 'font-medium' : ''}`}>
                       <td className={`px-2 py-1.5 font-medium ${row.es_hito ? 'text-amber-700' : 'text-muted-foreground'}`}>{codigo}</td>
-                      <td className="px-2 py-1.5">
-                        <span className="flex items-center gap-1" style={{ paddingLeft: depth * 14 }}>
-                          {row.es_hito && <Flag className="size-3 shrink-0 text-amber-600" />}
-                          <span className="max-w-[280px] truncate" title={row.titulo}>{row.titulo}</span>
-                          {depCod && <span className="text-[10px] font-medium text-azur-600">← {depCod}</span>}
+                      <td className="w-[230px] min-w-[200px] max-w-[260px] whitespace-normal px-2 py-1.5">
+                        {/* El título baja en varias líneas en vez de empujar las columnas a la derecha. */}
+                        <span className="flex items-start gap-1" style={{ paddingLeft: depth * 14 }}>
+                          {row.es_hito && <Flag className="mt-0.5 size-3 shrink-0 text-amber-600" />}
+                          <span className="break-words leading-snug">{row.titulo}{depCod && <span className="ml-1 whitespace-nowrap text-[10px] font-medium text-azur-600">← {depCod}</span>}</span>
                         </span>
                       </td>
                       {/* Proyectado */}
@@ -263,7 +263,7 @@ export function Cronograma({
                   const hoja = row.es_hoja || row.es_hito;
                   return (
                     <div key={row.id} className={`flex items-center border-b border-slate-100 ${!hoja ? 'bg-slate-50' : ''}`}>
-                      <div className={`w-[260px] shrink-0 truncate py-1 pr-2 text-xs ${!hoja ? 'font-semibold' : ''}`} style={{ paddingLeft: depth * 12 }} title={row.titulo}>
+                      <div className={`w-[260px] shrink-0 whitespace-normal break-words py-1 pr-2 text-xs leading-snug ${!hoja ? 'font-semibold' : ''}`} style={{ paddingLeft: depth * 12 }}>
                         <span className="text-muted-foreground">{codigo}</span> {row.titulo}
                       </div>
                       <div className="relative h-7" style={{ width: rango.ancho }}
